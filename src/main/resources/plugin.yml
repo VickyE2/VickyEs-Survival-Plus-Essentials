@@ -1,0 +1,8 @@
+name: VickyEs Survival Plus Essentials
+version: '0.0.1-ARI'
+main: org.vicky.vicky.VSPE
+api-version: '1.20'
+prefix: VSPE
+load: STARTUP
+authors: [ VickyE2 ]
+description: An addon for additions to Minecraft World
