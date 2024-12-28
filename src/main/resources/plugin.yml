@@ -1,8 +1,22 @@
-name: VickyEs Survival Plus Essentials
+name: VickyEs_Survival_Plus_Essentials
 version: '0.0.1-ARI'
-main: org.vicky.vicky.VSPE
+main: org.vicky.vspe.VSPE
 api-version: '1.20'
 prefix: VSPE
-load: STARTUP
 authors: [ VickyE2 ]
-description: An addon for additions to Minecraft World
+description: An addon for 'BALLISTIC' additions to Minecraft World
+depend:
+  - Vicky-s_Utilities
+  - PlaceholderAPI
+  - MythicMobs
+  - ItemsAdder
+  - LoneLibs
+  - LuckPerms
+  - ProtocolLib
+  - Terra
+  - WorldEdit
+  - WorldGuard
+  - Multiverse-Core
+  - Multiverse-Inventories
+  - Multiverse-Portals
+  - CrazyAdvancementsAPI

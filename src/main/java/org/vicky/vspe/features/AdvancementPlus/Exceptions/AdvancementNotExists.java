@@ -1,0 +1,26 @@
+package org.vicky.vspe.features.AdvancementPlus.Exceptions;
+
+import org.vicky.utilities.ANSIColor;
+import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
+
+public class AdvancementNotExists extends Exception {
+
+    private volatile BaseAdvancement linkedAdvancement;
+
+    public AdvancementNotExists(String message) {
+        super(message);
+    }
+
+    public AdvancementNotExists(String message, BaseAdvancement advancement) {
+        super(message);
+        this.linkedAdvancement = advancement;
+    }
+
+    @Override
+    public String toString() {
+        return linkedAdvancement == null ?
+                super.toString() :
+                super.toString() + ANSIColor.colorize("\n - with linked advancement:\npurple[" +
+                        linkedAdvancement.getTitle() + "] UUID:purple[" + linkedAdvancement.getId() + "]");
+    }
+}
