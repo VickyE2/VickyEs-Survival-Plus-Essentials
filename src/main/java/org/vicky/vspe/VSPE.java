@@ -1,11 +1,15 @@
 package org.vicky.vspe;
 
+import com.onarandombox.MultiverseCore.MultiverseCore;
+import com.onarandombox.MultiversePortals.MultiversePortals;
+import com.onarandombox.multiverseinventories.MultiverseInventories;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ConfigManager;
 import org.vicky.vicky_utils;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementManager;
+import org.vicky.vspe.systems.Dimension.DimensionManager;
 import org.vicky.vspe.utilities.Config;
 import org.vicky.vspe.utilities.DatabaseManager.HibernateDatabaseManager;
 import org.vicky.vspe.utilities.DatabaseManager.SQLManager;
@@ -28,6 +32,10 @@ public final class VSPE extends JavaPlugin {
     }
 
     @Override
+    public void onLoad() {
+    }
+
+    @Override
     public void onEnable() {
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null
                 && Bukkit.getPluginManager().getPlugin("MythicMobs") != null
@@ -37,6 +45,19 @@ public final class VSPE extends JavaPlugin {
 
             Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
             plugin = this;
+
+            MultiverseCore core = (MultiverseCore) Bukkit.getServer().getPluginManager().getPlugin("Multiverse-Core");
+            assert core != null;
+            MultiverseInventories inventories = (MultiverseInventories) Bukkit.getServer().getPluginManager().getPlugin("Multiverse-Inventories");
+            assert inventories != null;
+            MultiversePortals portals = (MultiversePortals) Bukkit.getServer().getPluginManager().getPlugin("Multiverse-Portals");
+            assert portals != null;
+
+
+            dimensionManager = new DimensionManager();
+            dimensionManager.processDimensionGenerators();
+
+            worldManager = core.getMVWorldManager();
 
             getLogger().info(ANSIColor.colorize("cyan[Starting up VickyE's Survival Plus Essentials]"));
             vicky_utils.hookDependantPlugin(this);

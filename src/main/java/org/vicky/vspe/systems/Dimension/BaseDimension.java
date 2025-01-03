@@ -1,13 +1,11 @@
 package org.vicky.vspe.systems.Dimension;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.vicky.vspe.VSPE;
 import org.vicky.vspe.systems.Dimension.Exceptions.WorldNotExistsException;
+import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.utilities.Config;
 
 import java.util.ArrayList;
@@ -15,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static org.vicky.vspe.utilities.global.GlobalResources.configManager;
+import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
 public abstract class BaseDimension {
 
@@ -24,17 +22,29 @@ public abstract class BaseDimension {
     private final World world;
     private final List<DimensionCharacteristics> dimensionCharacteristics;
     private final List<DimensionType> dimensionTypes;
+    private final World.Environment environmentType;
+    private final String seed;
+    private final WorldType worldType;
+    private final boolean generateStructures;
+    private final BaseGenerator generator;
 
-    public BaseDimension(String mainName, String name, List<DimensionType> dimensionTypes) throws WorldNotExistsException {
+    public BaseDimension(String mainName, String name, List<DimensionType> dimensionTypes, World.Environment environmentType, String seed, WorldType worldType, boolean generateStructures, BaseGenerator generator) throws WorldNotExistsException {
         this.name = name;
         this.mainName = mainName;
         this.dimensionCharacteristics = new ArrayList<>();
         this.world = checkWorld();
         this.dimensionTypes = dimensionTypes;
+        this.environmentType = environmentType;
+        this.seed = seed;
+        this.worldType = worldType;
+        this.generateStructures = generateStructures;
+        this.generator = generator;
         DimensionClass.registerCustomDimension(name);
         for (DimensionType dimensionType : dimensionTypes) {
             dimensionType.addDimension(this);
         }
+
+        dimensionManager.LOADED_DIMENSIONS.add(this);
         Config.configs.put("Dimensions." + getMainName() + ".exists", false);
     }
 
@@ -81,7 +91,18 @@ public abstract class BaseDimension {
      * @param name The name of the dimension's world to be generated. it should follow bukkit's naming system
      * @return This returns a world that defines what world this dimension belongs to.
      */
-    protected abstract World createWorld(String name);
+    private World createWorld(String name) {
+        worldManager.addWorld(
+                name,
+                environmentType,
+                seed,
+                worldType,
+                generateStructures,
+                generator.getGeneratorName()
+        );
+
+        return worldManager.getMVWorld("").getCBWorld();
+    }
 
     private void isRandomSpawning() {
         dimensionCharacteristics.add(DimensionCharacteristics.RANDOM_SPAWN);

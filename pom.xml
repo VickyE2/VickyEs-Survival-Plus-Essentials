@@ -300,12 +300,20 @@
             <version>4.2.0</version>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>com.dfsek.terra</groupId>
             <artifactId>api</artifactId>
             <version>6.4.3-BETA+ab60f14ff</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>com.dfsek.terra</groupId>
+            <artifactId>bukkit</artifactId>
+            <version>6.4.3-BETA+ab60f14ff</version>
+            <scope>provided</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.github.ZockerAxel</groupId>
             <artifactId>CrazyAdvancementsAPI</artifactId>

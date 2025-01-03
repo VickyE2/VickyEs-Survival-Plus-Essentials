@@ -23,6 +23,7 @@ public class AdvancementManager {
     );
 
     public AdvancementManager() {
+
     }
 
     public void processAdvancements() {
@@ -34,7 +35,6 @@ public class AdvancementManager {
 
         for (Class<? extends BaseAdvancement> clazz : advancementClasses) {
             try {
-                // Assuming all advancements have a no-args constructor
                 Constructor<? extends BaseAdvancement> constructor = clazz.getDeclaredConstructor();
                 constructor.setAccessible(true);
                 BaseAdvancement advancement = constructor.newInstance();

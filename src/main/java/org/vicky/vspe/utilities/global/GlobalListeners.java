@@ -4,6 +4,7 @@ import eu.endercentral.crazy_advancements.event.AdvancementGrantEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -64,15 +65,22 @@ public class GlobalListeners implements Listener {
         World previousWorld = event.getFrom();
         World transferringWorld = player.getWorld();
 
-        BaseDimension dimension = dimensionManager.LOADED_DIMENSIONS.get(previousWorld.getName());
-        BaseDimension dimension2 = dimensionManager.LOADED_DIMENSIONS.get(transferringWorld.getName());
+        Optional<BaseDimension> dimension = dimensionManager.LOADED_DIMENSIONS.stream().filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), previousWorld.getName())).findAny();
+        Optional<BaseDimension> dimension2 = dimensionManager.LOADED_DIMENSIONS.stream().filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), transferringWorld.getName())).findAny();
 
-        if (dimension != null) {
-            dimension.disableMechanics(player);
+        if (dimension.isPresent()) {
+            BaseDimension context = dimension.get();
+            context.disableMechanics(player);
         }
-        if (dimension2 != null) {
-            dimension2.applyJoinMechanics(player);
-            dimension2.applyMechanics(player);
+        if (dimension2.isPresent()) {
+            BaseDimension context = dimension2.get();
+            context.applyJoinMechanics(player);
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    context.applyMechanics(player);
+                }
+            }.runTaskLater(VSPE.getPlugin(), 10);
         }
     }
 
@@ -107,9 +115,15 @@ public class GlobalListeners implements Listener {
                 databaseManager.getEntityById(DatabasePlayer.class, event.getPlayer().getUniqueId());
 
         Component hoverableAdvancement = Component.text("[" + advancementName + "]").color(TextColor.fromHexString(advancementTextColor))
-                .hoverEvent(HoverEvent.showText(
-                        Component.text(event.getAdvancement().getTitle() + "\n" + advancementDescription).color(TextColor.fromHexString(advancementTextColor))
-                ));
+                .hoverEvent(
+                        HoverEvent.showText(
+                                Component.text(Component.text(event.getAdvancement().getTitle())
+                                        .color(TextColor.fromHexString(advancementTextColor))
+                                        .decoration(TextDecoration.BOLD, true)
+                                        + "\n" +
+                                        advancementDescription
+                                ).color(TextColor.fromHexString(advancementTextColor))
+                        ));
 
         Component message = Component.text()
                 .append(Component.text(playerName + " has completed the advancement: ").color(TextColor.fromHexString("#ffffff")))
