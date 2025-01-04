@@ -5,8 +5,8 @@ import org.bukkit.block.Biome;
 import org.vicky.vspe.systems.Dimension.Dimensions.Test.Features.TestFeature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Extendibles;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.BiomeType;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.Precipitation;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Coasts;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Hills_Small;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Colorable;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Featureable;
@@ -17,9 +17,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TestBiome extends BaseBiome {
-    public TestBiome() {
-        super("TEST_BIOME", 0x44444, Biome.PLAINS, Coasts.COAST_SMALL_POLAR, new Precipitation(0.6f, Precipitation.PrecipitaionType.RAIN), Rarity.VERY_COMMON);
+public class TestBiome2 extends BaseBiome {
+    public TestBiome2() {
+        super(
+                "TEST_BIOME_TWO",
+                0x555555,
+                Biome.SNOWY_BEACH,
+                Hills_Small.TROPICAL,
+                new Precipitation(0.8f, Precipitation.PrecipitaionType.RAIN),
+                Rarity.COMMON
+        );
 
         addColor(Colorable.WATER, 0x888888);
         addExtendibles(Extendibles.EQ_ROCKY_BUTTES, Extendibles.EQ_MOUNTAINS);

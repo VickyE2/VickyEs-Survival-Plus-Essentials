@@ -1,6 +1,7 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.Biome;
 
 import org.bukkit.block.Biome;
+import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.BaseExtendibles;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Extendibles;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Tags;
@@ -18,6 +19,7 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.BiomeVariant;
 import java.util.*;
 
 import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.getCleanedID;
+import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.isCallerSubclassOf;
 
 public class BaseBiome {
 
@@ -29,7 +31,8 @@ public class BaseBiome {
     public final List<Tags> tags;
     public final List<BaseExtendibles> customExtendibles;
     public final List<String> biomeExtendibles;
-    private final String id;
+    private String id;
+    private String uncleanedId;
     private final String biomeColor;
     private final String biome;
     public BiomeVariant variantOf;
@@ -40,6 +43,7 @@ public class BaseBiome {
 
     public BaseBiome(String id, Integer biomeColor, Biome biome, BiomeType biomeType, Precipitation precipitaion, Rarity rarity) {
         this.id = getCleanedID(id);
+        this.uncleanedId = id;
         this.biome = biome.getKey().asString();
         this.biomeColor = "0x" + Integer.toHexString(biomeColor);
         this.colors = new HashMap<>();
@@ -84,6 +88,7 @@ public class BaseBiome {
     protected void addExtendibles(Extendibles... extendibles) {
         this.extendibles.addAll(Arrays.asList(extendibles));
     }
+
 
     protected void addExtendibles(BaseExtendibles... extendibles) {
         this.customExtendibles.addAll(Arrays.asList(extendibles));
@@ -160,5 +165,15 @@ public class BaseBiome {
 
     public void setVariantOf(BiomeVariant variantOf) {
         this.variantOf = variantOf;
+    }
+
+    public String getUncleanedId() {
+        return uncleanedId;
+    }
+
+    public void setID(String id) {
+        if (isCallerSubclassOf(BaseGenerator.class)) {
+            this.id = id;
+        }
     }
 }

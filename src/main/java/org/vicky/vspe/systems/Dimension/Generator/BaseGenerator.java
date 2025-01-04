@@ -213,35 +213,45 @@ public abstract class BaseGenerator {
         progress += 10;
         progressListener.onProgressUpdate(progress, "Biomes and sources written.");
 
-        if (!getPalettesYml().isEmpty())
+        if (!getPalettesYml().isEmpty()) {
             writeMultipleYmlFiles(utils, getPalettesYml(), "palettes/");
-        progress += 10;
-        progressListener.onProgressUpdate(progress, "Biome Palettes saved");
+            progress += 10;
+            progressListener.onProgressUpdate(progress, "Biome Palettes saved");
+        }
 
-        if (!generateFillCoasts().isEmpty())
-            writeYamlToZip(utils, generateFillCoasts(), "biome-providers/stages/", "fill_coasts.yml");
-        progress += 10;
-        progressListener.onProgressUpdate(progress, "Fill Coasts stage produced");
+        if (!generateFillCoasts().isEmpty()) {
+            writeYamlToZip(utils, generateFillCoasts(), "biome-distribution/stages/", "fill_coasts.yml");
+            progress += 10;
+            progressListener.onProgressUpdate(progress, "Fill Coasts stage produced");
+        }
 
-        if (!generateOceans().isEmpty())
-            writeYamlToZip(utils, generateOceans(), "biome-providers/stages/", "oceans.yml");
-        progress += 10;
-        progressListener.onProgressUpdate(progress, "Oceans stage produced");
+        if (progress >= 100)
+            progress -= 25;
 
-        if (!generateFTZ().isEmpty())
-            writeYamlToZip(utils, generateFTZ(), "biome-providers/stages/", "fill_temperature_zones.yml");
-        progress += 10;
-        progressListener.onProgressUpdate(progress, "FTZ stage produced");
+        if (!generateOceans().isEmpty()) {
+            writeYamlToZip(utils, generateOceans(), "biome-distribution/stages/", "oceans.yml");
+            progress += 10;
+            progressListener.onProgressUpdate(progress, "Oceans stage produced");
+        }
 
-        if (!generateSTZ().isEmpty())
-            writeYamlToZip(utils, generateSTZ(), "biome-providers/stages/", "spread_temperature_zones.yml");
-        progress += 10;
-        progressListener.onProgressUpdate(progress, "STZ stage produced");
+        if (!generateFTZ().isEmpty()) {
+            writeYamlToZip(utils, generateFTZ(), "biome-distribution/stages/", "fill_temperature_zones.yml");
+            progress += 10;
+            progressListener.onProgressUpdate(progress, "FTZ stage produced");
+        }
+
+        if (!generateSTZ().isEmpty()) {
+            writeYamlToZip(utils, generateSTZ(), "biome-distribution/stages/", "spread_temperature_zones.yml");
+            progress += 10;
+            progressListener.onProgressUpdate(progress, "STZ stage produced");
+        }
 
         writeYamlToZip(utils, generatePreset(), "biome-distribution/presets/", "default.yml");
         progress += 5;
         progressListener.onProgressUpdate(progress, "Default biome provider written.");
 
+        if (progress >= 90)
+            progress = 75;
         // Final operations
         writeMultipleYmlFiles(utils, generateExtrusions(), "biome-distribution/extrusions/");
         writeMultipleYmlFiles(utils, getFeaturesYml(), "features/");
@@ -453,10 +463,19 @@ public abstract class BaseGenerator {
     @NotNull
     private Map<String, StringBuilder> getBiomesYml() {
         Map<String, StringBuilder> biomes = new HashMap<>();
+        Map<String, BaseBiome> biomeIds = new HashMap<>();
 
         for (BaseBiome biome : BIOMES) {
             addEntry(colorMap, biome.getBiomeColor(), biome.getId());
+            if (biomeIds.containsKey(biome.getId())) {
+                VSPE.getInstancedLogger().warning("Biome " + biome.getClass() + " has identical cleaned id with biome" + biomeIds.get(biome.getId()).getClass() + ". Please resolve this issue as we will try but things might(will) be broken");
+                biome.setID(getCleanedID(biome.getUncleanedId() + "_cleaned_from_" + biome.getId()));
+            }
+            else {
+                biomeIds.put(biome.getId(), biome);
+            }
         }
+
         generateColorsFile();
         for (BaseBiome biome : BIOMES) {
             StringBuilder builder = new StringBuilder();
@@ -581,12 +600,12 @@ public abstract class BaseGenerator {
                 }
             }
 
-            if (isCoastal(biome.biomeType)) {
+            if (biome.biomeType.isCoast()) {
                 coastalBiomeMap.put(biome.biomeType, biomeTypeIntegerMap.getOrDefault(biome.biomeType, 0) + 1);
             } else {
                 BiomeType type = biome.biomeType;
                 Temperature temperature = Temperature.valueOf(type.getTemperate());
-                if (isCoastal(type)) {
+                if (type.isCoast()) {
                     coastalBiomeMap.put(type, coastalBiomeMap.getOrDefault(biome.biomeType, 0) + 1);
                 } else {
                     Map<Temperature, Integer> temperatureMap = biomeTypeTemperatureMap
@@ -1029,15 +1048,15 @@ public abstract class BaseGenerator {
                           lookup:
                             type: EXPRESSION
                             expression: continents(x, z)
-                      biomes:
+                        biomes:
                 """);
         int oceanSize = 0;
         int deepSeaSize = 0;
         int landSize = 0;
 
-        for (Map.Entry<BiomeType, Integer> entry : biomeTypeIntegerMap.entrySet()) {
-            BiomeType biome = entry.getKey();
-            int count = entry.getValue();
+        for (BaseBiome entry : biomeSet) {
+            BiomeType biome = entry.biomeType;
+            int count = 1;
 
             // Check the parent type and conditions
             if (biome instanceof Ocean) {
@@ -1064,13 +1083,13 @@ public abstract class BaseGenerator {
             }
         }
         if (deepSeaSize != 0)
-            builder.append("        - deep-ocean: ").append(deepSeaSize).append("\n");
+            builder.append("          - deep-ocean: ").append(deepSeaSize).append("\n");
         if (oceanSize != 0)
-            builder.append("        - ocean: ").append(oceanSize).append("\n");
+            builder.append("          - ocean: ").append(oceanSize).append("\n");
         if (!coastalBiomeMap.isEmpty())
-            builder.append("        - coast: ").append(coastalBiomeMap.size()).append("\n");
+            builder.append("          - coast: ").append(coastalBiomeMap.size()).append("\n");
         if (landSize != 0)
-            builder.append("        - land: ").append(landSize).append("\n");
+            builder.append("          - land: ").append(landSize).append("\n");
         builder.append("      stages:").append("\n");
         if (!generateFillCoasts().isEmpty()) {
             builder.append("""
@@ -1093,22 +1112,13 @@ public abstract class BaseGenerator {
                         - type: SMOOTH
                           sampler:
                             type: WHITE_NOISE
-                        - << biome-distribution/stages/add_rivers.yml:stages
+                       #- << biome-distribution/stages/add_rivers.yml:stages
                         - type: SMOOTH
                           sampler:
                             type: WHITE_NOISE
                 """);
 
         return builder;
-    }
-
-
-    private boolean isCoastal(BiomeType biome) {
-        return (biome instanceof Flat flatBiome && flatBiome.isCoast()) ||
-                (biome instanceof Hills_Large hillsLargeBiome && hillsLargeBiome.isCoast()) ||
-                (biome instanceof Hills_Small hillsSmallBiome && hillsSmallBiome.isCoast()) ||
-                (biome instanceof Mountains_Large mountainsLargeBiome && mountainsLargeBiome.isCoast()) ||
-                (biome instanceof Mountains_Small mountainsSmallBiome && mountainsSmallBiome.isCoast());
     }
 
     @NotNull
@@ -1395,7 +1405,7 @@ public abstract class BaseGenerator {
         }else{
             temperateRarity = generateRarityMap();
         }
-        Map<String, Integer> biomeAmount = getBiomeAmount();
+        Map<String, Integer> biomeAmount = getBiomeAmountEC();
         Set<String> biomesPresent = getBiomesPresent();
         Set<String> oceansPresent = new HashSet<>();
 
@@ -1413,7 +1423,7 @@ public abstract class BaseGenerator {
                             type: EXPRESSION\s
                             expression: temperature(x, z)
                         to:
-                    """).append("\n");
+                    """);
             if (biomeAmount.containsKey("ocean_boreal")) {
                 builder.append("      ocean_boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
                 oceansPresent.add("ocean_boreal");
@@ -1534,7 +1544,7 @@ public abstract class BaseGenerator {
             temperateRarity = generateRarityMap();
         }
         Map<String, Integer> heightRarity = generateLandHeightRarityMap();
-        Map<String, Integer> biomeAmount = getBiomeAmount();
+        Map<String, Integer> biomeAmount = getBiomeAmountEC();
         Set<String> biomesPresent = getBiomesPresent();
         Set<String> temperatesPresent = new HashSet<>();
 
@@ -1771,9 +1781,9 @@ public abstract class BaseGenerator {
                               - type: REPLACE
                             """);
                     String current = key + "_" + currentTH.getKey().toLowerCase();
-                    builder.append("      from: ").append(current);
+                    builder.append("    from: ").append(current).append("\n");
                     builder.append("""
-                                  sampler:
+                                sampler:
                                   type: CELLULAR
                                   jitter: ${customization.yml:biomeSpread.cellJitter}
                                   return: CellValue
@@ -1783,7 +1793,7 @@ public abstract class BaseGenerator {
 
                     for (BaseBiome biome : biomeSet) {
                         if (!biome.biomeType.isCoast() && biome.biomeType.getName().toLowerCase().equals(current)) {
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue);
+                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                         }
                     }
                 }
@@ -1796,11 +1806,27 @@ public abstract class BaseGenerator {
     private Map<String, Integer> getBiomeAmount() {
         Map<String, Integer> biomeMap = new HashMap<>();
 
-        biomeTypeIntegerMap.forEach((biomeType, integer) -> {
-            String simpleName = biomeType.getName();
+        biomeSet.forEach(biome -> {
+                String simpleName = biome.biomeType.getName();
 
-            simpleName = simpleName.toLowerCase();
-            biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
+                simpleName = simpleName.toLowerCase();
+                biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
+
+        });
+
+        return biomeMap;
+    }
+
+    private Map<String, Integer> getBiomeAmountEC() {
+        Map<String, Integer> biomeMap = new HashMap<>();
+
+        biomeSet.forEach(biome -> {
+            if (!biome.biomeType.isCoast()) {
+                String simpleName = biome.biomeType.getName();
+
+                simpleName = simpleName.toLowerCase();
+                biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
+            }
 
         });
 
@@ -1810,10 +1836,10 @@ public abstract class BaseGenerator {
     private Set<String> getBiomesPresent() {
         Set<String> biomeMap = new HashSet<>();
 
-        biomeTypeIntegerMap.forEach((biomeType, integer) -> {
-            String simpleName = biomeType.getName().toLowerCase();
+        biomeSet.forEach(biome -> {
+            String simpleName = biome.biomeType.getName().toLowerCase();
 
-            if (simpleName.contains("coast_small")) {
+            if (simpleName.contains("coast_small") || simpleName.contains("coast")) {
                 biomeMap.add("COAST_SMALL");
                 if (simpleName.contains("boreal")) {
                     biomeMap.add("COAST_SMALL_BOREAL");

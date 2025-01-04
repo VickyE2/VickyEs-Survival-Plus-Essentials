@@ -70,4 +70,19 @@ public class Utilities {
     public static String generateCommonName(List<String> names) {
         return names.get(0) + "_GROUP";
     }
+
+    public static boolean isCallerSubclassOf(Class<?> targetClass) {
+        StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+
+        if (stackTrace.length > 3) { // Ensure there's a caller in the stack
+            String callerClassName = stackTrace[3].getClassName(); // Calling class
+            try {
+                Class<?> callerClass = Class.forName(callerClassName);
+                return targetClass.isAssignableFrom(callerClass) && !targetClass.equals(callerClass);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+        return false;
+    }
 }

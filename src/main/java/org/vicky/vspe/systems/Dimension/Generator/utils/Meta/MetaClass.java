@@ -19,8 +19,8 @@ public class MetaClass {
     public double globalScale;
     public Range strataDeepslate;
     public Range strataBedrock;
-    public int temperatureVariance;
-    public int heightVariance;
+    public double temperatureVariance;
+    public double heightVariance;
     public HeightTemperatureRarityCalculationMethod calculationMethod;
 
     public MetaClass() {
@@ -49,11 +49,11 @@ public class MetaClass {
         this.strataBedrock = strataBedrock;
     }
 
-    public void setTemperatureVariance(int temperatureVariance) {
+    public void setTemperatureVariance(double temperatureVariance) {
         this.temperatureVariance = temperatureVariance;
     }
 
-    public void setHeightVariance(int heightVariance) {
+    public void setHeightVariance(double heightVariance) {
         this.heightVariance = heightVariance;
     }
 
