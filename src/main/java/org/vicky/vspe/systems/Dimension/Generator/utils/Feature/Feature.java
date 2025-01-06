@@ -62,7 +62,7 @@ public class Feature {
         structures.put(structure, 0);
     }
 
-    protected void setStructuresDistributor(Ymlable distributionType) {
+    public void setStructuresDistributor(Ymlable distributionType) {
         this.structureDistribution = distributionType;
     }
 

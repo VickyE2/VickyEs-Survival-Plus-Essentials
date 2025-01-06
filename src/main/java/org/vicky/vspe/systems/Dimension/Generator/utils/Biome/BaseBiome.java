@@ -11,6 +11,7 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Prec
 import org.vicky.vspe.systems.Dimension.Generator.utils.Colorable;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Feature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Featureable;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.misc.MetaMap;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.BasePalette;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.Palette;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;
@@ -24,7 +25,7 @@ import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.isCalle
 public class BaseBiome {
 
     public final Map<Colorable, String> colors;
-    public final Map<Palette, Integer> palettes;
+    public final Map<Palette, Object> palettes;
     public final Map<Featureable, List<Feature>> features;
     public final Map<Integer, Map<BasePalette, Integer>> slant;
     public final List<Extendibles> extendibles;
@@ -111,6 +112,10 @@ public class BaseBiome {
         palettes.put(palette, height);
     }
 
+    public void addPalettes(Palette palette, MetaMap height) {
+        palettes.put(palette, height);
+    }
+
     public void addFeaturesToParam(List<Feature> features, Featureable featureable) {
         this.features.put(featureable, features);
     }
@@ -139,7 +144,7 @@ public class BaseBiome {
         return extendibles;
     }
 
-    public Map<Palette, Integer> getPalettes() {
+    public Map<Palette, Object> getPalettes() {
         return palettes;
     }
 
@@ -172,8 +177,6 @@ public class BaseBiome {
     }
 
     public void setID(String id) {
-        if (isCallerSubclassOf(BaseGenerator.class)) {
-            this.id = id;
-        }
+        this.id = id;
     }
 }

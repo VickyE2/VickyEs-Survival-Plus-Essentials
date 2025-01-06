@@ -2,20 +2,25 @@ package org.vicky.vspe.systems.Dimension.Generator.utils.Palette;
 
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Structures.NoiseSampler.NoiseSampler;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Ymlable;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.getCleanedID;
 
-public class Palette implements BasePalette {
+public class Palette implements BasePalette, Ymlable {
 
     public final String id;
     private final Map<Map<NamespacedKey, Integer>, Integer> layers;
+    private NoiseSampler sampler;
 
     public Palette(String id) {
         this.id = getCleanedID(id);
         this.layers = new HashMap<>();
+        this.sampler = null;
     }
 
     public void addLayer(Map<Material, Integer> materials, int layerThickness) {
@@ -28,6 +33,10 @@ public class Palette implements BasePalette {
         layers.put(instance, layerThickness);
     }
 
+    public void setSampler(NoiseSampler sampler) {
+        this.sampler = sampler;
+    }
+
     public String getId() {
         return id;
     }
@@ -36,7 +45,7 @@ public class Palette implements BasePalette {
         return layers;
     }
 
-    public StringBuilder getLayerYml() {
+    public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
 
         if (!layers.isEmpty()) {
@@ -47,6 +56,11 @@ public class Palette implements BasePalette {
                 }
                 builder.append("  layers: ").append(entry.getValue());
             }
+        }
+
+        if (sampler != null) {
+            builder.append("sampler: ").append("\n");
+            builder.append(Utilities.getIndentedBlock(sampler.getYml().toString(), "  "));
         }
 
         return builder;

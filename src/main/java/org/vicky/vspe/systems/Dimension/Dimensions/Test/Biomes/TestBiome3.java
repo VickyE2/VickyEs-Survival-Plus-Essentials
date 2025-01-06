@@ -29,14 +29,15 @@ public class TestBiome3 extends BaseBiome {
         );
 
         addColor(Colorable.WATER, 0x888888);
-        addExtendibles(Extendibles.EQ_ROCKY_BUTTES, Extendibles.EQ_MOUNTAINS);
-        Palette palette = new Palette("Test_Palette");
+        addExtendibles(Extendibles.EQ_GLOBAL_OCEAN);
+        Palette palette = new Palette("Test_Palette_three");
         Map<Material, Integer> paletteMap = new HashMap<>();
-        paletteMap.put(Material.WATER, 319);
-        paletteMap.put(Material.DIRT, 30);
+        paletteMap.put(Material.ANDESITE, 319);
+        paletteMap.put(Material.DIRT, 318);
+        paletteMap.put(Material.DEEPSLATE, 30);
         palette.addLayer(paletteMap, 50);
         addPalettes(palette, 319);
-        addColor(Colorable.WATER_FOG, 0xFFFFFF00);
+        addColor(Colorable.WATER_FOG, 0xFFFFFF);
         addFeaturesToParam(List.of(new TestFeature()), Featureable.LANDFORMS);
     }
 }

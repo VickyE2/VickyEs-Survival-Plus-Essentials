@@ -8,4 +8,5 @@ public enum Tags {
     USE_FROZEN_RIVER,
     USE_FROZEN_RIVER_FROZEN_MARSH,
     LAND_CAVES,
+    ALL,
 }

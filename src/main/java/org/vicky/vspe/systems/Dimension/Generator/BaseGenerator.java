@@ -158,7 +158,8 @@ public abstract class BaseGenerator {
                 "math/", ("assets/systems/dimension/math/"),
                 "biome-distribution/", ("assets/systems/dimension/biome-providers/"),
                 "palettes/", ("assets/systems/dimension/palettes/"),
-                "structures/", ("assets/systems/dimension/structures/")
+                "structures/", ("assets/systems/dimension/structures/"),
+                "features/", ("assets/systems/dimension/features/")
         );
         int totalSteps = resourceMappings.size();
         for (Map.Entry<String, String> entry : resourceMappings.entrySet()) {
@@ -209,7 +210,6 @@ public abstract class BaseGenerator {
 
         if (!outputBiomeVariants().isEmpty())
             writeYamlToZip(utils, outputBiomeVariants(), "biome-distribution/stages/", "add_variants.yml");
-        writeYamlToZip(utils, generateSource(), "biome-distribution/sources/", "basic_continents.yml");
         progress += 10;
         progressListener.onProgressUpdate(progress, "Biomes and sources written.");
 
@@ -219,10 +219,16 @@ public abstract class BaseGenerator {
             progressListener.onProgressUpdate(progress, "Biome Palettes saved");
         }
 
-        if (!generateFillCoasts().isEmpty()) {
-            writeYamlToZip(utils, generateFillCoasts(), "biome-distribution/stages/", "fill_coasts.yml");
+        if (!generateCoasts().isEmpty()) {
+            writeYamlToZip(utils, generateCoasts(), "biome-distribution/stages/", "coasts.yml");
             progress += 10;
-            progressListener.onProgressUpdate(progress, "Fill Coasts stage produced");
+            progressListener.onProgressUpdate(progress, "Coasts stage produced");
+
+            if (!generateFillCoasts().isEmpty()) {
+                writeYamlToZip(utils, generateFillCoasts(), "biome-distribution/stages/", "fill_coasts.yml");
+                progress += 10;
+                progressListener.onProgressUpdate(progress, "Fill Coasts stage produced");
+            }
         }
 
         if (progress >= 100)
@@ -252,7 +258,6 @@ public abstract class BaseGenerator {
 
         if (progress >= 90)
             progress = 75;
-        // Final operations
         writeMultipleYmlFiles(utils, generateExtrusions(), "biome-distribution/extrusions/");
         writeMultipleYmlFiles(utils, getFeaturesYml(), "features/");
 
@@ -392,42 +397,7 @@ public abstract class BaseGenerator {
 
     @NotNull
     private StringBuilder getMetaYML() {
-        StringBuilder metaYML = new StringBuilder();
-        metaYML.append("biome-distribution: ").append("\n");
-        metaYML.append("  continental-scale: ").append(META.continentalScale).append("\n");
-        metaYML.append("  temperature-scale: ").append(META.temperatureScale).append("\n");
-        metaYML.append("  precipitation-scale: ").append(META.precipitationScale).append("\n");
-        metaYML.append("  elevation-scale: ").append(META.elevationScale).append("\n");
-        metaYML.append("  variation-scale: ").append(META.variationScale).append("\n");
-        metaYML.append("  cave-biome-scale: ").append(META.caveBiomeScale).append("\n");
-        metaYML.append("  river-spread-scale: ").append(META.riverSpreadScale).append("\n");
-        metaYML.append("  volcano-spread: ").append(META.volcanoSpread).append("\n");
-        metaYML.append("  volcano-radius: ").append(META.volcanoRadius).append("\n");
-        metaYML.append("  mushroom-island-spread: ").append(META.mushroomIslandSpread).append("\n");
-        metaYML.append("  mushroom-island-radius: ").append(META.mushroomIslandRadius).append("\n");
-        metaYML.append("  y-level: ").append(META.yLevel).append("\n");
-        metaYML.append("  ocean-level: ").append(META.oceanLevel).append("\n");
-        metaYML.append("  global-scale: ").append(META.globalScale).append("\n");
-        metaYML
-                .append("strata: ").append("\n")
-                .append("  deepslate: ").append("\n")
-                .append("    top: ").append(META.strataDeepslate.getMax()).append("\n")
-                .append("    bottom: ").append(META.strataDeepslate.getMin()).append("\n")
-                .append("  bedrock: ").append("\n")
-                .append("    top: ").append(META.strataBedrock.getMax()).append("\n")
-                .append("    bottom: ").append(META.strataBedrock.getMin()).append("\n")
-                .append("\n");
-        metaYML.append("""
-                palette-bottom:
-                  - DEEPSLATE: $meta.yml:strata.deepslate.top
-                  - BEDROCK: $meta.yml:strata.bedrock.top
-                  - BLOCK:minecraft:bedrock: $meta.yml:strata.bedrock.bottom
-                                
-                palette-bedrock:
-                  - BEDROCK: $meta.yml:strata.bedrock.top
-                  - BLOCK:minecraft:bedrock: $meta.yml:strata.bedrock.bottom
-                """);
-        return metaYML;
+        return META.getYml();
     }
 
     @NotNull
@@ -469,7 +439,7 @@ public abstract class BaseGenerator {
             addEntry(colorMap, biome.getBiomeColor(), biome.getId());
             if (biomeIds.containsKey(biome.getId())) {
                 VSPE.getInstancedLogger().warning("Biome " + biome.getClass() + " has identical cleaned id with biome" + biomeIds.get(biome.getId()).getClass() + ". Please resolve this issue as we will try but things might(will) be broken");
-                biome.setID(getCleanedID(biome.getUncleanedId() + "_cleaned_from_" + biome.getId()));
+                biome.setID(getCleanedID(biome.getUncleanedId() + "_cleaned_from_" + Utilities.generateRandomFourLetterString()));
             }
             else {
                 biomeIds.put(biome.getId(), biome);
@@ -530,7 +500,7 @@ public abstract class BaseGenerator {
             }
             if (!biome.palettes.isEmpty()) {
                 builder.append("palette: ").append("\n");
-                for (Map.Entry<Palette, Integer> entry : biome.getPalettes().entrySet()) {
+                for (Map.Entry<Palette, Object> entry : biome.getPalettes().entrySet()) {
                     builder.append(" - ").append(entry.getKey().id).append(": ").append(entry.getValue()).append("\n");
                     INCLUDED_PALETTES.add(entry.getKey());
                 }
@@ -627,6 +597,7 @@ public abstract class BaseGenerator {
     private StringBuilder generateColorsFile() {
         StringBuilder builder = new StringBuilder();
 
+        builder.append("DRIPSTONE_CAVES: 0x1c1a11").append("\n");
         for (Map.Entry<String, List<String>> entry : colorMap.entrySet()) {
             String key = entry.getKey();
             String commonName = generateCommonName(entry.getValue());
@@ -691,16 +662,7 @@ public abstract class BaseGenerator {
         Map<String, StringBuilder> builderMap = new HashMap<>();
 
         for (Palette palette : INCLUDED_PALETTES) {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append("id: ").append(palette.getId()).append("\n");
-            builder.append("type: PALETTE").append("\n");
-            if (!palette.getLayers().isEmpty()) {
-                builder.append("layers: ").append("\n");
-                builder.append(Utilities.getIndentedBlock(palette.getLayerYml().toString(), "  "));
-            }
-
-            builderMap.put(palette.getId(), builder);
+            builderMap.put(palette.getId(), palette.getYml());
         }
 
         return builderMap;
@@ -921,92 +883,11 @@ public abstract class BaseGenerator {
     }
 
     @NotNull
-    private StringBuilder generateSource() {
-        StringBuilder builder = new StringBuilder();
-        for (Map.Entry<BiomeType, Integer> entry : biomeTypeIntegerMap.entrySet()) {
-            BiomeType biome = entry.getKey();
-            int count = entry.getValue();
-
-            String parentBiome = biome.getClass().getSimpleName();
-            String temperature = biome.getTemperate();
-
-            groupedBiomes
-                    .computeIfAbsent(parentBiome, k -> new HashMap<>())
-                    .merge(temperature, count, Integer::sum);
-        }
-
-        builder.append("""
-                source:
-                  type: SAMPLER
-                  biomes:
-                  """);
-        int oceanSize = 0;
-        int deepSeaSize = 0;
-        int landSize = 0;
-
-        for (Map.Entry<BiomeType, Integer> entry : biomeTypeIntegerMap.entrySet()) {
-            BiomeType biome = entry.getKey();
-            int count = entry.getValue();
-
-            // Check the parent type and conditions
-            if (biome instanceof Ocean) {
-                oceanSize += count;
-            } else if (biome instanceof Deep_Ocean) {
-                deepSeaSize += count;
-            } else if (biome instanceof Land) {
-                if (biome instanceof Hills_Small && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Flat && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Hills_Large && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Mountains_Large && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Mountains_Small && biome.isCoast()) {
-                    continue;
-                }
-                landSize += count;
-            }
-        }
-
-        if (deepSeaSize != 0)
-            builder.append("    - deep-ocean: ").append(deepSeaSize).append("\n");
-        if (oceanSize != 0)
-            builder.append("    - ocean: ").append(oceanSize).append("\n");
-        if (!coastalBiomeMap.isEmpty())
-            builder.append("    - coast: ").append(coastalBiomeMap.size()).append("\n");
-        if (landSize != 0)
-            builder.append("    - land: ").append(landSize).append("\n");
-
-        builder.append("""
-                  sampler:
-                    dimensions: 2
-                    type: LINEAR
-                    min: -1
-                    max: -0.65
-                    sampler:
-                      type: FBM
-                      lacunarity: 3
-                      gain: 0.4
-                      octaves: 4
-                      sampler:
-                        type: CELLULAR
-                        frequency: 1 / ${meta.yml:biome-distribution.continental-scale} / ${meta.yml:biome-distribution.global-scale}
-                """);
-
-        return builder;
-    }
-
-    @NotNull
     private Map<String, StringBuilder> generateExtrusions() {
         Map<String, StringBuilder> builders = new HashMap<>();
         for (Extrusion extrusion : CUSTOM_EXTRUSIONS) {
             if (extrusion instanceof ReplaceExtrusion) {
-                builders.put(((ReplaceExtrusion) extrusion).getId(), ((ReplaceExtrusion) extrusion).generateFileContents());
+                builders.put(((ReplaceExtrusion) extrusion).getId(), ((ReplaceExtrusion) extrusion).getYml());
             }
         }
         return builders;
@@ -1019,24 +900,25 @@ public abstract class BaseGenerator {
         builder.append("""
                 biomes:
                   type: EXTRUSION
+                  extrusions:
                 """);
         if (!CUSTOM_EXTRUSIONS.isEmpty()) {
             builder.append("  extrusions:").append("\n");
             for (Extrusion extrusion : CUSTOM_EXTRUSIONS) {
                 if (extrusion instanceof ReplaceExtrusion) {
-                    builder.append("- '<< biome-distribution/extrusions/").append(((ReplaceExtrusion) extrusion).getId()).append(".yml:extrusions").append("\n");
+                    builder.append("   - << biome-distribution/extrusions/").append(((ReplaceExtrusion) extrusion).getId()).append(".yml:extrusions").append("\n");
                 }
             }
         }
         builder.append("""
                   provider:
                     type: PIPELINE
-                    resolution: 2
-                    initial-size: 10
+                    resolution: 4
                     blend:
-                      amplitude: 1.5
+                      amplitude: 6
                       sampler:
-                        type: WHITE_NOISE
+                        type: OPEN_SIMPLEX_2
+                        frequency: 0.012
                     pipeline:
                       source:
                         type: SAMPLER
@@ -1083,15 +965,13 @@ public abstract class BaseGenerator {
             }
         }
         if (deepSeaSize != 0)
-            builder.append("          - deep-ocean: ").append(deepSeaSize).append("\n");
+            builder.append("          deep-ocean: ").append(deepSeaSize).append("\n");
         if (oceanSize != 0)
-            builder.append("          - ocean: ").append(oceanSize).append("\n");
-        if (!coastalBiomeMap.isEmpty())
-            builder.append("          - coast: ").append(coastalBiomeMap.size()).append("\n");
+            builder.append("          ocean: ").append(oceanSize).append("\n");
         if (landSize != 0)
-            builder.append("          - land: ").append(landSize).append("\n");
+            builder.append("          land: ").append(landSize).append("\n");
         builder.append("      stages:").append("\n");
-        if (!generateFillCoasts().isEmpty()) {
+        if (!generateCoasts().isEmpty()) {
             builder.append("""
                         - << biome-distribution/stages/coasts.yml:stages
                         - << biome-distribution/stages/fill_coasts.yml:stages
@@ -1122,6 +1002,95 @@ public abstract class BaseGenerator {
     }
 
     @NotNull
+    private StringBuilder generateCoasts() {
+        StringBuilder builder = new StringBuilder();
+        Map<String, Integer> temperateRarity = new HashMap<>();
+        if (META.calculationMethod.equals(SEPARATE)) {
+            temperateRarity = generateTemperatureRarityMap();
+        }else{
+            temperateRarity = generateRarityMap();
+        }
+        Map<String, Integer> biomeAmount = getBiomeAmount();
+        Set<String> biomesPresent = getBiomesPresent();
+        Set<String> coastPresent = new HashSet<>();
+        boolean coastSmallExists = false;
+        boolean coastLargeExists = false;
+
+
+        if (biomesPresent.contains("OCEAN") || biomesPresent.contains("DEEP_OCEAN")) {
+            if (biomesPresent.contains("COAST_SMALL") || biomesPresent.contains("COAST_LARGE")) {
+                builder.append("stages:").append("\n");
+                if (biomesPresent.contains("OCEAN")) {
+                    builder.append("""
+                              - type: REPLACE # split oceans into small and big coast sections
+                                from: ocean
+                                sampler:
+                                  type: CELLULAR
+                                  jitter: ${customization.yml:biomeSpread.cellJitter}
+                                  return: CellValue
+                                  frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
+                                to:
+                                  SELF: 1
+                            """);
+                    if (biomesPresent.contains("COAST_SMALL")) {
+                        builder.append("      ocean_coast_small: 2").append("\n");
+                        coastSmallExists = true;
+                    }
+                    if (biomesPresent.contains("COAST_LARGE")) {
+                        builder.append("      ocean_coast_large: 1").append("\n");
+                        coastLargeExists = true;
+                    }
+
+                    if (coastSmallExists) {
+                        builder.append("""
+                                  - type: REPLACE # add small coasts
+                                    from: ocean_coast_small
+                                    sampler:
+                                      type: EXPRESSION
+                                      expression: continentBorderCelledSmall(x, z)
+                                    to:
+                                      SELF: 1
+                                      coast_small: 1
+                                """);
+                        builder.append("""
+                                  - type: REPLACE # make small oceans placeholders oceans again
+                                    from: ocean_coast_small
+                                    sampler:
+                                      type: CONSTANT
+                                    to:
+                                      ocean: 1
+                                """);
+                    }
+
+                    if (coastLargeExists) {
+                        builder.append("""
+                                  - type: REPLACE # add small coasts
+                                    from: ocean_coast_wide
+                                    sampler:
+                                      type: EXPRESSION
+                                      expression: continentBorderCelledSmall(x, z)
+                                    to:
+                                      SELF: 1
+                                      coast_wide: 1
+                                """);
+                        builder.append("""
+                                  - type: REPLACE # make small oceans placeholders oceans again
+                                    from: ocean_coast_wide
+                                    sampler:
+                                      type: CONSTANT
+                                    to:
+                                      ocean: 1
+                                """);
+                    }
+                }
+            }
+
+        }
+
+        return builder;
+    }
+
+    @NotNull
     private StringBuilder generateFillCoasts() {
         StringBuilder builder = new StringBuilder();
         Map<String, Integer> temperateRarity = new HashMap<>();
@@ -1134,7 +1103,7 @@ public abstract class BaseGenerator {
         Set<String> biomesPresent = getBiomesPresent();
         Set<String> coastPresent = new HashSet<>();
 
-        if (biomesPresent.contains("COAST_SMALL") && biomesPresent.contains("COAST_LARGE")) {
+        if (biomesPresent.contains("COAST_SMALL") || biomesPresent.contains("COAST_LARGE")) {
             builder.append("stages: ").append("\n");
             if (biomesPresent.contains("COAST_SMALL")) {
                 builder.append("""
@@ -1148,7 +1117,7 @@ public abstract class BaseGenerator {
                               lookup:
                                 type: EXPRESSION
                                 expression: 'temperature(x, z)'
-                              to:
+                            to:
                         """);
                 if (biomeAmount.containsKey("coast_small_boreal")) {
                     builder.append("      coast_small_boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
@@ -1839,20 +1808,37 @@ public abstract class BaseGenerator {
         biomeSet.forEach(biome -> {
             String simpleName = biome.biomeType.getName().toLowerCase();
 
-            if (simpleName.contains("coast_small") || simpleName.contains("coast")) {
-                biomeMap.add("COAST_SMALL");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("COAST_SMALL_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("COAST_SMALL_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("COAST_SMALL_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("COAST_SMALL_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("COAST_SMALL_TROPICAL");
+            if (simpleName.contains("coast")) {
+                if (simpleName.contains("small")) {
+                    biomeMap.add("COAST_SMALL");
+                    if (simpleName.contains("boreal")) {
+                        biomeMap.add("COAST_SMALL_BOREAL");
+                    } else if (simpleName.contains("temperate")) {
+                        biomeMap.add("COAST_SMALL_TEMPERATE");
+                    } else if (simpleName.contains("polar")) {
+                        biomeMap.add("COAST_SMALL_POLAR");
+                    } else if (simpleName.contains("subtropical")) {
+                        biomeMap.add("COAST_SMALL_SUBTROPICAL");
+                    } else if (simpleName.contains("tropical")) {
+                        biomeMap.add("COAST_SMALL_TROPICAL");
+                    }
+                    biomeMap.add("LAND");
                 }
-                biomeMap.add("LAND");
+                if (simpleName.contains("large")) {
+                    biomeMap.add("COAST_LARGE");
+                    if (simpleName.contains("boreal")) {
+                        biomeMap.add("COAST_LARGE_BOREAL");
+                    } else if (simpleName.contains("temperate")) {
+                        biomeMap.add("COAST_LARGE_TEMPERATE");
+                    } else if (simpleName.contains("polar")) {
+                        biomeMap.add("COAST_LARGE_POLAR");
+                    } else if (simpleName.contains("subtropical")) {
+                        biomeMap.add("COAST_LARGE_SUBTROPICAL");
+                    } else if (simpleName.contains("tropical")) {
+                        biomeMap.add("COAST_LARGE_TROPICAL");
+                    }
+                    biomeMap.add("LAND");
+                }
             }
             else if (simpleName.contains("hills_small")) {
                 biomeMap.add("HILLS_SMALL");
@@ -2042,10 +2028,10 @@ public abstract class BaseGenerator {
 
         // Define elevation ranges for each biome type
         Map<String, double[]> elevationZones = Map.of(
-                "MOUNTAINS_SMALL", new double[]{1000, 3000},      // Ideal range for small mountains
-                "MOUNTAINS_LARGE", new double[]{3000, 6000},      // Ideal range for large mountains
+                "MOUNTAINS_SMALL", new double[]{1000, 3700},      // Ideal range for small mountains
+                "MOUNTAINS_LARGE", new double[]{3000, 7000},      // Ideal range for large mountains
                 "HILLS_SMALL", new double[]{300, 1000},           // Ideal range for small hills
-                "HILLS_LARGE", new double[]{1000, 3000},          // Ideal range for large hills
+                "HILLS_LARGE", new double[]{800, 2500},          // Ideal range for large hills
                 "FLAT", new double[]{0, 300}                      // Ideal range for flat lands
         );
 

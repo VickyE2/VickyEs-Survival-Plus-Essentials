@@ -2,7 +2,7 @@ package org.vicky.vspe.systems.Dimension.Generator.utils.Palette;
 
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.MetaPaletteVariable;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.MetaClass;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,7 @@ public class InlinePalette implements BasePalette {
         }
     }
 
-    public void addPaletteElement(MetaPaletteVariable metaVariable) {
+    public void addPaletteElement(MetaClass.MetaVariables metaVariable) {
         this.inlinePaletteVariables.add("<< meta.yml:" + metaVariable.name().toLowerCase().replaceAll("[^a-z]", "-"));
     }
 

@@ -34,9 +34,14 @@ public class Pattern {
         builder.append("patterns: ").append("\n");
         if (blockType.equals(Pattern.Type.MATCH)) {
             for (Map.Entry<String, Integer> entry : blocks.entrySet()) {
-                builder.append("  - type: MATCH").append("\n");
-                builder.append("    block: ").append(entry.getKey()).append("\n")
-                        .append("    offset: ").append(entry.getValue()).append("\n");
+                if (entry.getKey().equals("air")) {
+                    builder.append("  - type: MATCH_AIR").append("\n")
+                            .append("    offset: ").append(entry.getValue()).append("\n");
+                } else {
+                    builder.append("  - type: MATCH").append("\n");
+                    builder.append("    block: ").append(entry.getKey()).append("\n")
+                            .append("    offset: ").append(entry.getValue()).append("\n");
+                }
             }
         } else if (blockType.equals(Type.MATCH_SET)) {
             builder.append("  - type: MATCH_SET").append("\n");

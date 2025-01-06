@@ -22,14 +22,14 @@ public class TestBiome extends BaseBiome {
         super("TEST_BIOME", 0x44444, Biome.PLAINS, Coasts.COAST_SMALL_POLAR, new Precipitation(0.6f, Precipitation.PrecipitaionType.RAIN), Rarity.VERY_COMMON);
 
         addColor(Colorable.WATER, 0x888888);
-        addExtendibles(Extendibles.EQ_ROCKY_BUTTES, Extendibles.EQ_MOUNTAINS);
+        addExtendibles(Extendibles.EQ_ERODED_COAST);
         Palette palette = new Palette("Test_Palette");
         Map<Material, Integer> paletteMap = new HashMap<>();
-        paletteMap.put(Material.WATER, 319);
+        paletteMap.put(Material.SAND, 319);
         paletteMap.put(Material.DIRT, 30);
         palette.addLayer(paletteMap, 50);
         addPalettes(palette, 319);
-        addColor(Colorable.WATER_FOG, 0xFFFFFF00);
+        addColor(Colorable.WATER_FOG, 0xFFFFFF);
         addFeaturesToParam(List.of(new TestFeature()), Featureable.LANDFORMS);
     }
 }

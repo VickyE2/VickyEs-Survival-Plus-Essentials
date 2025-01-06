@@ -13,11 +13,18 @@ public class BaseStructure {
     public String id;
     public File schemFileName;
     private StringBuilder structureScript;
+    private Map<String, Integer> numberVariables;
+    private Map<String, String> stringVariables;
+    private Map<String, Boolean> booleanVariables;
     private Map<String, Object> variables;
+    private Map<String, Object> mappedVariables;
 
     public BaseStructure(String id) {
         structureScript = new StringBuilder();
         this.id = id.toLowerCase().replaceAll("[^a-z]", "_");
+        numberVariables = new HashMap<>();
+        stringVariables = new HashMap<>();
+        booleanVariables = new HashMap<>();
         variables = new HashMap<>();
     }
 
@@ -33,7 +40,26 @@ public class BaseStructure {
         }
     }
 
+    public void addBooleanVariable(String variableName, boolean variableValue) {
+        booleanVariables.put(variableName, variableValue);
+    }
+
+    public void addStringVariable(String variableName, String variableValue) {
+        stringVariables.put(variableName, variableValue);
+    }
+
+    public void addIntegerVariable(String variableName, int variableValue) {
+        numberVariables.put(variableName, variableValue);
+    }
+
+    public void addMappedVariable(String variableName, String variable) {
+        mappedVariables.put(variableName, variable);
+    }
+
     public Map<String, Object> getVariables() {
+        variables.putAll(numberVariables);
+        variables.putAll(booleanVariables);
+        variables.putAll(stringVariables);
         return variables;
     }
 
@@ -109,6 +135,11 @@ public class BaseStructure {
         W,
         U,
         D  // North, South, East, West, Up, Down
+    }
+    public enum VariableType {
+        STRING,
+        INTEGER,
+        BOOLEAN,
     }
 
     // MaterialPalette Class to hold material distribution for 3D directions

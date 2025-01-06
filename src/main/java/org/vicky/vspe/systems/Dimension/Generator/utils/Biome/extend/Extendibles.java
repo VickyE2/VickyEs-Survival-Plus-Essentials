@@ -65,6 +65,6 @@ public enum Extendibles {
     EQ_WARPED_WETLANDS,
     EQ_SPOT_PLATEAU,
     EQ_VOLCANO,
-    NO_TERRAIN_2D
+    BASE, NO_TERRAIN_2D
 }
 

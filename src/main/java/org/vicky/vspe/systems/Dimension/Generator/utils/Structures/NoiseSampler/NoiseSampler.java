@@ -47,10 +47,12 @@ public enum NoiseSampler implements Ymlable {
 
     private final String[] parameters;
     private final Map<String, Object> values;
+    private final Map<String, Object> globalValues;
 
     NoiseSampler(String... parameters) {
         this.parameters = parameters;
         this.values = new HashMap<>();
+        this.globalValues = new HashMap<>();
     }
 
     public void setParameter(String parameter, Object value) {
@@ -61,6 +63,10 @@ public enum NoiseSampler implements Ymlable {
             }
         }
         throw new IllegalArgumentException("Invalid parameter: " + parameter + " for " + this.name());
+    }
+
+    public void addGlobalParameter(String parameter, Object value) {
+        globalValues.put(parameter, value);
     }
 
     public Object getParameter(String parameter) {
@@ -75,6 +81,9 @@ public enum NoiseSampler implements Ymlable {
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
 
+        for (Map.Entry<String, Object> entry : globalValues.entrySet()) {
+            builder.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+        }
         builder.append("type: ").append(this).append("\n");
         for (Map.Entry<String, Object> value : values.entrySet()) {
             if (value.getValue() instanceof NoiseSampler sampler) {

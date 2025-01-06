@@ -3,7 +3,7 @@ type: BIOME
 abstract: true
 
 palette:
-  - SAND: $meta.yml:top-y
+  - SAND: $meta.yml:biome-distribution:y-level
   - << meta.yml:palette-bottom
 
 slant-depth: 4
@@ -11,6 +11,6 @@ slant-depth: 4
 slant:
   - threshold: 0.4
     palette:
-      - BLOCK:minecraft:stone: $meta.yml:top-y
+      - BLOCK:minecraft:stone: $meta.yml:biome-distribution:y-level
       - GRAVEL: 61
       - << meta.yml:palette-bottom

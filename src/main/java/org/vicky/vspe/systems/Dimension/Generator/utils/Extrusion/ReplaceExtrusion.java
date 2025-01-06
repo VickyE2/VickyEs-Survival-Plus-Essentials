@@ -1,15 +1,17 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion;
 
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Tags;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Range;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Structures.NoiseSampler.NoiseSampler;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Ymlable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ReplaceExtrusion implements Extrusion {
+public class ReplaceExtrusion implements Extrusion, Ymlable {
     private final String id;
     private final Map<Object, Integer> extrusionReplaceableBiome;
     private final List<String> extrusionReplaceableBiomeValues;
@@ -27,6 +29,22 @@ public class ReplaceExtrusion implements Extrusion {
         this.extrusionReplaceableBiomeValues.add("SELF: " + selfWeight);
     }
 
+    public void setFrom(String from) {
+        this.from = from;
+    }
+
+    public void setFrom(Tags from) {
+        this.from = from.name();
+    }
+
+    public void setRange(Range range) {
+        this.range = range;
+    }
+
+    public void setSampler(NoiseSampler sampler) {
+        this.sampler = sampler;
+    }
+
     public void addBiome(BaseBiome biome, Integer weight) {
         this.extrusionReplaceableBiome.put(biome, weight);
         this.extrusionReplaceableBiomeValues.add(biome.getId() + ": " + weight);
@@ -40,7 +58,8 @@ public class ReplaceExtrusion implements Extrusion {
         return extrusionReplaceableBiome;
     }
 
-    public StringBuilder generateFileContents() {
+    @Override
+    public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
 
         builder.append("extrusions: ").append("\n")
