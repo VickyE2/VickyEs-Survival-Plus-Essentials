@@ -1,0 +1,8 @@
+schema-version: 1
+contributors:
+  - VickyE2
+id: VSPE_Structure_Loader
+version: 1.0.0-ALPHA
+entrypoints:
+  - "org.vicky.vspe.addon.VSPEStructures"
+license: MIT License

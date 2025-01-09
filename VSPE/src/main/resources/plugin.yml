@@ -1,0 +1,23 @@
+name: VickyEs_Survival_Plus_Essentials
+version: '0.0.1-ARI'
+main: org.vicky.vspe.VSPE
+api-version: '1.20'
+prefix: VSPE
+authors: [ VickyE2 ]
+description: An addon for 'BALLISTIC' additions to Minecraft World
+depend:
+  - Vicky-s_Utilities
+  - CommandAPI
+  - PlaceholderAPI
+  - MythicMobs
+  - ItemsAdder
+  - LoneLibs
+  - LuckPerms
+  - ProtocolLib
+  - Terra
+  - WorldEdit
+  - WorldGuard
+  - Multiverse-Core
+  - Multiverse-Inventories
+  - Multiverse-Portals
+  - CrazyAdvancementsAPI
