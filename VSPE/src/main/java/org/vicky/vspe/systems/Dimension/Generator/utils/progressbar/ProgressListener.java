@@ -1,6 +1,5 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.progressbar;
 
 public interface ProgressListener {
-    void onProgressUpdate(int progress, String message);
+   void onProgressUpdate(int var1, String var2);
 }
-

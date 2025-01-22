@@ -3,7 +3,7 @@ package org.vicky.vspe.systems.Dimension.Generator.utils.Variant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;
 
 public interface BiomeVariant {
-    String getVariantName();
+   String getVariantName();
 
-    Rarity getSelfRarity();
+   Rarity getSelfRarity();
 }

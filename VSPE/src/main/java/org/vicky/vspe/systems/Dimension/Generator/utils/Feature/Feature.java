@@ -1,102 +1,78 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.Feature;
 
-import org.bukkit.Material;
-import org.vicky.vspe.addon.util.BaseStructure;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Ymlable;
-
 import java.util.HashMap;
 import java.util.Map;
+import org.bukkit.Material;
+import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Ymlable;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.utils.FeatureType;
 
-import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.getCleanedID;
-
-/**
- * Represents a feature in the dimension generation system.
- * A feature can have layers of materials, and information on how it is distributed
- * and located within the dimension. The feature also includes details about the
- * structures and their distributions.
- */
 public class Feature {
-    protected final String id;
-    protected final Map<Map<Material, Integer>, Integer> layers;
+   protected final String id;
+   protected final Map<Map<Material, Integer>, Integer> layers;
+   protected final FeatureType type;
+   protected Ymlable distributor;
+   protected Ymlable locator;
+   protected Ymlable structureDistribution;
+   protected Map<Object, Integer> structures;
 
-    // Distributor settings
-    protected Ymlable distributor;
+   public Feature(String id, FeatureType type) {
+      this.id = Utilities.getCleanedID(id);
+      this.layers = new HashMap<>();
+      this.structures = new HashMap<>();
+      this.type = type;
+   }
 
-    protected Ymlable locator;
+   public FeatureType getType() {
+      return this.type;
+   }
 
-    protected Ymlable structureDistribution;
-    protected Map<Object, Integer> structures;
+   public void addLayer(Map<Material, Integer> materials, int layerThickness) {
+      this.layers.put(materials, layerThickness);
+   }
 
-    /**
-     * Creates a new feature with the specified ID.
-     *
-     * @param id The ID of the feature (e.g., "BAMBOO_PATCHES").
-     */
-    public Feature(String id) {
-        this.id = getCleanedID(id);
-        this.layers = new HashMap<>();
-        this.structures = new HashMap<>();
-    }
+   public void addStructure(BaseStructure structure, int layerThickness) {
+      this.structures.put(structure, layerThickness);
+   }
 
-    /**
-     * Adds a layer to the feature.
-     *
-     * @param materials      A map of materials and their corresponding quantities.
-     * @param layerThickness The thickness of this layer.
-     */
-    public void addLayer(Map<Material, Integer> materials, int layerThickness) {
-        layers.put(materials, layerThickness);
-    }
+   public void addStructure(String structure) {
+      this.structures.put(structure, 0);
+   }
 
-    /**
-     * Adds a layer to the feature.
-     *
-     * @param structure      The structure to add
-     * @param layerThickness The weight of this structure.
-     */
-    public void addStructure(BaseStructure structure, int layerThickness) {
-        structures.put(structure, layerThickness);
-    }
+   public void setStructuresDistributor(Ymlable distributionType) {
+      this.structureDistribution = distributionType;
+   }
 
-    public void addStructure(String structure) {
-        structures.put(structure, 0);
-    }
+   public String getId() {
+      return this.id;
+   }
 
-    public void setStructuresDistributor(Ymlable distributionType) {
-        this.structureDistribution = distributionType;
-    }
+   public Map<Map<Material, Integer>, Integer> getLayers() {
+      return this.layers;
+   }
 
-    public String getId() {
-        return id;
-    }
+   public Ymlable getDistributor() {
+      return this.distributor;
+   }
 
-    public Map<Map<Material, Integer>, Integer> getLayers() {
-        return layers;
-    }
+   public void setDistributor(Ymlable distributor) {
+      this.distributor = distributor;
+   }
 
-    public Ymlable getDistributor() {
-        return distributor;
-    }
+   public Ymlable getStructureDistributor() {
+      return this.structureDistribution;
+   }
 
-    public void setDistributor(Ymlable distributor) {
-        this.distributor = distributor;
-    }
+   public Ymlable getLocator() {
+      return this.locator;
+   }
 
-    public Ymlable getStructureDistributor() {
-        return structureDistribution;
-    }
+   public void setLocator(Ymlable locator) {
+      this.locator = locator;
+   }
 
-    public Ymlable getLocator() {
-        return locator;
-    }
-
-    public void setLocator(Ymlable locator) {
-        this.locator = locator;
-    }
-
-    public Map<Object, Integer> getStructures() {
-        return structures;
-    }
-
-
+   public Map<Object, Integer> getStructures() {
+      return this.structures;
+   }
 }

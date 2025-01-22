@@ -40,7 +40,7 @@ terrain:
         dimensions: 2
         type: CELLULAR
         frequency: 0.07
-  
+
       cracks:
         dimensions: 2
         type: DOMAIN_WARP

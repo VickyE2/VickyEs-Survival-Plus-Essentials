@@ -76,7 +76,7 @@ terrain:
         functions: $math/functions/interpolation.yml:functions
       
       triTerrace: # This is a terrible function that exists to avoid duplicate calculations of the 'in' value.
-                  # Allows terrace depth to be controlled according to the value it terraces.
+        # Allows terrace depth to be controlled according to the value it terraces.
         arguments:
           - in
           - depth

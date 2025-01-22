@@ -12,7 +12,7 @@ vars: &variables
   duneSpacing: 10 # Higher number = more spacing between dunes
   duneFrequency: 0.5 # Overall dune frequency
   duneRotationRange: pi/3 # How much dune cells are randomly rotated, 0 = anisotrophic, pi = isotrophic
-  
+
 terrain:
   sampler:
     dimensions: 3

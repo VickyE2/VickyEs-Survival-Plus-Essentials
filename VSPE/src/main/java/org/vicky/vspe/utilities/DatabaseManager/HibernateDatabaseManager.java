@@ -4,150 +4,158 @@ import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.vicky.vspe.VSPE;
 
-import static org.vicky.vspe.utilities.DatabaseManager.HibernateUtil.sessionFactory;
-
 public class HibernateDatabaseManager {
+   public <T> void saveEntity(T entity) {
+      Transaction transaction = null;
+      Session session = HibernateUtil.sessionFactory.openSession();
 
-    // Save an entity
-    public <T> void saveEntity(T entity) {
-        Transaction transaction = null;
-        Session session = sessionFactory.openSession();
-        try {
-            transaction = session.beginTransaction();
-            session.merge(entity);
-            transaction.commit();
-        } catch (Exception e) {
-            VSPE.getInstancedLogger().severe("Error during entity saving: " + e);
-            if (transaction != null) transaction.rollback();
-            e.printStackTrace();
-            throw new RuntimeException("Error during entity saving: " + e);
-        } finally {
-            session.clear();
-            session.close();
-        }
-    }
+      try {
+         transaction = session.beginTransaction();
+         session.merge(entity);
+         transaction.commit();
+      } catch (Exception var8) {
+         VSPE.getInstancedLogger().severe("Error during entity saving: " + var8);
+         if (transaction != null) {
+            transaction.rollback();
+         }
 
-    // Get an entity by ID
-    public <T> T getEntityById(Class<T> clazz, Object id) {
-        Session session = sessionFactory.openSession();
-        try {
-            return session.get(clazz, id);
-        } catch (Exception e) {
-            throw new RuntimeException("Error during entity saving: " + e);
-        } finally {
-            session.close();
-        }
-    }
+         var8.printStackTrace();
+         throw new RuntimeException("Error during entity saving: " + var8);
+      } finally {
+         session.clear();
+         session.close();
+      }
+   }
 
-    public <T> T getEntityByNaturalId(Class<T> clazz, Object id) {
-        Session session = sessionFactory.openSession();
-        try {
-            return session.byNaturalId(clazz)
-                    .using("key", id)
-                    .load();
-        } catch (Exception e) {
-            throw new RuntimeException("Error during entity saving: " + e);
-        } finally {
-            session.close();
-        }
-    }
+   public <T> T getEntityById(Class<T> clazz, Object id) {
+      Session session = HibernateUtil.sessionFactory.openSession();
 
-    // Update an entity
-    public <T> void updateEntity(T entity) {
-        Transaction transaction = null;
-        Session session = sessionFactory.openSession();
-        try {
-            transaction = session.beginTransaction();
-            session.update(entity);
-            transaction.commit();
-        } catch (Exception e) {
-            VSPE.getInstancedLogger().severe("Error during entity updating:" + e);
-            if (transaction != null) transaction.rollback();
-            e.printStackTrace();
-            throw new RuntimeException("Error during entity saving: " + e);
-        } finally {
-            session.close();
-        }
-    }
+      Object e;
+      try {
+         e = session.get(clazz, id);
+      } catch (Exception var8) {
+         throw new RuntimeException("Error during entity saving: " + var8);
+      } finally {
+         session.close();
+      }
 
-    public <T> void saveOrUpdate(T entity) {
-        Transaction transaction = null;
-        Session session = sessionFactory.openSession();
-        try {
-            transaction = session.beginTransaction();
-            session.saveOrUpdate(entity);
-            transaction.commit();
-        } catch (Exception e) {
-            VSPE.getInstancedLogger().severe("Error during entity updating:" + e);
-            if (transaction != null) transaction.rollback();
-            e.printStackTrace();
-            throw new RuntimeException("Error during entity saving: " + e);
-        } finally {
-            session.close();
-        }
-    }
+      return (T)e;
+   }
 
-    // Check if an entity exists by ID
-    public <T> boolean entityExists(Class<T> clazz, Object id) {
-        Session session = sessionFactory.openSession();
-        try {
-            String entityName = clazz.getSimpleName();
-            String queryString = "SELECT COUNT(e) FROM " + entityName + " e WHERE e.id = :id";
-            Long count = session.createQuery(queryString, Long.class)
-                    .setParameter("id", id)
-                    .uniqueResult();
-            return count != null && count > 0;
-        } catch (Exception e) {
-            VSPE.getInstancedLogger().severe("Error during entity query: " + e);
-            e.printStackTrace();
-            return false;
-        } finally {
-            session.close();
-        }
-    }
+   public <T> T getEntityByNaturalId(Class<T> clazz, Object id) {
+      Session session = HibernateUtil.sessionFactory.openSession();
 
-    public <T> boolean entityExistsByNaturalId(Class<T> clazz, String naturalIdProperty, Object naturalIdValue) {
-        Session session = sessionFactory.openSession();
-        try {
-            // Start a transaction to use NaturalId API
-            session.beginTransaction();
+      Object e;
+      try {
+         e = session.byNaturalId(clazz).using("key", id).load();
+      } catch (Exception var8) {
+         throw new RuntimeException("Error during entity saving: " + var8);
+      } finally {
+         session.close();
+      }
 
-            // Use Hibernate's natural ID query
-            T result = session.byNaturalId(clazz)
-                    .using(naturalIdProperty, naturalIdValue)
-                    .load();
+      return (T)e;
+   }
 
-            // Commit transaction
-            session.getTransaction().commit();
+   public <T> void updateEntity(T entity) {
+      Transaction transaction = null;
+      Session session = HibernateUtil.sessionFactory.openSession();
 
-            // Check if entity exists
-            return result != null;
+      try {
+         transaction = session.beginTransaction();
+         session.update(entity);
+         transaction.commit();
+      } catch (Exception var8) {
+         VSPE.getInstancedLogger().severe("Error during entity updating:" + var8);
+         if (transaction != null) {
+            transaction.rollback();
+         }
 
-        } catch (Exception e) {
-            VSPE.getInstancedLogger().severe("Error during natural ID query: " + e);
-            e.printStackTrace();
-            return false;
-        } finally {
-            session.close();
-        }
-    }
+         var8.printStackTrace();
+         throw new RuntimeException("Error during entity saving: " + var8);
+      } finally {
+         session.close();
+      }
+   }
 
+   public <T> void saveOrUpdate(T entity) {
+      Transaction transaction = null;
+      Session session = HibernateUtil.sessionFactory.openSession();
 
-    // Delete an entity
-    public <T> void deleteEntity(T entity) {
-        Transaction transaction = null;
-        Session session = sessionFactory.openSession();
-        try {
-            transaction = session.beginTransaction();
-            session.delete(entity);
-            transaction.commit();
-        } catch (Exception e) {
-            VSPE.getInstancedLogger().severe("Error during entity deletion: " + e);
-            if (transaction != null) transaction.rollback();
-            e.printStackTrace();
-        } finally {
-            session.close();
-        }
-    }
+      try {
+         transaction = session.beginTransaction();
+         session.saveOrUpdate(entity);
+         transaction.commit();
+      } catch (Exception var8) {
+         VSPE.getInstancedLogger().severe("Error during entity updating:" + var8);
+         if (transaction != null) {
+            transaction.rollback();
+         }
 
+         var8.printStackTrace();
+         throw new RuntimeException("Error during entity saving: " + var8);
+      } finally {
+         session.close();
+      }
+   }
+
+   public <T> boolean entityExists(Class<T> clazz, Object id) {
+      Session session = HibernateUtil.sessionFactory.openSession();
+
+      boolean queryString;
+      try {
+         String entityName = clazz.getSimpleName();
+         String queryStringx = "SELECT COUNT(e) FROM " + entityName + " e WHERE e.id = :id";
+         Long count = (Long)session.createQuery(queryStringx, Long.class).setParameter("id", id).uniqueResult();
+         return count != null && count > 0L;
+      } catch (Exception var11) {
+         VSPE.getInstancedLogger().severe("Error during entity query: " + var11);
+         var11.printStackTrace();
+         queryString = false;
+      } finally {
+         session.close();
+      }
+
+      return queryString;
+   }
+
+   public <T> boolean entityExistsByNaturalId(Class<T> clazz, String naturalIdProperty, Object naturalIdValue) {
+      Session session = HibernateUtil.sessionFactory.openSession();
+
+      boolean var6;
+      try {
+         session.beginTransaction();
+         T result = (T)session.byNaturalId(clazz).using(naturalIdProperty, naturalIdValue).load();
+         session.getTransaction().commit();
+         return result != null;
+      } catch (Exception var10) {
+         VSPE.getInstancedLogger().severe("Error during natural ID query: " + var10);
+         var10.printStackTrace();
+         var6 = false;
+      } finally {
+         session.close();
+      }
+
+      return var6;
+   }
+
+   public <T> void deleteEntity(T entity) {
+      Transaction transaction = null;
+      Session session = HibernateUtil.sessionFactory.openSession();
+
+      try {
+         transaction = session.beginTransaction();
+         session.delete(entity);
+         transaction.commit();
+      } catch (Exception var8) {
+         VSPE.getInstancedLogger().severe("Error during entity deletion: " + var8);
+         if (transaction != null) {
+            transaction.rollback();
+         }
+
+         var8.printStackTrace();
+      } finally {
+         session.close();
+      }
+   }
 }

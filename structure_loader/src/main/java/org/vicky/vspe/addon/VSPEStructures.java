@@ -9,9 +9,17 @@ import com.dfsek.terra.api.event.functional.FunctionalEventHandler;
 import com.dfsek.terra.api.inject.annotations.Inject;
 import com.dfsek.terra.api.registry.CheckedRegistry;
 import com.dfsek.terra.api.structure.Structure;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -19,199 +27,161 @@ import org.slf4j.Logger;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.vspe.addon.util.BaseStructure;
 import org.vicky.vspe.addon.util.StructureLoader;
-import org.yaml.snakeyaml.Yaml;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
+public class VSPEStructures implements AddonInitializer {
+   @Inject
+   private Logger logger;
+   @Inject
+   private Platform platform;
+   @Inject
+   private BaseAddon addon;
+   @Inject
+   private JavaPlugin plugin;
+   private static final Map<String, List<Class<? extends BaseStructure>>> structures = new HashMap<>();
+   private static final HandlerList handlers = new HandlerList();
 
-public class VSPEStructures implements AddonInitializer  {
-    @Inject
-    private Logger logger;
-    @Inject
-    private Platform platform;
-    @Inject
-    private BaseAddon addon;
-    @Inject
-    private JavaPlugin plugin;
+   public static void addStructures(List<Class<? extends BaseStructure>> structures) {
+   }
 
-    private static final List<Class<? extends BaseStructure>> structures = new ArrayList<>();
+   public void initialize() {
+      String directory = this.platform.getDataFolder().getAbsolutePath();
+      String fileName = "structureJars.yml";
+      String yamlContent = "Jars:\n  - name: \"VSPE-0.0.1-ARI\"\n    packages:\n      - \"org.vicky.vspe.systems.Dimension.Dimensions.Structures\"\n";
+      StructureLoader loader = new StructureLoader(this.logger);
 
-    private static final HandlerList handlers = new HandlerList();
+      try {
+         this.createYamlFile(directory, fileName, yamlContent);
+      } catch (IOException var11) {
+         throw new RuntimeException(var11);
+      }
 
-    public static void addStructures(List<Class<? extends BaseStructure>> structures) {
-    }
+      FileConfiguration configuration = this.getYamlFile(directory, fileName);
+      if (configuration != null) {
+         this.logger.info(ANSIColor.colorize("purple[Processing structures...]"));
+         List<Map<?, ?>> jarsList = configuration.getMapList("Jars");
+         Map<String, List<String>> includedJars = getIncludedJars(jarsList);
 
-    @Override
-    public void initialize() {
-        String directory = platform.getDataFolder().getAbsolutePath();
-        String fileName = "structureJars.yml";
-        String yamlContent = """
-                Jars:
-                  - name: "VSPE-0.0.1-ARI"
-                    packages:
-                      - "org.vicky.vspe.systems.Dimension.Dimensions.Structures"
-                """;
-
-        StructureLoader loader = new StructureLoader(logger);
-
-        try {
-            createYamlFile(directory, fileName, yamlContent);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        FileConfiguration configuration = getYamlFile(directory, fileName);
-        if (configuration != null) {
-            logger.info(ANSIColor.colorize("purple[Processing structures...]"));
-            List<Map<?, ?>> jarsList = configuration.getMapList("Jars");
-            Map<String, List<String>> includedJars = getIncludedJars(jarsList);
-            for (Map.Entry<String, List<String>> jar : includedJars.entrySet()) {
-                logger.info(ANSIColor.colorize("green[Processing Jar: " + jar.getKey() + "]"));
-                File jarFile = getJarFile(platform.getDataFolder().getParentFile().getAbsolutePath(), jar.getKey() + ".jar");
-                if (jarFile != null) {
-                    loader.scanPackagesInJar(jarFile, jar.getValue());
-                }
-                else {
-                    logger.warn("Null jar file for file in yml: " + jar.getKey());
-                }
+         for (Entry<String, List<String>> jar : includedJars.entrySet()) {
+            this.logger.info(ANSIColor.colorize("green[Processing Jar: " + jar.getKey() + "]"));
+            File jarFile = this.getJarFile(this.platform.getDataFolder().getParentFile().getAbsolutePath(), jar.getKey() + ".jar");
+            if (jarFile != null) {
+               loader.scanPackagesInJar(jarFile, jar.getValue());
+            } else {
+               this.logger.warn("Null jar file for file in yml: " + jar.getKey());
             }
-        }else {
-            logger.warn("Configuration is null ;-;");
-        }
-        structures.addAll(loader.getLoadedClasses());
+         }
+      } else {
+         this.logger.warn("Configuration is null ;-;");
+      }
 
-        platform.getEventManager()
-                .getHandler(FunctionalEventHandler.class)
-                .register(addon, ConfigPackPreLoadEvent.class)
-                .then(event -> {
-                    logger.info("The VSPE structures addon for terra is loading instanced structures");
-                    ConfigPack pack = event.getPack();
-                    CheckedRegistry<Structure> structureRegistry = pack.getOrCreateRegistry(Structure.class);
-                    for (Class<? extends BaseStructure> clazz : structures) {
-                        Constructor<? extends BaseStructure> constructor = null;
-                        try {
-                            constructor = clazz.getDeclaredConstructor();
-                            constructor.setAccessible(true);
-                            BaseStructure instance = constructor.newInstance();
-                            instance.setPlatform(platform);
-                            logger.info(ANSIColor.colorize("purple[Added structure: " + instance.getId() + "]"));
-                            structureRegistry.register(instance);
-                        } catch (NoSuchMethodException | IllegalAccessException | InstantiationException |
-                                 InvocationTargetException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                })
-                .global();
+      structures.putAll(loader.getLoadedClasses());
+      ((FunctionalEventHandler)this.platform.getEventManager().getHandler(FunctionalEventHandler.class))
+         .register(this.addon, ConfigPackPreLoadEvent.class)
+         .then(event -> {
+            ConfigPack pack = event.getPack();
+            this.logger.info(ANSIColor.colorize("The VSPE structures addon for terra is purple[loading instanced structures]"));
+            CheckedRegistry<Structure> structureRegistry = pack.getOrCreateRegistry(Structure.class);
 
-
-    }
-
-    @NotNull
-    private static Map<String, List<String>> getIncludedJars(List<Map<?, ?>> jarsList) {
-        Map<String, List<String>> includedJars = new HashMap<>();
-
-        for (Map<?, ?> jarEntry : jarsList) {
-            String jarName = (String) jarEntry.get("name"); // Get the JAR name
-            List<String> jarPaths = (List<String>) jarEntry.get("packages"); // Get the list of packages
-
-            if (jarName != null && jarPaths != null) {
-                includedJars.put(jarName, jarPaths);
+            for (Entry<String, List<Class<? extends BaseStructure>>> structures : VSPEStructures.structures.entrySet()) {
+               for (Class<? extends BaseStructure> clazz : structures.getValue()) {
+                  try {
+                     Constructor<? extends BaseStructure> constructor = clazz.getDeclaredConstructor();
+                     constructor.setAccessible(true);
+                     BaseStructure instance = constructor.newInstance();
+                     instance.setPlatform(this.platform);
+                     this.logger.info(ANSIColor.colorize("purple[Added structure: " + instance.getId() + "]"));
+                     structureRegistry.register(instance);
+                  } catch (NoSuchMethodException var10x) {
+                     this.logger.error("No default constructor found for class: " + clazz.getName(), var10x);
+                     throw new RuntimeException("No default constructor found for class: " + clazz.getName(), var10x);
+                  } catch (IllegalAccessException var11x) {
+                     this.logger.error("Constructor of class " + clazz.getName() + " is not accessible", var11x);
+                     throw new RuntimeException("Constructor of class " + clazz.getName() + " is not accessible", var11x);
+                  } catch (InstantiationException var12) {
+                     this.logger.error("Failed to instantiate class: " + clazz.getName(), var12);
+                     throw new RuntimeException("Failed to instantiate class: " + clazz.getName(), var12);
+                  } catch (InvocationTargetException var13) {
+                     this.logger.error("Constructor of class " + clazz.getName() + " threw an exception", var13.getCause());
+                     throw new RuntimeException("Constructor of class " + clazz.getName() + " threw an exception", var13.getCause());
+                  } catch (Exception var14) {
+                     this.logger.error("Unexpected error occurred while instantiating class: " + clazz.getName(), var14);
+                     throw new RuntimeException("Unexpected error occurred while instantiating class: " + clazz.getName(), var14);
+                  }
+               }
             }
-        }
-        return includedJars;
-    }
+         });
+   }
 
+   @NotNull
+   private static Map<String, List<String>> getIncludedJars(List<Map<?, ?>> jarsList) {
+      Map<String, List<String>> includedJars = new HashMap<>();
 
-    public File getJarFile(String folderPath, String jarName) {
-        File folder = new File(folderPath);
+      for (Map<?, ?> jarEntry : jarsList) {
+         String jarName = (String)jarEntry.get("name");
+         List<String> jarPaths = (List<String>)jarEntry.get("packages");
+         if (jarName != null && jarPaths != null) {
+            includedJars.put(jarName, jarPaths);
+         }
+      }
 
-        if (folder.exists() && folder.isDirectory()) {
-            File[] files = folder.listFiles((dir, name) -> name.endsWith(".jar"));
-            if (files != null) {
-                for (File file : files) {
-                    if (file.getName().equals(jarName)) {
-                        logger.info("Collected Jar as File");
-                        return file;
-                    }
-                }
+      return includedJars;
+   }
+
+   public File getJarFile(String folderPath, String jarName) {
+      File folder = new File(folderPath);
+      if (folder.exists() && folder.isDirectory()) {
+         File[] files = folder.listFiles((dir, name) -> name.endsWith(".jar"));
+         if (files != null) {
+            for (File file : files) {
+               if (file.getName().equals(jarName)) {
+                  this.logger.info("Collected Jar as File");
+                  return file;
+               }
             }
-        } else {
-            logger.error("Folder does not exist or is not a directory: " + folderPath);
-        }
+         }
+      } else {
+         this.logger.error("Folder does not exist or is not a directory: " + folderPath);
+      }
 
-        return null;
-    }
+      return null;
+   }
 
-    public void createYamlFile(String directoryPath, String fileName, String content) throws IOException {
-        // Create the directory if it doesn't exist
-        File directory = new File(directoryPath);
-        if (!directory.exists()) {
-            if (!directory.mkdirs()) {
-                throw new IOException("Failed to create directory: " + directoryPath);
-            }
-        }
-
-        // Create a File object for the YAML file
-        File yamlFile = new File(directory, fileName);
-
-        // Check if the file already exists
-        if (yamlFile.exists()) {
+   public void createYamlFile(String directoryPath, String fileName, String content) throws IOException {
+      File directory = new File(directoryPath);
+      if (!directory.exists() && !directory.mkdirs()) {
+         throw new IOException("Failed to create directory: " + directoryPath);
+      } else {
+         File yamlFile = new File(directory, fileName);
+         if (yamlFile.exists()) {
             System.out.println("File already exists: " + yamlFile.getPath());
-            return; // Do nothing if the file exists
-        }
-
-        // Create the YAML file
-        if (yamlFile.createNewFile()) {
-            // Write content to the file
+         } else if (yamlFile.createNewFile()) {
             try (FileWriter writer = new FileWriter(yamlFile)) {
-                writer.write(content);
+               writer.write(content);
             }
-            logger.info("File created successfully: " + yamlFile.getPath());
-        } else {
+
+            this.logger.info("File created successfully: " + yamlFile.getPath());
+         } else {
             throw new IOException("Failed to create file: " + yamlFile.getPath());
-        }
-    }
+         }
+      }
+   }
 
-    public FileConfiguration getYamlFile(String directoryPath, String fileName) {
-        // Create a File object for the YAML file
-        File yamlFile = new File(directoryPath, fileName);
+   public FileConfiguration getYamlFile(String directoryPath, String fileName) {
+      File yamlFile = new File(directoryPath, fileName);
+      if (!yamlFile.exists()) {
+         this.logger.warn("YAML file not found: " + yamlFile.getPath());
+         String directory = this.platform.getDataFolder().getAbsolutePath();
+         String ymlName = "structureJars.yml";
+         String yamlContent = "Jars:\n  - VSPE-0.0.1-ARI.jar\n";
 
-        // Check if the file exists
-        if (!yamlFile.exists()) {
-            logger.warn("YAML file not found: " + yamlFile.getPath());
-
-
-            String directory = platform.getDataFolder().getAbsolutePath();
-            String ymlName = "structureJars.yml";
-            String yamlContent = """
-                Jars:
-                  - VSPE-0.0.1-ARI.jar
-                """;
-
-            try {
-                createYamlFile(directory, ymlName, yamlContent);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            return null; // Return null if the file doesn't exist
-        }
-
-        // Load the YAML file into a FileConfiguration object
-        return YamlConfiguration.loadConfiguration(yamlFile);
-    }
-
-    public static void addStructureClass(Class<? extends BaseStructure> clazz) {
-        structures.add(clazz);
-    }
+         try {
+            this.createYamlFile(directory, ymlName, yamlContent);
+            return null;
+         } catch (IOException var8) {
+            throw new RuntimeException(var8);
+         }
+      } else {
+         return YamlConfiguration.loadConfiguration(yamlFile);
+      }
+   }
 }

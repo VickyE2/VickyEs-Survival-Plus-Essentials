@@ -26,6 +26,7 @@ import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
 public final class VSPE extends JavaPlugin {
 
+    public static List<Class<? extends BaseStructure>> InstancedStructures = new ArrayList<>();
     private static JavaPlugin plugin;
 
     public static JavaPlugin getPlugin() {
@@ -36,15 +37,13 @@ public final class VSPE extends JavaPlugin {
         return plugin.getLogger();
     }
 
-    public static List<Class<? extends BaseStructure>> InstancedStructures = new ArrayList<>();
+    public static void addInstancedStructure(Class<? extends BaseStructure> instancedStructure) {
+        InstancedStructures.add(instancedStructure);
+    }
 
     @Override
     public void onLoad() {
 
-    }
-
-    public static void addInstancedStructure(Class<? extends BaseStructure> instancedStructure) {
-        InstancedStructures.add(instancedStructure);
     }
 
     @Override

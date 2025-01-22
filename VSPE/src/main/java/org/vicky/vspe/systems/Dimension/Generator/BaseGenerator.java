@@ -1,7 +1,28 @@
 package org.vicky.vspe.systems.Dimension.Generator;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Map.Entry;
+import java.util.zip.ZipOutputStream;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.vspe.VSPE;
+import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Colorable;
+import org.vicky.vspe.systems.Dimension.Generator.utils.GlobalPreprocessor;
+import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.BaseExtendibles;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Extendibles;
@@ -9,2070 +30,1715 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Tags;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.BiomeType;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.Land;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.Temperature;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.*;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Colorable;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Deep_Ocean;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Flat;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Hills_Large;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Hills_Small;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Mountains_Large;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Mountains_Small;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Ocean;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Ocean_Flat;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Ocean_Hilly;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion.Extrusion;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion.ReplaceExtrusion;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.DepositableFeature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Feature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Featureable;
-import org.vicky.vspe.systems.Dimension.Generator.utils.GlobalPreprocessor;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locator;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.Base;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.BaseClass;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.HeightTemperatureRarityCalculationMethod;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.MetaClass;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.BasePalette;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.InlinePalette;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.Palette;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;
-import org.vicky.vspe.addon.util.BaseStructure;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Structures.DepositableStructure;
-import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.BiomeVariant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.ClimateVariant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.Variant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.progressbar.ProgressListener;
 import org.vicky.vspe.utilities.ZipUtils;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.*;
-import java.util.logging.Level;
-import java.util.zip.ZipOutputStream;
-
-import static org.vicky.vspe.systems.Dimension.Generator.utils.Meta.HeightTemperatureRarityCalculationMethod.SEPARATE;
-import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.*;
+import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.getIndentedBlock;
 
 public abstract class BaseGenerator {
-//TODO: River implementation, BaseGenerator cleanup, FileOrganisation
-    private final String packID;
-    private final String packVersion;
-    private final String packAuthors;
+   private final String packID;
+   private final String packVersion;
+   private final String packAuthors;
+   private final List<BaseBiome> BIOMES;
+   private final List<String> CUSTOM_STAGES;
+   private final List<Extrusion> CUSTOM_EXTRUSIONS;
+   private final Map<BiomeType, Integer> biomeTypeIntegerMap = new HashMap<>();
+   private final Map<String, List<String>> colorMap = new HashMap<>();
+   private final StringBuilder distributionYML = new StringBuilder();
+   private final StringBuilder defaultDeposits = new StringBuilder();
+   private final StringBuilder defaultOres = new StringBuilder();
+   private final List<Feature> INCLUDED_FEATURES;
+   private final List<Palette> INCLUDED_PALETTES;
+   private final List<DepositableStructure> INCLUDED_DEPOSITABLES;
+   private final List<DepositableStructure> INCLUDED_ORES;
+   private final List<BaseStructure> INCLUDED_STRUCTURES;
+   private final List<BaseExtendibles> INCLUDED_CUSTOM_BASE_EXTENDIBLES;
+   private final Map<BiomeVariant, List<Variant>> variantMap = new HashMap<>();
+   private final Map<String, Map<String, Integer>> groupedBiomes = new HashMap<>();
+   private final Map<BiomeVariant, Rarity> biomeRarityMap = new HashMap<>();
+   private final Map<ClimateVariant, List<Variant>> climateVariantListMap = new HashMap<>();
+   private final Map<ClimateVariant, BiomeVariant> climateVariantBiomeVariantMap = new HashMap<>();
+   private final Map<ClimateVariant, Rarity> climateVariantRarityMap = new HashMap<>();
+   private final Map<String, Set<String>> temperatureToHeightMap = new HashMap<>();
+   private final Set<BaseBiome> biomeSet = new HashSet<>();
+   private final Map<BaseBiome, Map<BiomeType, Rarity>> contextBiomeRarityMap = new HashMap<>();
+   public MetaClass META;
+   public BaseClass BASEClass;
+   Map<String, String> INCLUDED_COLOR_MAP;
+   Map<Class<? extends BiomeType>, Map<Temperature, Integer>> biomeTypeTemperatureMap = new HashMap<>();
+   private final Map<BiomeType, Integer> coastalBiomeMap = new HashMap<>();
+   private final Set<BiomeType> biomeTypes = new HashSet<>();
 
-    private final List<BaseBiome> BIOMES;
-    private final List<String> CUSTOM_STAGES;
-    private final List<Extrusion> CUSTOM_EXTRUSIONS;
-    private final Map<BiomeType, Integer> biomeTypeIntegerMap = new HashMap<>();
-    private final Map<String, List<String>> colorMap = new HashMap<>();
-    private final StringBuilder distributionYML = new StringBuilder();
-    private final StringBuilder defaultDeposits = new StringBuilder();
-    private final StringBuilder defaultOres = new StringBuilder();
-    private final List<Feature> INCLUDED_FEATURES;
-    private final List<Palette> INCLUDED_PALETTES;
-    private final List<DepositableStructure> INCLUDED_DEPOSITABLES;
-    private final List<DepositableStructure> INCLUDED_ORES;
-    private final List<BaseStructure> INCLUDED_STRUCTURES;
-    private final List<BaseExtendibles> INCLUDED_CUSTOM_BASE_EXTENDIBLES;
-    private final Map<BiomeVariant, List<Variant>> variantMap = new HashMap<>();
-    private final Map<String, Map<String, Integer>> groupedBiomes = new HashMap<>();
-    private final Map<BiomeVariant, Rarity> biomeRarityMap = new HashMap<>();
-    private final Map<ClimateVariant, List<Variant>> climateVariantListMap = new HashMap<>();
-    private final Map<ClimateVariant, BiomeVariant> climateVariantBiomeVariantMap = new HashMap<>();
-    private final Map<ClimateVariant, Rarity> climateVariantRarityMap = new HashMap<>();
-    private final Map<String, Set<String>> temperatureToHeightMap = new HashMap<>();
-    private final Set<BaseBiome> biomeSet = new HashSet<>();
-    private final Map<BaseBiome, Map<BiomeType, Rarity>> contextBiomeRarityMap = new HashMap<>();
-    public MetaClass META;
-    public Base BASE;
-    Map<String, String> INCLUDED_COLOR_MAP;
-    Map<Class<? extends BiomeType>, Map<Temperature, Integer>> biomeTypeTemperatureMap = new HashMap<>();
-    private final Map<BiomeType, Integer> coastalBiomeMap = new HashMap<>();
-    private final Set<BiomeType> biomeTypes = new HashSet<>();
+   public BaseGenerator(@NotNull String packID, String packVersion, String packAuthors) {
+      this.packID = packID.toUpperCase().replaceAll("^A-Z", "_");
+      this.packVersion = packVersion;
+      this.packAuthors = packAuthors;
+      this.BIOMES = new ArrayList<>();
+      this.CUSTOM_STAGES = new ArrayList<>();
+      this.CUSTOM_EXTRUSIONS = new ArrayList<>();
+      this.META = null;
+      this.BASEClass = null;
+      this.INCLUDED_CUSTOM_BASE_EXTENDIBLES = new ArrayList<>();
+      this.INCLUDED_FEATURES = new ArrayList<>();
+      this.INCLUDED_PALETTES = new ArrayList<>();
+      this.INCLUDED_STRUCTURES = new ArrayList<>();
+      this.INCLUDED_COLOR_MAP = new HashMap<>();
+      this.INCLUDED_DEPOSITABLES = new ArrayList<>();
+      this.INCLUDED_ORES = new ArrayList<>();
+      this.defaultDeposits.append("id: DEPOSITS_DEFAULT\ntype: BIOME\nabstract: true\n");
+      this.defaultOres.append("id: ORES_DEFAULT\ntype: BIOME\nabstract: true\n");
+   }
 
+   private static void addEntry(Map<String, List<String>> map, String key, String name) {
+      map.computeIfAbsent(key, k -> new ArrayList<>()).add(name);
+   }
 
-    public BaseGenerator(@NotNull String packID, String packVersion, String packAuthors) {
-        this.packID = packID.toUpperCase().replaceAll("^A-Z", "_");
-        this.packVersion = packVersion;
-        this.packAuthors = packAuthors;
-        this.BIOMES = new ArrayList<>();
-        this.CUSTOM_STAGES = new ArrayList<>();
-        this.CUSTOM_EXTRUSIONS = new ArrayList<>();
-        this.META = null;
-        this.BASE = null;
+   public String getGeneratorName() {
+      return "Terra:" + this.packID;
+   }
 
-        this.INCLUDED_CUSTOM_BASE_EXTENDIBLES = new ArrayList<>();
-        this.INCLUDED_FEATURES = new ArrayList<>();
-        this.INCLUDED_PALETTES = new ArrayList<>();
-        this.INCLUDED_STRUCTURES = new ArrayList<>();
-        this.INCLUDED_COLOR_MAP = new HashMap<>();
-        this.INCLUDED_DEPOSITABLES = new ArrayList<>();
-        this.INCLUDED_ORES = new ArrayList<>();
+   public void addBiome(BaseBiome biome) {
+      this.BIOMES.add(biome);
+   }
 
-        defaultDeposits.append("""
-                id: DEPOSITS_DEFAULT
-                type: BIOME
-                abstract: true
-                """);
+   public void addExtrusion(Extrusion extrusion) {
+      this.CUSTOM_EXTRUSIONS.add(extrusion);
+   }
 
-        defaultOres.append("""
-                id: ORES_DEFAULT
-                type: BIOME
-                abstract: true
-                """);
+   public void addStage(String stage) {
+      this.CUSTOM_STAGES.add(stage);
+   }
 
-    }
+   public void setMeta(MetaClass META) {
+      this.META = META;
+   }
 
-    private static void addEntry(Map<String, List<String>> map, String key, String name) {
-        map.computeIfAbsent(key, k -> new ArrayList<>()).add(name);
-    }
+   public void setBase(BaseClass BASEClass) {
+      this.BASEClass = BASEClass;
+   }
 
-    public String getGeneratorName() {
-        return "Terra:" + packID;
-    }
+   public void generatePack(ProgressListener progressListener) throws IOException {
+      int progress = 0;
+      progressListener.onProgressUpdate(progress, "Starting pack generation.");
+      File temporaryZip = Utilities.createTemporaryZipFile();
+      ZipUtils utils = new ZipUtils(new ZipOutputStream(new FileOutputStream(temporaryZip)));
+      progress += 5;
+      progressListener.onProgressUpdate(progress, "Temporary zip file created.");
+      Map<String, String> resourceMappings = Map.of(
+         "biomes/",
+         "assets/systems/dimension/biomes/",
+         "math/",
+         "assets/systems/dimension/math/",
+         "biome-distribution/",
+         "assets/systems/dimension/biome-providers/",
+         "palettes/",
+         "assets/systems/dimension/palettes/",
+         "structures/",
+         "assets/systems/dimension/structures/",
+         "features/",
+         "assets/systems/dimension/features/"
+      );
+      int totalSteps = resourceMappings.size();
 
-    public void addBiome(BaseBiome biome) {
-        BIOMES.add(biome);
-    }
+      for (Entry<String, String> entry : resourceMappings.entrySet()) {
+         String resourcePath = entry.getValue();
+         int secondLastSlashIndex = resourcePath.lastIndexOf("/", resourcePath.lastIndexOf("/") - 1);
+         String lastTrailingFolder = resourcePath.substring(secondLastSlashIndex + 1, resourcePath.lastIndexOf("/"));
+         utils.addResourceDirectoryToZip(entry.getValue(), entry.getKey(), lastTrailingFolder);
+         progress += 10 / totalSteps;
+         progressListener.onProgressUpdate(progress, "Resources written: " + entry.getKey());
+      }
 
-    public void addExtrusion(Extrusion extrusion) {
-        CUSTOM_EXTRUSIONS.add(extrusion);
-    }
+      utils.writeResourceToZip("assets/systems/dimension/customization.yml", "customization.yml");
+      Map<DepositableFeature.Type, Map<String, StringBuilder>> map = this.getDepositableFeaturesYml();
 
-    public void addStage(String stage) {
-        CUSTOM_STAGES.add(stage);
-    }
+      for (Entry<DepositableFeature.Type, Map<String, StringBuilder>> entry : map.entrySet()) {
+         if (entry.getKey().equals(DepositableFeature.Type.DEPOSIT)) {
+            this.writeMultipleYmlFiles(utils, entry.getValue(), "features/deposits/deposits/");
+         } else {
+            this.writeMultipleYmlFiles(utils, entry.getValue(), "features/deposits/ores/");
+         }
+      }
 
-    public void setMeta(MetaClass META) {
-        this.META = META;
-    }
+      progress += 10;
+      progressListener.onProgressUpdate(progress, "Depositable features written to features folder.");
+      utils.writeStringToBaseDirectory(this.getPackYml().toString(), "pack.yml");
+      progress += 5;
+      progressListener.onProgressUpdate(progress, "pack.yml written.");
+      utils.writeStringToBaseDirectory(this.getMetaYML().toString(), "meta.yml");
+      progress += 5;
+      progressListener.onProgressUpdate(progress, "Meta class written.");
+      this.writeYamlToZip(utils, this.getBaseYML(), "biomes/abstract/", "base.yml");
+      progress += 5;
+      progressListener.onProgressUpdate(progress, "BaseClass YAML written.");
+      this.writeYamlToZip(utils, this.defaultDeposits, "biomes/abstract/features/deposits/deposits/", "deposits_default.yml");
+      this.writeYamlToZip(utils, this.defaultOres, "biomes/abstract/features/deposits/ores/", "ores_default.yml");
+      progress += 5;
+      progressListener.onProgressUpdate(progress, "Default deposits and ores written.");
+      if (progress >= 90) {
+         progress = 75;
+      }
 
-    public void setBase(Base BASE) {
-        this.BASE = BASE;
-    }
+      this.writeMultipleYmlFiles(utils, this.generateExtrusions(), "biome-distribution/extrusions/");
 
-    public void generatePack(ProgressListener progressListener) throws IOException {
-        int progress = 0;
+      for (Entry<String, Map<String, StringBuilder>> biomes : this.getBiomesYml().entrySet()) {
+         this.writeMultipleYmlFiles(utils, biomes.getValue(), "biomes/" + biomes.getKey().toLowerCase() + "/");
+      }
 
-        progressListener.onProgressUpdate(progress, "Starting pack generation.");
+      this.writeYamlToZip(utils, this.generateColorsFile(), "biomes/", "colors.yml");
+      progress += 5;
+      progressListener.onProgressUpdate(progress, "Biome colors saved to colors.yml file");
+      if (!this.outputBiomeVariants().isEmpty()) {
+         this.writeYamlToZip(utils, this.outputBiomeVariants(), "biome-distribution/stages/", "add_variants.yml");
+      }
 
-        File temporaryZip = createTemporaryZipFile();
-        ZipUtils utils = new ZipUtils(new ZipOutputStream(new FileOutputStream(temporaryZip)));
+      progress += 10;
+      progressListener.onProgressUpdate(progress, "Biomes and sources written.");
 
-        progress += 5;
-        progressListener.onProgressUpdate(progress, "Temporary zip file created.");
+      for (Entry<String, Map<String, StringBuilder>> features : this.getFeaturesYml().entrySet()) {
+         this.writeMultipleYmlFiles(utils, features.getValue(), "features/" + features.getKey().toLowerCase() + "/");
+      }
 
-        Map<String, String> resourceMappings = Map.of(
-                "biomes/", ("assets/systems/dimension/biomes/"),
-                "math/", ("assets/systems/dimension/math/"),
-                "biome-distribution/", ("assets/systems/dimension/biome-providers/"),
-                "palettes/", ("assets/systems/dimension/palettes/"),
-                "structures/", ("assets/systems/dimension/structures/"),
-                "features/", ("assets/systems/dimension/features/")
-        );
-        int totalSteps = resourceMappings.size();
-        for (Map.Entry<String, String> entry : resourceMappings.entrySet()) {
-            String resourcePath = entry.getValue();
-            int secondLastSlashIndex = resourcePath.lastIndexOf("/", resourcePath.lastIndexOf("/") - 1);
-            String lastTrailingFolder = resourcePath.substring(secondLastSlashIndex + 1, resourcePath.lastIndexOf("/"));
+      if (!this.getPalettesYml().isEmpty()) {
+         this.writeMultipleYmlFiles(utils, this.getPalettesYml(), "palettes/");
+         progress += 10;
+         progressListener.onProgressUpdate(progress, "Biome Palettes saved");
+      }
 
-            utils.addResourceDirectoryToZip(entry.getValue(), entry.getKey(), lastTrailingFolder);
-            progress += 10 / totalSteps;
-            progressListener.onProgressUpdate(progress, "Resources written: " + entry.getKey());
-        }
+      if (!this.generateCoasts().isEmpty()) {
+         this.writeYamlToZip(utils, this.generateCoasts(), "biome-distribution/stages/", "coasts.yml");
+         progress += 10;
+         progressListener.onProgressUpdate(progress, "Coasts stage produced");
+         if (!this.generateFillCoasts().isEmpty()) {
+            this.writeYamlToZip(utils, this.generateFillCoasts(), "biome-distribution/stages/", "fill_coasts.yml");
+            progress += 10;
+            progressListener.onProgressUpdate(progress, "Fill Coasts stage produced");
+         }
+      }
 
-        utils.writeResourceToZip("assets/systems/dimension/customization.yml", "customization.yml");
+      if (progress >= 100) {
+         progress -= 25;
+      }
 
-        // Depositable Features
-        Map<DepositableFeature.Type, Map<String, StringBuilder>> map = getDepositableFeaturesYml();
-        for (Map.Entry<DepositableFeature.Type, Map<String, StringBuilder>> entry : map.entrySet()) {
-            if (entry.getKey().equals(DepositableFeature.Type.DEPOSIT)) {
-                writeMultipleYmlFiles(utils, entry.getValue(), "features/deposits/deposits/");
+      if (!this.generateOceans().isEmpty()) {
+         this.writeYamlToZip(utils, this.generateOceans(), "biome-distribution/stages/", "oceans.yml");
+         progress += 10;
+         progressListener.onProgressUpdate(progress, "Oceans stage produced");
+      }
+
+      if (!this.generateFTZ().isEmpty()) {
+         this.writeYamlToZip(utils, this.generateFTZ(), "biome-distribution/stages/", "fill_temperature_zones.yml");
+         progress += 10;
+         progressListener.onProgressUpdate(progress, "FTZ stage produced");
+      }
+
+      if (!this.generateSTZ().isEmpty()) {
+         this.writeYamlToZip(utils, this.generateSTZ(), "biome-distribution/stages/", "spread_temperature_zones.yml");
+         progress += 10;
+         progressListener.onProgressUpdate(progress, "STZ stage produced");
+      }
+
+      this.writeYamlToZip(utils, this.generatePreset(), "biome-distribution/presets/", "default.yml");
+      progress += 5;
+      progressListener.onProgressUpdate(progress, "Default biome provider written.");
+      utils.close();
+      this.handleFinalFileOperations(temporaryZip);
+      int var21 = 100;
+      progressListener.onProgressUpdate(var21, "Pack generation complete.");
+   }
+
+   public void writeMultipleYmlFiles(ZipUtils zipUtils, Map<String, StringBuilder> entries, String folder) {
+      for (Entry<String, StringBuilder> file : entries.entrySet()) {
+         this.writeYamlToZip(zipUtils, file.getValue(), folder, file.getKey() + ".yml");
+      }
+   }
+
+   private void writeYamlToZip(ZipUtils zipUtils, StringBuilder content, String path, String fileName) {
+      try {
+         zipUtils.writeStringToZip(content.toString(), path, fileName);
+      } catch (Exception var6) {
+         VSPE.getInstancedLogger().severe("Failed to write to zip: " + var6);
+      }
+   }
+
+   private void handleFinalFileOperations(File temporaryZip) throws IOException {
+      File renamedFile = new File(temporaryZip.getParent(), this.packID + "-" + this.packVersion + ".zip");
+      if (!temporaryZip.renameTo(renamedFile)) {
+         VSPE.getInstancedLogger().info("Failed to rename file");
+      }
+
+      File copiedFile = new File(VSPE.getPlugin().getDataFolder().getParent(), "Terra/packs/" + renamedFile.getName());
+      Files.copy(renamedFile.toPath(), copiedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      VSPE.getInstancedLogger().info("File moved to Terra @ " + copiedFile.getPath());
+      if (renamedFile.delete()) {
+         VSPE.getInstancedLogger().info("Temporary file deleted.");
+      } else {
+         VSPE.getInstancedLogger().info("Failed to delete the original file.");
+      }
+   }
+
+   public String getPackID() {
+      return this.packID;
+   }
+
+   public String getPackVersion() {
+      return this.packVersion;
+   }
+
+   @NotNull
+   private StringBuilder getPackYml() {
+      StringBuilder packYml = new StringBuilder();
+      packYml.append("id: ").append(this.packID).append("\n");
+      packYml.append("version: ").append(this.packVersion).append("\n");
+      packYml.append("author: ").append(this.packAuthors).append("\n");
+      packYml.append(
+            "addons:\n  biome-provider-pipeline-v2: \"1.+\"\n  biome-provider-single: \"1.+\"\n  biome-provider-extrusion: \"1.+\"\n  chunk-generator-noise-3d: \"1.+\"\n  config-biome: \"1.+\"\n  config-flora: \"1.+\"\n  config-noise-function: \"1.+\"\n  config-ore: \"1.+\"\n  config-palette: \"1.+\"\n  config-distributors: \"1.+\"\n  config-locators: \"1.+\"\n  config-feature: \"1.+\"\n  structure-terrascript-loader: \"1.+\"\n  structure-sponge-loader: \"1.+\"\n  language-yaml: \"1.+\"\n  generation-stage-feature: \"1.+\"\n  structure-function-check-noise-3d: \"1.+\"\n  palette-block-shortcut: \"1.+\"\n  structure-block-shortcut: \"1.+\"\n  terrascript-function-sampler: \"1.+\"\n  VSPE_Structure_Loader: \"1.+\"\n\ngenerator: NOISE_3D\n\nbiomes: $biome-distribution/presets/default.yml:biomes\n\nstages:\n  - id: global-preprocessors\n    type: FEATURE\n  - id: preprocessors\n    type: FEATURE\n  - id: landforms\n    type: FEATURE\n  - id: slabs\n    type: FEATURE\n  - id: ores\n    type: FEATURE\n  - id: deposits\n    type: FEATURE\n  - id: river-decoration\n    type: FEATURE\n  - id: trees\n    type: FEATURE\n  - id: underwater-flora\n    type: FEATURE\n  - id: flora\n    type: FEATURE\n  - id: postprocessors\n    type: FEATURE\nfunctions:\n  '<<':\n    - 'math/functions/terrace.yml:functions'\n    - 'math/functions/interpolation.yml:functions'\n    - 'math/functions/maskSmooth.yml:functions'\n    - 'math/functions/clamp.yml:functions'\nsamplers:\n  '<<':\n    - 'math/samplers/terrain.yml:samplers'\n    - 'math/samplers/simplex.yml:samplers'\n    - 'math/samplers/continents.yml:samplers'\n    - 'math/samplers/precipitation.yml:samplers'\n    - 'math/samplers/temperature.yml:samplers'\n    - 'math/samplers/rivers.yml:samplers'\n    - 'math/samplers/spots.yml:samplers'\nblend:\n  palette:\n    resolution: 2\n    amplitude: 2\n    sampler:\n      type: WHITE_NOISE\nslant:\n  calculation-method: DotProduct\n\n"
+         )
+         .append("\n");
+      return packYml;
+   }
+
+   @NotNull
+   private StringBuilder getMetaYML() {
+      return this.META.getYml();
+   }
+
+   @NotNull
+   private StringBuilder getBaseYML() {
+      StringBuilder baseYML = new StringBuilder();
+      baseYML.append("id: BASE\ntype: BIOME\nabstract: true\nextends:\n  - DEPOSITS_DEFAULT\n  - ORES_DEFAULT\n")
+         .append("slant-depth: ")
+         .append(this.BASEClass.getSlantDepth())
+         .append("\n")
+         .append("ocean:\n  palette: BLOCK:minecraft:water\n")
+         .append("  level: ")
+         .append(this.BASEClass.getOceanLevel())
+         .append("\n")
+         .append("features:\n");
+      if (!this.BASEClass.getEnabledPreProcessor().isEmpty()) {
+         baseYML.append("  global-preprocessors: \n");
+
+         for (GlobalPreprocessor preprocessor : this.BASEClass.getEnabledPreProcessor()) {
+            baseYML.append("   - ").append(preprocessor).append("\n");
+         }
+      }
+
+      return baseYML;
+   }
+
+   @NotNull
+   private Map<String, Map<String, StringBuilder>> getBiomesYml() {
+      Map<String, Map<String, StringBuilder>> biomes = new HashMap<>();
+      Map<String, BaseBiome> biomeIds = new HashMap<>();
+
+      for (BaseBiome biome : this.BIOMES) {
+         addEntry(this.colorMap, biome.getBiomeColor(), biome.getId());
+         if (biomeIds.containsKey(biome.getId())) {
+            VSPE.getInstancedLogger()
+               .warning(
+                  "Biome "
+                     + biome.getClass()
+                     + " has identical cleaned id with biome"
+                     + biomeIds.get(biome.getId()).getClass()
+                     + ". Please resolve this issue as we will try but things might(will) be broken"
+               );
+            biome.setID(Utilities.getCleanedID(biome.getUncleanedId() + "_cleaned_from_" + Utilities.generateRandomFourLetterString()));
+         } else {
+            biomeIds.put(biome.getId(), biome);
+         }
+      }
+
+      this.generateColorsFile();
+
+      for (BaseBiome biomex : this.BIOMES) {
+         StringBuilder builder = new StringBuilder();
+         builder.append("id: ").append(biomex.getId()).append("\n");
+         builder.append("type: BIOME").append("\n");
+         if (!biomex.customExtendibles.isEmpty() || !biomex.extendibles.isEmpty() || !biomex.biomeExtendibles.isEmpty()) {
+            builder.append("extends: [ ");
+            boolean firstElement = true;
+
+            for (BaseExtendibles customExtendible : biomex.getCustomExtendibles()) {
+               if (!firstElement) {
+                  builder.append(", ");
+               }
+
+               builder.append(customExtendible.getId());
+               firstElement = false;
+               this.INCLUDED_CUSTOM_BASE_EXTENDIBLES.add(customExtendible);
+            }
+
+            for (String biomeExtendible : biomex.getBiomeExtendibles()) {
+               if (!firstElement) {
+                  builder.append(", ");
+               }
+
+               builder.append(biomeExtendible);
+               firstElement = false;
+            }
+
+            for (Extendibles extendible : biomex.getExtendibles()) {
+               if (!firstElement) {
+                  builder.append(", ");
+               }
+
+               builder.append(extendible);
+               firstElement = false;
+            }
+
+            builder.append(" ]").append("\n");
+         }
+
+         builder.append("vanilla: ").append(biomex.getBiome()).append("\n");
+         builder.append("color: $biomes/colors.yml:").append(this.INCLUDED_COLOR_MAP.get(biomex.getBiomeColor())).append("\n");
+         if (!biomex.getTags().isEmpty()) {
+            builder.append("tags: ").append("\n");
+
+            for (Tags tag : biomex.getTags()) {
+               builder.append(" - ").append(tag).append("\n");
+            }
+         }
+
+         if (!biomex.getColors().isEmpty()) {
+            builder.append("colors: ").append("\n");
+
+            for (Entry<Colorable, String> entry : biomex.colors.entrySet()) {
+               builder.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+            }
+         }
+
+         if (!biomex.palettes.isEmpty()) {
+            builder.append("palette: ").append("\n");
+
+            for (Entry<Palette, Object> entry : biomex.getPalettes().entrySet()) {
+               builder.append(" - ").append(entry.getKey().id).append(": ").append(entry.getValue()).append("\n");
+               this.INCLUDED_PALETTES.add(entry.getKey());
+            }
+
+            builder.append(" - << meta.yml:palette-bottom").append("\n");
+         }
+
+         if (!biomex.slant.isEmpty()) {
+            builder.append("slant: ").append("\n");
+
+            for (Entry<Integer, Map<BasePalette, Integer>> entry : biomex.getSlant().entrySet()) {
+               builder.append(" - threshold: ").append(entry.getKey()).append("\n");
+               builder.append("   palette: ").append("\n");
+
+               for (Entry<BasePalette, Integer> palette : entry.getValue().entrySet()) {
+                  if (palette.getKey() instanceof InlinePalette) {
+                     for (String string : ((InlinePalette)palette.getKey()).inlinePaletteVariables) {
+                        builder.append("   - ").append(string).append("\n");
+                     }
+                  } else if (palette.getKey() instanceof Palette) {
+                     builder.append("   - ").append(((Palette)palette.getKey()).id).append("\n");
+                     this.INCLUDED_PALETTES.add((Palette)palette.getKey());
+                  }
+               }
+            }
+         }
+
+         if (!biomex.features.isEmpty()) {
+            builder.append("features: ").append("\n");
+
+            for (Entry<Featureable, List<Feature>> entry : biomex.getFeatures().entrySet()) {
+               builder.append("  ").append(entry.getKey().toString().toLowerCase()).append(": ").append("\n");
+
+               for (Feature features : entry.getValue()) {
+                  builder.append("   - ").append(features.getId()).append("\n");
+                  if (this.INCLUDED_FEATURES.stream().noneMatch(feature -> feature.getClass() == features.getClass())) {
+                     this.INCLUDED_FEATURES.add(features);
+                  }
+               }
+            }
+         }
+
+         if (biomex.terrain != null) {
+            builder.append("terrain: ").append("\n").append(getIndentedBlock(biomex.terrain.getYml().toString(), "  ")).append("\n");
+         }
+
+         if (biomex instanceof Variant variant) {
+            if (variant.getVariantOf() != null) {
+               BiomeVariant biomeVariant = variant.getVariantOf();
+               Rarity rarity = variant.getVariantRarity();
+               this.variantMap.computeIfAbsent(biomeVariant, k -> new ArrayList<>()).add(variant);
+               this.biomeRarityMap.put(biomeVariant, rarity);
+               VSPE.getInstancedLogger().info("Added Variant: " + variant + " to BiomeVariant: " + biomeVariant);
+            }
+
+            if (variant.getClimateVariantOf() != null) {
+               ClimateVariant climateVariant = variant.getClimateVariantOf();
+               Rarity rarity = variant.getVariantRarity();
+               this.climateVariantListMap.computeIfAbsent(climateVariant, k -> new ArrayList<>()).add(variant);
+               this.climateVariantRarityMap.put(climateVariant, rarity);
+               VSPE.getInstancedLogger().info("Added Variant: " + variant + " to ClimateVariant: " + climateVariant);
+            }
+         } else if (biomex instanceof BiomeVariant biomeVariant) {
+            String variantName = biomeVariant.getVariantName();
+            Rarity selfRarity = biomeVariant.getSelfRarity();
+            this.biomeRarityMap.putIfAbsent(biomeVariant, selfRarity);
+            VSPE.getInstancedLogger().info("Added BiomeVariant: " + variantName + " with rarity: " + selfRarity);
+         } else if (biomex instanceof ClimateVariant climateVariant) {
+            String variantName = climateVariant.getVariantName();
+            Rarity selfRarity = climateVariant.getSelfRarity();
+            this.climateVariantRarityMap.putIfAbsent(climateVariant, selfRarity);
+            VSPE.getInstancedLogger().info("Added ClimateVariant: " + variantName + " with rarity: " + selfRarity);
+         }
+
+         if (biomex instanceof BiomeVariant biomeVariant && biomex instanceof Variant variant && variant.getClimateVariantOf() != null) {
+            this.climateVariantBiomeVariantMap.put(variant.getClimateVariantOf(), biomeVariant);
+         }
+
+         if (biomex.biomeType.isCoast()) {
+            this.coastalBiomeMap.put(biomex.biomeType, this.biomeTypeIntegerMap.getOrDefault(biomex.biomeType, 0) + 1);
+         } else {
+            BiomeType type = biomex.biomeType;
+            Temperature temperature = Temperature.valueOf(type.getTemperate());
+            if (type.isCoast()) {
+               this.coastalBiomeMap.put(type, this.coastalBiomeMap.getOrDefault(biomex.biomeType, 0) + 1);
             } else {
-                writeMultipleYmlFiles(utils, entry.getValue(), "features/deposits/ores/");
+               Map<Temperature, Integer> temperatureMap = this.biomeTypeTemperatureMap
+                  .computeIfAbsent((Class<? extends BiomeType>)type.getClass(), k -> new HashMap<>());
+               temperatureMap.merge(temperature, 1, Integer::sum);
             }
-        }
-        progress += 10;
-        progressListener.onProgressUpdate(progress, "Depositable features written to features folder.");
+         }
 
-        utils.writeStringToBaseDirectory(getPackYml().toString(), "pack.yml");
-        progress += 5;
-        progressListener.onProgressUpdate(progress, "pack.yml written.");
+         this.contextBiomeRarityMap.put(biomex, Map.of(biomex.biomeType, biomex.rarity));
+         this.biomeTypes.add(biomex.biomeType);
+         this.biomeSet.add(biomex);
+         biomes.computeIfAbsent(biomex.biomeType.getName(), k -> new HashMap<>()).put(biomex.getId(), builder);
+      }
 
-        utils.writeStringToBaseDirectory(getMetaYML().toString(), "meta.yml");
-        progress += 5;
-        progressListener.onProgressUpdate(progress, "Meta class written.");
+      return biomes;
+   }
 
-        writeYamlToZip(utils, getBaseYML(), "biomes/abstract/", "base.yml");
-        progress += 5;
-        progressListener.onProgressUpdate(progress, "Base YAML written.");
+   @NotNull
+   private StringBuilder generateColorsFile() {
+      StringBuilder builder = new StringBuilder();
+      builder.append("DRIPSTONE_CAVES: 0x1c1a11").append("\n");
 
-        writeYamlToZip(utils, defaultDeposits, "biomes/abstract/features/deposits/deposits/", "deposits_default.yml");
-        writeYamlToZip(utils, defaultOres, "biomes/abstract/features/deposits/ores/", "ores_default.yml");
-        progress += 5;
-        progressListener.onProgressUpdate(progress, "Default deposits and ores written.");
+      for (Entry<String, List<String>> entry : this.colorMap.entrySet()) {
+         String key = entry.getKey();
+         String commonName = Utilities.generateCommonName(entry.getValue());
+         this.INCLUDED_COLOR_MAP.put(key, commonName);
+         builder.append(commonName).append(": ").append(key).append("\n");
+      }
 
+      return builder;
+   }
 
-        if (progress >= 90)
-            progress = 75;
-        writeMultipleYmlFiles(utils, generateExtrusions(), "biome-distribution/extrusions/");
+   @NotNull
+   private Map<String, Map<String, StringBuilder>> getFeaturesYml() {
+      Map<String, Map<String, StringBuilder>> builderMap = new HashMap<>();
 
-        writeMultipleYmlFiles(utils, getBiomesYml(), "biomes/");
-        writeYamlToZip(utils, generateColorsFile(), "biomes/", "colors.yml");
-        progress += 5;
-        progressListener.onProgressUpdate(progress, "Biome colors saved to colors.yml file");
-
-        if (!outputBiomeVariants().isEmpty())
-            writeYamlToZip(utils, outputBiomeVariants(), "biome-distribution/stages/", "add_variants.yml");
-        progress += 10;
-        progressListener.onProgressUpdate(progress, "Biomes and sources written.");
-
-        writeMultipleYmlFiles(utils, getFeaturesYml(), "features/");
-
-        if (!getPalettesYml().isEmpty()) {
-            writeMultipleYmlFiles(utils, getPalettesYml(), "palettes/");
-            progress += 10;
-            progressListener.onProgressUpdate(progress, "Biome Palettes saved");
-        }
-
-        if (!generateCoasts().isEmpty()) {
-            writeYamlToZip(utils, generateCoasts(), "biome-distribution/stages/", "coasts.yml");
-            progress += 10;
-            progressListener.onProgressUpdate(progress, "Coasts stage produced");
-
-            if (!generateFillCoasts().isEmpty()) {
-                writeYamlToZip(utils, generateFillCoasts(), "biome-distribution/stages/", "fill_coasts.yml");
-                progress += 10;
-                progressListener.onProgressUpdate(progress, "Fill Coasts stage produced");
+      for (Feature feature : this.INCLUDED_FEATURES) {
+         StringBuilder builder = new StringBuilder();
+         builder.append("id: ").append(feature.getId()).append("\n");
+         builder.append("type: FEATURE").append("\n");
+         if (feature.getDistributor() != null) {
+            builder.append("distributor: ").append("\n");
+            if (feature.getDistributor() instanceof Locator) {
+               builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
+            } else if (feature.getDistributor() instanceof NoiseSampler) {
+               builder.append("type: ").append(((NoiseSampler)feature.getDistributor()).name()).append("\n");
+               builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
             }
-        }
+         }
 
-        if (progress >= 100)
-            progress -= 25;
+         if (feature.getLocator() != null) {
+            builder.append("locator: ").append("\n");
+            builder.append(getIndentedBlock(feature.getLocator().getYml().toString(), "  ")).append("\n");
+         }
 
-        if (!generateOceans().isEmpty()) {
-            writeYamlToZip(utils, generateOceans(), "biome-distribution/stages/", "oceans.yml");
-            progress += 10;
-            progressListener.onProgressUpdate(progress, "Oceans stage produced");
-        }
+         builder.append("structures: ").append("\n");
+         if (feature.getStructureDistributor() != null) {
+            builder.append("  distribution: ").append("\n");
+            builder.append(getIndentedBlock(feature.getStructureDistributor().getYml().toString(), "    ")).append("\n");
+         }
 
-        if (!generateFTZ().isEmpty()) {
-            writeYamlToZip(utils, generateFTZ(), "biome-distribution/stages/", "fill_temperature_zones.yml");
-            progress += 10;
-            progressListener.onProgressUpdate(progress, "FTZ stage produced");
-        }
+         if (!feature.getStructures().isEmpty()) {
+            builder.append("  structures: ").append("\n");
 
-        if (!generateSTZ().isEmpty()) {
-            writeYamlToZip(utils, generateSTZ(), "biome-distribution/stages/", "spread_temperature_zones.yml");
-            progress += 10;
-            progressListener.onProgressUpdate(progress, "STZ stage produced");
-        }
+            for (Entry<Object, Integer> structure : feature.getStructures().entrySet()) {
+               if (structure.getKey() instanceof BaseStructure) {
+                  if (this.INCLUDED_STRUCTURES.stream().noneMatch(structure1 -> structure1.getClass() == structure.getKey().getClass())) {
+                     this.INCLUDED_STRUCTURES.add((BaseStructure)structure.getKey());
+                     builder.append("   - ").append(((BaseStructure)structure.getKey()).getId());
+                  }
+               } else {
+                  builder.append("   - ").append(structure.getKey());
+               }
 
-        writeYamlToZip(utils, generatePreset(), "biome-distribution/presets/", "default.yml");
-        progress += 5;
-        progressListener.onProgressUpdate(progress, "Default biome provider written.");
-
-        addStructuresToVSPE();
-        progress += 20;
-        progressListener.onProgressUpdate(progress, "Structures and final files written.");
-        utils.close();
-
-        handleFinalFileOperations(temporaryZip);
-        progress = 100;
-        progressListener.onProgressUpdate(progress, "Pack generation complete.");
-    }
-
-    private void addStructuresToVSPE() {
-        for (BaseStructure structure : INCLUDED_STRUCTURES) {
-            VSPE.addInstancedStructure(structure.getClass());
-        }
-    }
-
-    public void writeMultipleYmlFiles(ZipUtils zipUtils, Map<String, StringBuilder> entries, String folder) {
-        for (Map.Entry<String, StringBuilder> file : entries.entrySet()) {
-            writeYamlToZip(zipUtils, file.getValue(), folder, file.getKey() + ".yml");
-        }
-    }
-
-    private void writeYamlToZip(ZipUtils zipUtils, StringBuilder content, String path, String fileName) {
-        try {
-            zipUtils.writeStringToZip(content.toString(), path, fileName);
-        } catch (Exception e) {
-            VSPE.getInstancedLogger().severe("Failed to write to zip: " + e);
-        }
-    }
-
-    private void handleFinalFileOperations(File temporaryZip) throws IOException {
-        File renamedFile = new File(temporaryZip.getParent(), packID + "-" + packVersion + ".zip");
-        if (!temporaryZip.renameTo(renamedFile)) {
-            VSPE.getInstancedLogger().info("Failed to rename file");
-        }
-
-        File copiedFile = new File(VSPE.getPlugin().getDataFolder().getParent(), "Terra/packs/" + renamedFile.getName());
-        Files.copy(renamedFile.toPath(), copiedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        VSPE.getInstancedLogger().info("File moved to Terra @ " + copiedFile.getPath());
-
-        if (renamedFile.delete()) {
-            VSPE.getInstancedLogger().info("Temporary file deleted.");
-        } else {
-            VSPE.getInstancedLogger().info("Failed to delete the original file.");
-        }
-    }
-
-    public String getPackID() {
-        return packID;
-    }
-
-    public String getPackVersion() {
-        return packVersion;
-    }
-
-    @NotNull
-    private StringBuilder getPackYml() {
-        StringBuilder packYml = new StringBuilder();
-        packYml.append("id: ").append(packID).append("\n");
-        packYml.append("version: ").append(packVersion).append("\n");
-        packYml.append("author: ").append(packAuthors).append("\n");
-        packYml.append(
-                """
-                        addons:
-                          biome-provider-pipeline-v2: "1.+"
-                          biome-provider-single: "1.+"
-                          biome-provider-extrusion: "1.+"
-                          chunk-generator-noise-3d: "1.+"
-                          config-biome: "1.+"
-                          config-flora: "1.+"
-                          config-noise-function: "1.+"
-                          config-ore: "1.+"
-                          config-palette: "1.+"
-                          config-distributors: "1.+"
-                          config-locators: "1.+"
-                          config-feature: "1.+"
-                          structure-terrascript-loader: "1.+"
-                          structure-sponge-loader: "1.+"
-                          language-yaml: "1.+"
-                          generation-stage-feature: "1.+"
-                          structure-function-check-noise-3d: "1.+"
-                          palette-block-shortcut: "1.+"
-                          structure-block-shortcut: "1.+"
-                          terrascript-function-sampler: "1.+"
-                          VSPE_Structure_Loader: "1.+"
-                            
-                        generator: NOISE_3D
-                                        
-                        biomes: $biome-distribution/presets/default.yml:biomes
-                            
-                        stages:
-                          - id: global-preprocessors
-                            type: FEATURE
-                          - id: preprocessors
-                            type: FEATURE
-                          - id: landforms
-                            type: FEATURE
-                          - id: slabs
-                            type: FEATURE
-                          - id: ores
-                            type: FEATURE
-                          - id: deposits
-                            type: FEATURE
-                          - id: river-decoration
-                            type: FEATURE
-                          - id: trees
-                            type: FEATURE
-                          - id: underwater-flora
-                            type: FEATURE
-                          - id: flora
-                            type: FEATURE
-                          - id: postprocessors
-                            type: FEATURE
-                        functions:
-                          '<<':
-                            - 'math/functions/terrace.yml:functions'
-                            - 'math/functions/interpolation.yml:functions'
-                            - 'math/functions/maskSmooth.yml:functions'
-                            - 'math/functions/clamp.yml:functions'
-                        samplers:
-                          '<<':
-                            - 'math/samplers/terrain.yml:samplers'
-                            - 'math/samplers/simplex.yml:samplers'
-                            - 'math/samplers/continents.yml:samplers'
-                            - 'math/samplers/precipitation.yml:samplers'
-                            - 'math/samplers/temperature.yml:samplers'
-                            - 'math/samplers/rivers.yml:samplers'
-                            - 'math/samplers/spots.yml:samplers'
-                        blend:
-                          palette:
-                            resolution: 2
-                            amplitude: 2
-                            sampler:
-                              type: WHITE_NOISE
-                        slant:
-                          calculation-method: DotProduct
-                                        
-                        """
-        ).append("\n");
-        return packYml;
-    }
-
-    @NotNull
-    private StringBuilder getMetaYML() {
-        return META.getYml();
-    }
-
-    @NotNull
-    private StringBuilder getBaseYML() {
-        StringBuilder baseYML = new StringBuilder();
-        baseYML.append("""
-                        id: BASE
-                        type: BIOME
-                        abstract: true
-                        extends:
-                          - DEPOSITS_DEFAULT
-                          - ORES_DEFAULT
-                        """)
-                .append("slant-depth: ").append(BASE.getSlantDepth()).append("\n")
-                .append("""
-                        ocean:
-                          palette: BLOCK:minecraft:water
-                          """)
-                .append("  level: ").append(BASE.getOceanLevel()).append("\n")
-                .append("""
-                        features:
-                        """);
-        if (!BASE.getEnabledPreProcessor().isEmpty()) {
-            baseYML.append("  global-preprocessors: \n");
-            for (GlobalPreprocessor preprocessor : BASE.getEnabledPreProcessor()) {
-                baseYML.append("   - ").append(preprocessor).append("\n");
+               builder.append(": ").append(structure.getValue()).append("\n");
             }
-        }
+         }
 
-        return baseYML;
-    }
+         builderMap.computeIfAbsent(feature.getType().name(), k -> new HashMap<>()).put(feature.getId(), builder);
+      }
 
-    @NotNull
-    private Map<String, StringBuilder> getBiomesYml() {
-        Map<String, StringBuilder> biomes = new HashMap<>();
-        Map<String, BaseBiome> biomeIds = new HashMap<>();
+      return builderMap;
+   }
 
-        for (BaseBiome biome : BIOMES) {
-            addEntry(colorMap, biome.getBiomeColor(), biome.getId());
-            if (biomeIds.containsKey(biome.getId())) {
-                VSPE.getInstancedLogger().warning("Biome " + biome.getClass() + " has identical cleaned id with biome" + biomeIds.get(biome.getId()).getClass() + ". Please resolve this issue as we will try but things might(will) be broken");
-                biome.setID(getCleanedID(biome.getUncleanedId() + "_cleaned_from_" + Utilities.generateRandomFourLetterString()));
+   @NotNull
+   private Map<String, StringBuilder> getPalettesYml() {
+      Map<String, StringBuilder> builderMap = new HashMap<>();
+
+      for (Palette palette : this.INCLUDED_PALETTES) {
+         builderMap.put(palette.getId(), palette.getYml());
+      }
+
+      return builderMap;
+   }
+
+   @NotNull
+   private Map<DepositableFeature.Type, Map<String, StringBuilder>> getDepositableFeaturesYml() {
+      Map<DepositableFeature.Type, Map<String, StringBuilder>> mainMap = new HashMap<>();
+      Map<String, StringBuilder> builderDepositMap = new HashMap<>();
+      Map<String, StringBuilder> builderOreMap = new HashMap<>();
+      this.distributionYML.append("# [----------------------------- DEPOSITABLES -----------------------------]").append("\n");
+      if (!this.BASEClass.getDefaultDeposits().isEmpty()) {
+         this.defaultDeposits.append("features:\n  deposits:\n");
+      }
+
+      if (!this.BASEClass.getDefaultOres().isEmpty()) {
+         this.defaultOres.append("features:\n  ores:\n");
+      }
+
+      for (DepositableFeature feature : this.BASEClass.getDefaultDeposits()) {
+         this.distributionYML.append(feature.getId().toLowerCase().replaceAll("[^a-z]", "_")).append("\n");
+         this.distributionYML.append("  averageCountPerChunk: ").append(feature.rarity.rarityValue).append("\n");
+         this.distributionYML.append("  salt: ").append(feature.salt).append("\n");
+         this.distributionYML.append("  range: ").append(feature.salt).append("\n");
+         this.distributionYML.append("    max: ").append(feature.yLevelRange.getMax()).append("\n");
+         this.distributionYML.append("    min: ").append(feature.yLevelRange.getMin()).append("\n");
+         this.defaultDeposits.append("  - ").append(feature.getId()).append("\n");
+         StringBuilder builder = new StringBuilder();
+         builder.append("id: ").append(feature.getId()).append("\n");
+         builder.append("type: FEATURE").append("\n");
+         builder.append("anchors:").append("\n");
+         if (!feature.anchorStructures.isEmpty()) {
+            builder.append("&structure: ").append("\n");
+
+            for (DepositableStructure structure : feature.anchorStructures) {
+               builder.append(" - ").append(structure.getId()).append("\n");
             }
-            else {
-                biomeIds.put(biome.getId(), biome);
+         }
+
+         builder.append(
+               "  - &densityThreshold 1/256 * ${features/deposits/distribution.yml:clay.averageCountPerChunk} # Divide by 16^2 to get % per column\n  - &salt $features/deposits/distribution.yml:clay.salt\n  - &range $features/deposits/distribution.yml:clay.range\n\ndistributor:\n  type: SAMPLER\n  sampler:\n    type: POSITIVE_WHITE_NOISE\n    salt: *salt\n  threshold: *densityThreshold\n"
+            )
+            .append("\n");
+         builder.append("locator: ").append("\n");
+         builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
+         builder.append("structures:\n  distribution:\n    type: CONSTANT\n  structures: *structure\n");
+         builderDepositMap.put(feature.getId(), builder);
+         this.INCLUDED_DEPOSITABLES.addAll(feature.anchorStructures);
+      }
+
+      this.distributionYML.append("# [----------------------------- ORES -----------------------------]").append("\n");
+      mainMap.put(DepositableFeature.Type.DEPOSIT, builderDepositMap);
+
+      for (DepositableFeature feature : this.BASEClass.getDefaultOres()) {
+         this.distributionYML.append(feature.getId().toLowerCase().replaceAll("[^a-z]", "_")).append("\n");
+         this.distributionYML.append("  averageCountPerChunk: ").append(feature.rarity.rarityValue).append("\n");
+         this.distributionYML.append("  salt: ").append(feature.salt).append("\n");
+         this.distributionYML.append("  range: ").append(feature.salt).append("\n");
+         this.distributionYML.append("    max: ").append(feature.yLevelRange.getMax()).append("\n");
+         this.distributionYML.append("    min: ").append(feature.yLevelRange.getMin()).append("\n");
+         this.defaultOres.append("  - ").append(feature.getId()).append("\n");
+         StringBuilder builder = new StringBuilder();
+         builder.append("anchors:").append("\n");
+         if (!feature.anchorStructures.isEmpty()) {
+            builder.append("&structure: ").append("\n");
+
+            for (DepositableStructure structure : feature.anchorStructures) {
+               builder.append(" - ").append(structure.getId()).append("\n");
             }
-        }
+         }
 
-        generateColorsFile();
-        for (BaseBiome biome : BIOMES) {
-            StringBuilder builder = new StringBuilder();
-            builder.append("id: ").append(biome.getId()).append("\n");
-            builder.append("type: BIOME").append("\n");
-            if (!biome.customExtendibles.isEmpty() || !biome.extendibles.isEmpty() || !biome.biomeExtendibles.isEmpty()) {
-                builder.append("extends: [ ");
-                boolean firstElement = true;
+         builder.append(
+               "  - &densityThreshold 1/256 * ${features/deposits/distribution.yml:gold.averageCountPerChunk}\n  - &salt $features/deposits/distribution.yml:gold.salt\n  - &range $features/deposits/distribution.yml:gold.range\n  - &standard-deviation (${features/deposits/distribution.yml:gold.range.max}-${features/deposits/distribution.yml:gold.range.min})/6\n\ndistributor:\n  type: SAMPLER\n  sampler:\n    type: POSITIVE_WHITE_NOISE\n    salt: *salt\n  threshold: *densityThreshold\n"
+            )
+            .append("\n");
+         builder.append("locator: ").append("\n");
+         builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
+         builder.append("structures:\n  distribution:\n    type: CONSTANT\n  structures: *structure\n");
+         builderOreMap.put(feature.getId(), builder);
+         this.INCLUDED_ORES.addAll(feature.anchorStructures);
+      }
 
-                List<BaseExtendibles> customExtendibles = biome.getCustomExtendibles();
-                for (BaseExtendibles customExtendible : customExtendibles) {
-                    if (!firstElement) {
-                        builder.append(", ");
-                    }
-                    builder.append(customExtendible.getId());
-                    firstElement = false;
-                    INCLUDED_CUSTOM_BASE_EXTENDIBLES.add(customExtendible);
-                }
+      mainMap.put(DepositableFeature.Type.ORE, builderOreMap);
+      return mainMap;
+   }
 
-                List<String> biomeExtendibles = biome.getBiomeExtendibles();
-                for (String biomeExtendible : biomeExtendibles) {
-                    if (!firstElement) {
-                        builder.append(", ");
-                    }
-                    builder.append(biomeExtendible);
-                    firstElement = false;
-                }
+   @NotNull
+   private StringBuilder outputBiomeVariants() {
+      StringBuilder output = new StringBuilder();
+      Set<BiomeVariant> biomeVariantsInClimateVariants = new HashSet<>();
+      Set<ClimateVariant> climateVariantsInBiomeVariants = new HashSet<>();
+      if (!this.climateVariantListMap.isEmpty()) {
+         output.append("stages:\n  - type: REPLACE_LIST\n    to:\n");
 
-                List<Extendibles> extendibles = biome.getExtendibles();
-                for (Extendibles extendible : extendibles) {
-                    if (!firstElement) {
-                        builder.append(", ");
-                    }
-                    builder.append(extendible);
-                    firstElement = false;
-                }
-
-                builder.append(" ]").append("\n");
-            }
-            builder.append("vanilla: ").append(biome.getBiome()).append("\n");
-            builder.append("color: $biomes/colors.yml:").append(INCLUDED_COLOR_MAP.get(biome.getBiomeColor())).append("\n");
-            if (!biome.getTags().isEmpty()) {
-                builder.append("tags: ").append("\n");
-                for (Tags tag : biome.getTags()) {
-                    builder.append(" - ").append(tag).append("\n");
-                }
-            }
-            if (!biome.getColors().isEmpty()) {
-                builder.append("colors: ").append("\n");
-                for (Map.Entry<Colorable, String> entry : biome.colors.entrySet())
-                    builder.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-            }
-            if (!biome.palettes.isEmpty()) {
-                builder.append("palette: ").append("\n");
-                for (Map.Entry<Palette, Object> entry : biome.getPalettes().entrySet()) {
-                    builder.append(" - ").append(entry.getKey().id).append(": ").append(entry.getValue()).append("\n");
-                    INCLUDED_PALETTES.add(entry.getKey());
-                }
-                builder.append(" - << meta.yml:palette-bottom").append("\n");
-            }
-            if (!biome.slant.isEmpty()) {
-                builder.append("slant: ").append("\n");
-                for (Map.Entry<Integer, Map<BasePalette, Integer>> entry : biome.getSlant().entrySet()) {
-                    builder.append(" - threshold: ").append(entry.getKey()).append("\n");
-                    builder.append("   palette: ").append("\n");
-                    for (Map.Entry<BasePalette, Integer> palette : entry.getValue().entrySet()) {
-                        if (palette.getKey() instanceof InlinePalette) {
-                            for (String string : ((InlinePalette) palette.getKey()).inlinePaletteVariables)
-                                builder.append("   - ").append(string).append("\n");
-                        } else if (palette.getKey() instanceof Palette) {
-                            builder.append("   - ").append(((Palette) palette.getKey()).id).append("\n");
-                            INCLUDED_PALETTES.add((Palette) palette.getKey());
-                        }
-                    }
-                }
-            }
-            if (!biome.features.isEmpty()) {
-                builder.append("features: ").append("\n");
-                for (Map.Entry<Featureable, List<Feature>> entry : biome.getFeatures().entrySet()) {
-                    builder.append("  ").append(entry.getKey().toString().toLowerCase()).append(": ").append("\n");
-                    for (Feature features : entry.getValue()) {
-                        builder.append("   - ").append(features.getId()).append("\n");
-                        if (INCLUDED_FEATURES.stream().noneMatch(feature -> feature.getClass() == features.getClass())) {
-                            INCLUDED_FEATURES.add(features);
-                        }
-                    }
-                }
-            }
-            if (biome instanceof Variant variant) {
-                if (variant.getVariantOf() != null) {
-                    BiomeVariant biomeVariant = variant.getVariantOf();
-                    Rarity rarity = variant.getVariantRarity();
-
-                    variantMap.computeIfAbsent(biomeVariant, k -> new ArrayList<>()).add(variant);
-                    biomeRarityMap.put(biomeVariant, rarity);
-                    VSPE.getInstancedLogger().info("Added Variant: " + variant + " to BiomeVariant: " + biomeVariant);
-                }
-                if (variant.getClimateVariantOf() != null) {
-                    ClimateVariant climateVariant = variant.getClimateVariantOf();
-                    Rarity rarity = variant.getVariantRarity();
-
-                    climateVariantListMap.computeIfAbsent(climateVariant, k -> new ArrayList<>()).add(variant);
-                    climateVariantRarityMap.put(climateVariant, rarity);
-                    VSPE.getInstancedLogger().info("Added Variant: " + variant + " to ClimateVariant: " + climateVariant);
-                }
-            } else if (biome instanceof BiomeVariant biomeVariant) {
-                String variantName = biomeVariant.getVariantName();
-                Rarity selfRarity = biomeVariant.getSelfRarity();
-                biomeRarityMap.putIfAbsent(biomeVariant, selfRarity);
-
-                VSPE.getInstancedLogger().info("Added BiomeVariant: " + variantName + " with rarity: " + selfRarity);
-            } else if (biome instanceof ClimateVariant climateVariant) {
-                String variantName = climateVariant.getVariantName();
-                Rarity selfRarity = climateVariant.getSelfRarity();
-                climateVariantRarityMap.putIfAbsent(climateVariant, selfRarity);
-
-                VSPE.getInstancedLogger().info("Added ClimateVariant: " + variantName + " with rarity: " + selfRarity);
-            }
-            if (biome instanceof BiomeVariant biomeVariant && biome instanceof Variant variant) {
-                if (variant.getClimateVariantOf() != null) {
-                    climateVariantBiomeVariantMap.put(variant.getClimateVariantOf(), biomeVariant);
-                }
+         for (Entry<ClimateVariant, List<Variant>> entry : this.climateVariantListMap.entrySet()) {
+            for (Entry<ClimateVariant, BiomeVariant> variant : this.climateVariantBiomeVariantMap.entrySet()) {
+               if (Objects.equals(variant.getKey().getVariantName(), entry.getKey().getVariantName())) {
+                  output.append("     ")
+                     .append(variant.getValue().getVariantName().toUpperCase())
+                     .append(": ")
+                     .append(variant.getValue().getSelfRarity())
+                     .append("\n");
+                  biomeVariantsInClimateVariants.add(variant.getValue());
+                  climateVariantsInBiomeVariants.add(variant.getKey());
+               }
             }
 
-            if (biome.biomeType.isCoast()) {
-                coastalBiomeMap.put(biome.biomeType, biomeTypeIntegerMap.getOrDefault(biome.biomeType, 0) + 1);
+            if (climateVariantsInBiomeVariants.stream().noneMatch(climateVariant -> climateVariant == entry.getKey())) {
+               output.append("     ").append(entry.getKey().getVariantName().toLowerCase().replaceAll("[^a-z]", "-")).append("variants:\n");
+
+               for (Variant variantx : entry.getValue()) {
+                  output.append("     - ")
+                     .append(variantx.getVariantName().toLowerCase().replaceAll("[^a-z]", "-"))
+                     .append("-microvariants: ")
+                     .append(variantx.getVariantRarity().rarityValue)
+                     .append("\n");
+               }
+            }
+         }
+
+         output.append(
+            "    sampler:\n      dimensions: 2\n      type: CELLULAR\n      return: CellValue\n      salt: 42342\n      frequency: 0.06 / ${meta.yml:biome-distribution.global-scale}\n"
+         );
+      }
+
+      if (!this.variantMap.isEmpty()) {
+         output.append("- type: REPLACE_LIST\n  to:\n");
+
+         for (Entry<BiomeVariant, List<Variant>> entry : this.variantMap.entrySet()) {
+            if (biomeVariantsInClimateVariants.contains(entry.getKey())) {
+               output.append("     - ").append(entry.getKey().getVariantName().toUpperCase()).append("\n");
+               output.append("      - SELF: ").append(this.biomeRarityMap.get(entry.getKey()).rarityValue).append("\n");
+
+               for (Variant variantx : entry.getValue()) {
+                  output.append("      - ")
+                     .append(variantx.getVariantName().toUpperCase())
+                     .append(": ")
+                     .append(variantx.getVariantRarity().rarityValue)
+                     .append("\n");
+               }
             } else {
-                BiomeType type = biome.biomeType;
-                Temperature temperature = Temperature.valueOf(type.getTemperate());
-                if (type.isCoast()) {
-                    coastalBiomeMap.put(type, coastalBiomeMap.getOrDefault(biome.biomeType, 0) + 1);
-                } else {
-                    Map<Temperature, Integer> temperatureMap = biomeTypeTemperatureMap
-                            .computeIfAbsent(type.getClass(), k -> new HashMap<>());
-                    temperatureMap.merge(temperature, 1, Integer::sum);
-                }
+               output.append("     ").append(entry.getKey().getVariantName().toLowerCase().replaceAll("[^a-z]", "-")).append("-microvariants:\n");
+               output.append("      - SELF: ").append(this.biomeRarityMap.get(entry.getKey()).rarityValue).append("\n");
+
+               for (Variant variantx : entry.getValue()) {
+                  output.append("      - ")
+                     .append(variantx.getVariantName().toUpperCase())
+                     .append(": ")
+                     .append(variantx.getVariantRarity().rarityValue)
+                     .append("\n");
+               }
             }
+         }
 
-            contextBiomeRarityMap.put(biome, Map.of(biome.biomeType, biome.rarity));
-            biomeTypes.add(biome.biomeType);
-            biomeSet.add(biome);
+         output.append(
+            "    sampler:\n      dimensions: 2\n      type: CELLULAR\n      return: CellValue\n      frequency: 0.3 / ${meta.yml:biome-distribution.global-scale}\n      salt: 34534\n"
+         );
+      }
 
-            biomes.put(biome.getId(), builder);
-        }
-        return biomes;
-    }
+      return output;
+   }
 
-    @NotNull
-    private StringBuilder generateColorsFile() {
-        StringBuilder builder = new StringBuilder();
+   @NotNull
+   private Map<String, StringBuilder> generateExtrusions() {
+      Map<String, StringBuilder> builders = new HashMap<>();
 
-        builder.append("DRIPSTONE_CAVES: 0x1c1a11").append("\n");
-        for (Map.Entry<String, List<String>> entry : colorMap.entrySet()) {
-            String key = entry.getKey();
-            String commonName = generateCommonName(entry.getValue());
+      for (Extrusion extrusion : this.CUSTOM_EXTRUSIONS) {
+         if (extrusion instanceof ReplaceExtrusion) {
+            builders.put(((ReplaceExtrusion)extrusion).getId(), ((ReplaceExtrusion)extrusion).getYml());
+            this.BIOMES.addAll(((ReplaceExtrusion)extrusion).getExtrusionReplaceableBiome());
+         }
+      }
 
-            INCLUDED_COLOR_MAP.put(key, commonName);
-            builder.append(commonName).append(": ").append(key).append("\n");
-        }
+      return builders;
+   }
 
-        return builder;
-    }
-
-    @NotNull
-    private Map<String, StringBuilder> getFeaturesYml() {
-        Map<String, StringBuilder> builderMap = new HashMap<>();
-
-        for (Feature feature : INCLUDED_FEATURES) {
-            StringBuilder builder = new StringBuilder();
-
-            builder.append("id: ").append(feature.getId()).append("\n");
-            builder.append("type: FEATURE").append("\n");
-            if (feature.getDistributor() != null) {
-                builder.append("distributor: ").append("\n");
-                if (feature.getDistributor() instanceof Locator) {
-                    builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
-                } else if (feature.getDistributor() instanceof NoiseSampler) {
-                    builder.append("type: ").append(((NoiseSampler) feature.getDistributor()).name()).append("\n");
-                    builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
-                }
-            }
-            if (feature.getLocator() != null) {
-                builder.append("locator: ").append("\n");
-                builder.append(getIndentedBlock(feature.getLocator().getYml().toString(), "  ")).append("\n");
-            }
-            builder.append("structures: ").append("\n");
-            if (feature.getStructureDistributor() != null) {
-                builder.append("  distribution: ").append("\n");
-                builder.append(getIndentedBlock(feature.getStructureDistributor().getYml().toString(), "    ")).append("\n");
-            }
-            if (!feature.getStructures().isEmpty()) {
-                builder.append("  structures: ").append("\n");
-                for (Map.Entry<Object, Integer> structure : feature.getStructures().entrySet()) {
-                    if (structure.getKey() instanceof BaseStructure) {
-                        if (INCLUDED_STRUCTURES.stream().noneMatch(structure1 -> structure1.getClass() == structure.getKey().getClass())) {
-                            INCLUDED_STRUCTURES.add((BaseStructure) structure.getKey());
-                            builder.append("   - ")
-                                    .append(((BaseStructure) structure.getKey()).getId());
-                        }
-                    } else
-                        builder.append("   - ").append(structure.getKey());
-                    builder.append(": ").append(structure.getValue()).append("\n");
-                }
-            }
-
-            builderMap.put(feature.getId(), builder);
-        }
-
-        return builderMap;
-    }
-
-    @NotNull
-    private Map<String, StringBuilder> getPalettesYml() {
-        Map<String, StringBuilder> builderMap = new HashMap<>();
-
-        for (Palette palette : INCLUDED_PALETTES) {
-            builderMap.put(palette.getId(), palette.getYml());
-        }
-
-        return builderMap;
-    }
-
-    @NotNull
-    private Map<DepositableFeature.Type, Map<String, StringBuilder>> getDepositableFeaturesYml() {
-        Map<DepositableFeature.Type, Map<String, StringBuilder>> mainMap = new HashMap<>();
-        Map<String, StringBuilder> builderDepositMap = new HashMap<>();
-        Map<String, StringBuilder> builderOreMap = new HashMap<>();
-
-        distributionYML.append("# [----------------------------- DEPOSITABLES -----------------------------]").append("\n");
-
-        if (!BASE.getDefaultDeposits().isEmpty())
-            defaultDeposits.append("""     
-                    features:
-                      deposits:
-                    """);
-        if (!BASE.getDefaultOres().isEmpty())
-            defaultOres.append("""     
-                    features:
-                      ores:
-                    """);
-
-        for (DepositableFeature feature : BASE.getDefaultDeposits()) {
-
-            distributionYML.append(feature.getId().toLowerCase().replaceAll("[^a-z]", "_")).append("\n");
-            distributionYML.append("  averageCountPerChunk: ").append(feature.rarity.rarityValue).append("\n");
-            distributionYML.append("  salt: ").append(feature.salt).append("\n");
-            distributionYML.append("  range: ").append(feature.salt).append("\n");
-            distributionYML.append("    max: ").append(feature.yLevelRange.getMax()).append("\n");
-            distributionYML.append("    min: ").append(feature.yLevelRange.getMin()).append("\n");
-
-            defaultDeposits.append("  - ").append(feature.getId()).append("\n");
-
-            StringBuilder builder = new StringBuilder();
-
-            builder.append("id: ").append(feature.getId()).append("\n");
-            builder.append("type: FEATURE").append("\n");
-            builder.append("anchors:").append("\n");
-            if (!feature.anchorStructures.isEmpty()) {
-                builder.append("&structure: ").append("\n");
-                for (DepositableStructure structure : feature.anchorStructures)
-                    builder.append(" - ").append(structure.getId()).append("\n");
-            }
-            builder.append("""
-                      - &densityThreshold 1/256 * ${features/deposits/distribution.yml:clay.averageCountPerChunk} # Divide by 16^2 to get % per column
-                      - &salt $features/deposits/distribution.yml:clay.salt
-                      - &range $features/deposits/distribution.yml:clay.range
-                      
-                    distributor:
-                      type: SAMPLER
-                      sampler:
-                        type: POSITIVE_WHITE_NOISE
-                        salt: *salt
-                      threshold: *densityThreshold
-                    """).append("\n");
-
-            builder.append("locator: ").append("\n");
-            builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
-
-            builder.append("""
-                    structures:
-                      distribution:
-                        type: CONSTANT
-                      structures: *structure
-                    """);
-
-            builderDepositMap.put(feature.getId(), builder);
-            INCLUDED_DEPOSITABLES.addAll(feature.anchorStructures);
-        }
-
-        distributionYML.append("# [----------------------------- ORES -----------------------------]").append("\n");
-        mainMap.put(DepositableFeature.Type.DEPOSIT, builderDepositMap);
-
-        for (DepositableFeature feature : BASE.getDefaultOres()) {
-
-            distributionYML.append(feature.getId().toLowerCase().replaceAll("[^a-z]", "_")).append("\n");
-            distributionYML.append("  averageCountPerChunk: ").append(feature.rarity.rarityValue).append("\n");
-            distributionYML.append("  salt: ").append(feature.salt).append("\n");
-            distributionYML.append("  range: ").append(feature.salt).append("\n");
-            distributionYML.append("    max: ").append(feature.yLevelRange.getMax()).append("\n");
-            distributionYML.append("    min: ").append(feature.yLevelRange.getMin()).append("\n");
-
-            defaultOres.append("  - ").append(feature.getId()).append("\n");
-
-            StringBuilder builder = new StringBuilder();
-
-            builder.append("anchors:").append("\n");
-            if (!feature.anchorStructures.isEmpty()) {
-                builder.append("&structure: ").append("\n");
-                for (DepositableStructure structure : feature.anchorStructures)
-                    builder.append(" - ").append(structure.getId()).append("\n");
-            }
-            builder.append("""
-                      - &densityThreshold 1/256 * ${features/deposits/distribution.yml:gold.averageCountPerChunk}
-                      - &salt $features/deposits/distribution.yml:gold.salt
-                      - &range $features/deposits/distribution.yml:gold.range
-                      - &standard-deviation (${features/deposits/distribution.yml:gold.range.max}-${features/deposits/distribution.yml:gold.range.min})/6
-                      
-                    distributor:
-                      type: SAMPLER
-                      sampler:
-                        type: POSITIVE_WHITE_NOISE
-                        salt: *salt
-                      threshold: *densityThreshold
-                    """).append("\n");
-
-            builder.append("locator: ").append("\n");
-            builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
-
-            builder.append("""
-                    structures:
-                      distribution:
-                        type: CONSTANT
-                      structures: *structure
-                    """);
-
-            builderOreMap.put(feature.getId(), builder);
-            INCLUDED_ORES.addAll(feature.anchorStructures);
-        }
-
-        mainMap.put(DepositableFeature.Type.ORE, builderOreMap);
-
-        return mainMap;
-    }
-
-    @NotNull
-    private StringBuilder outputBiomeVariants() {
-        StringBuilder output = new StringBuilder();
-        Set<BiomeVariant> biomeVariantsInClimateVariants = new HashSet<>();
-        Set<ClimateVariant> climateVariantsInBiomeVariants = new HashSet<>();
-
-        if (!climateVariantListMap.isEmpty()) {
-            output.append(""" 
-                    stages:
-                      - type: REPLACE_LIST
-                        to:
-                    """);
-
-            for (Map.Entry<ClimateVariant, List<Variant>> entry : climateVariantListMap.entrySet()) {
-                for (Map.Entry<ClimateVariant, BiomeVariant> variant : climateVariantBiomeVariantMap.entrySet()) {
-                    if (Objects.equals(variant.getKey().getVariantName(), entry.getKey().getVariantName())) {
-                        output.append("     ").append(variant.getValue().getVariantName().toUpperCase())
-                                .append(": ").append(variant.getValue().getSelfRarity()).append("\n");
-                        biomeVariantsInClimateVariants.add(variant.getValue());
-                        climateVariantsInBiomeVariants.add(variant.getKey());
-                    }
-                }
-
-                if (climateVariantsInBiomeVariants.stream().noneMatch(climateVariant -> climateVariant == entry.getKey())) {
-                    output.append("     ").append(entry.getKey().getVariantName().toLowerCase().replaceAll("[^a-z]", "-")).append("variants:\n");
-                    for (Variant variant : entry.getValue()) {
-                        output.append("     - ").append(variant.getVariantName().toLowerCase().replaceAll("[^a-z]", "-")).append("-microvariants: ")
-                                .append(variant.getVariantRarity().rarityValue).append("\n");
-                    }
-                }
-            }
-
-            output.append("""
-                        sampler:
-                          dimensions: 2
-                          type: CELLULAR
-                          return: CellValue
-                          salt: 42342
-                          frequency: 0.06 / ${meta.yml:biome-distribution.global-scale}
-                    """);
-        }
-        if (!variantMap.isEmpty()) {
-            output.append("""
-                    - type: REPLACE_LIST
-                      to:
-                      """);
-            for (Map.Entry<BiomeVariant, List<Variant>> entry : variantMap.entrySet()) {
-                if (biomeVariantsInClimateVariants.contains(entry.getKey())) {
-                    output.append("     - ").append(entry.getKey().getVariantName().toUpperCase()).append("\n");
-                    output.append("      - SELF: ").append(biomeRarityMap.get(entry.getKey()).rarityValue).append("\n");
-                    for (Variant variant : entry.getValue()) {
-                        output.append("      - ").append(variant.getVariantName().toUpperCase()).append(": ")
-                                .append(variant.getVariantRarity().rarityValue).append("\n");
-                    }
-                } else {
-                    // If biome variant is not associated with climate, treat it as a microvariant
-                    output.append("     ").append(entry.getKey().getVariantName().toLowerCase().replaceAll("[^a-z]", "-")).append("-microvariants:\n");
-                    output.append("      - SELF: ").append(biomeRarityMap.get(entry.getKey()).rarityValue).append("\n");
-                    for (Variant variant : entry.getValue()) {
-                        output.append("      - ").append(variant.getVariantName().toUpperCase()).append(": ")
-                                .append(variant.getVariantRarity().rarityValue).append("\n");
-                    }
-                }
-            }
-
-            output.append("""
-                        sampler:
-                          dimensions: 2
-                          type: CELLULAR
-                          return: CellValue
-                          frequency: 0.3 / ${meta.yml:biome-distribution.global-scale}
-                          salt: 34534
-                    """);
-        }
-
-        return output;
-    }
-
-    @NotNull
-    private Map<String, StringBuilder> generateExtrusions() {
-        Map<String, StringBuilder> builders = new HashMap<>();
-        for (Extrusion extrusion : CUSTOM_EXTRUSIONS) {
+   @NotNull
+   private StringBuilder generatePreset() {
+      StringBuilder builder = new StringBuilder();
+      builder.append("biomes:\n  type: EXTRUSION\n  extrusions:\n");
+      if (!this.CUSTOM_EXTRUSIONS.isEmpty()) {
+         for (Extrusion extrusion : this.CUSTOM_EXTRUSIONS) {
             if (extrusion instanceof ReplaceExtrusion) {
-                builders.put(((ReplaceExtrusion) extrusion).getId(), ((ReplaceExtrusion) extrusion).getYml());
-                BIOMES.addAll(((ReplaceExtrusion) extrusion).getExtrusionReplaceableBiome());
+               builder.append("    - << biome-distribution/extrusions/").append(((ReplaceExtrusion)extrusion).getId()).append(".yml:extrusions").append("\n");
             }
-        }
-        return builders;
-    }
+         }
+      }
 
-    @NotNull
-    private StringBuilder generatePreset() {
-        StringBuilder builder = new StringBuilder();
+      builder.append(
+         "  provider:\n    type: PIPELINE\n    resolution: 4\n    blend:\n      amplitude: 6\n      sampler:\n        type: OPEN_SIMPLEX_2\n        frequency: 0.012\n    pipeline:\n      source:\n        type: SAMPLER\n        sampler:\n          type: CELLULAR\n          jitter: ${customization.yml:biomeSpread.cellJitter}\n          return: NoiseLookup\n          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n          lookup:\n            type: EXPRESSION\n            expression: continents(x, z)\n        biomes:\n"
+      );
+      int oceanSize = 0;
+      int deepSeaSize = 0;
+      int landSize = 0;
 
-        builder.append("""
-                biomes:
-                  type: EXTRUSION
-                  extrusions:
-                """);
-        if (!CUSTOM_EXTRUSIONS.isEmpty()) {
-            for (Extrusion extrusion : CUSTOM_EXTRUSIONS) {
-                if (extrusion instanceof ReplaceExtrusion) {
-                    builder.append("    - << biome-distribution/extrusions/").append(((ReplaceExtrusion) extrusion).getId()).append(".yml:extrusions").append("\n");
-                }
-            }
-        }
-        builder.append("""
-                  provider:
-                    type: PIPELINE
-                    resolution: 4
-                    blend:
-                      amplitude: 6
-                      sampler:
-                        type: OPEN_SIMPLEX_2
-                        frequency: 0.012
-                    pipeline:
-                      source:
-                        type: SAMPLER
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: NoiseLookup
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                          lookup:
-                            type: EXPRESSION
-                            expression: continents(x, z)
-                        biomes:
-                """);
-        int oceanSize = 0;
-        int deepSeaSize = 0;
-        int landSize = 0;
+      for (BaseBiome entry : this.biomeSet) {
+         BiomeType biome = entry.biomeType;
+         int count = 1;
+         if (biome instanceof Ocean_Flat || biome instanceof Ocean_Hilly || biome instanceof Ocean) {
+            oceanSize += count;
+         } else if (biome instanceof Deep_Ocean) {
+            deepSeaSize += count;
+         } else if (biome instanceof Land
+            && (!(biome instanceof Hills_Small) || !biome.isCoast())
+            && (!(biome instanceof Flat) || !biome.isCoast())
+            && (!(biome instanceof Hills_Large) || !biome.isCoast())
+            && (!(biome instanceof Mountains_Large) || !biome.isCoast())
+            && (!(biome instanceof Mountains_Small) || !biome.isCoast())) {
+            landSize += count;
+         }
+      }
 
-        for (BaseBiome entry : biomeSet) {
-            BiomeType biome = entry.biomeType;
-            int count = 1;
+      if (deepSeaSize != 0) {
+         builder.append("          deep-ocean: ").append(deepSeaSize).append("\n");
+      }
 
-            // Check the parent type and conditions
-            if (biome instanceof Ocean) {
-                oceanSize += count;
-            } else if (biome instanceof Deep_Ocean) {
-                deepSeaSize += count;
-            } else if (biome instanceof Land) {
-                if (biome instanceof Hills_Small && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Flat && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Hills_Large && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Mountains_Large && biome.isCoast()) {
-                    continue;
-                }
-                if (biome instanceof Mountains_Small && biome.isCoast()) {
-                    continue;
-                }
-                landSize += count;
-            }
-        }
-        if (deepSeaSize != 0)
-            builder.append("          deep-ocean: ").append(deepSeaSize).append("\n");
-        if (oceanSize != 0)
-            builder.append("          ocean: ").append(oceanSize).append("\n");
-        if (landSize != 0)
-            builder.append("          land: ").append(landSize).append("\n");
-        builder.append("      stages:").append("\n");
-        if (!generateCoasts().isEmpty()) {
-            builder.append("""
-                        - << biome-distribution/stages/coasts.yml:stages
-                        - << biome-distribution/stages/fill_coasts.yml:stages
-                """);
-        }
-        if (!generateOceans().isEmpty())
-            builder.append("        - << biome-distribution/stages/oceans.yml:stages").append("\n");
-        if (!generateSTZ().isEmpty()) {
-            builder.append("""
-                        - << biome-distribution/stages/spread_temperature_zones.yml:stages
-                        - << biome-distribution/stages/fill_temperature_zones.yml:stages
-                """);
-        }
-        builder.append("""
-                        - type: FRACTAL_EXPAND
-                          sampler:
-                            type: WHITE_NOISE
-                        - type: SMOOTH
-                          sampler:
-                            type: WHITE_NOISE
-                       #- << biome-distribution/stages/add_rivers.yml:stages
-                        - type: SMOOTH
-                          sampler:
-                            type: WHITE_NOISE
-                """);
+      if (oceanSize != 0) {
+         builder.append("          ocean: ").append(oceanSize).append("\n");
+      }
 
-        return builder;
-    }
+      if (landSize != 0) {
+         builder.append("          land: ").append(landSize).append("\n");
+      }
 
-    @NotNull
-    private StringBuilder generateCoasts() {
-        StringBuilder builder = new StringBuilder();
-        Map<String, Integer> temperateRarity = new HashMap<>();
-        if (META.calculationMethod.equals(SEPARATE)) {
-            temperateRarity = generateTemperatureRarityMap();
-        }else{
-            temperateRarity = generateRarityMap();
-        }
-        Map<String, Integer> biomeAmount = getBiomeAmount();
-        Set<String> biomesPresent = getBiomesPresent();
-        Set<String> coastPresent = new HashSet<>();
-        boolean coastSmallExists = false;
-        boolean coastLargeExists = false;
+      builder.append("      stages:").append("\n");
+      if (!this.generateCoasts().isEmpty()) {
+         builder.append("        - << biome-distribution/stages/coasts.yml:stages\n        - << biome-distribution/stages/fill_coasts.yml:stages\n");
+      }
 
+      if (!this.generateOceans().isEmpty()) {
+         builder.append("        - << biome-distribution/stages/oceans.yml:stages").append("\n");
+      }
 
-        if (biomesPresent.contains("OCEAN") || biomesPresent.contains("DEEP_OCEAN")) {
-            if (biomesPresent.contains("COAST_SMALL") || biomesPresent.contains("COAST_LARGE")) {
-                builder.append("stages:").append("\n");
-                if (biomesPresent.contains("OCEAN")) {
-                    builder.append("""
-                              - type: REPLACE # split oceans into small and big coast sections
-                                from: ocean
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: ${customization.yml:biomeSpread.cellJitter}
-                                  return: CellValue
-                                  frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                                to:
-                                  SELF: 1
-                            """);
-                    if (biomesPresent.contains("COAST_SMALL")) {
-                        builder.append("      ocean_coast_small: 2").append("\n");
-                        coastSmallExists = true;
-                    }
-                    if (biomesPresent.contains("COAST_LARGE")) {
-                        builder.append("      ocean_coast_large: 1").append("\n");
-                        coastLargeExists = true;
-                    }
+      if (!this.generateSTZ().isEmpty()) {
+         builder.append(
+            "        - << biome-distribution/stages/spread_temperature_zones.yml:stages\n        - << biome-distribution/stages/fill_temperature_zones.yml:stages\n"
+         );
+      }
 
-                    if (coastSmallExists) {
-                        builder.append("""
-                                  - type: REPLACE # add small coasts
-                                    from: ocean_coast_small
-                                    sampler:
-                                      type: EXPRESSION
-                                      expression: continentBorderCelledSmall(x, z)
-                                    to:
-                                      SELF: 1
-                                      coast_small: 1
-                                """);
-                        builder.append("""
-                                  - type: REPLACE # make small oceans placeholders oceans again
-                                    from: ocean_coast_small
-                                    sampler:
-                                      type: CONSTANT
-                                    to:
-                                      ocean: 1
-                                """);
-                    }
+      builder.append(
+         "        - type: FRACTAL_EXPAND\n          sampler:\n            type: WHITE_NOISE\n        - type: SMOOTH\n          sampler:\n            type: WHITE_NOISE\n       #- << biome-distribution/stages/add_rivers.yml:stages\n        - type: SMOOTH\n          sampler:\n            type: WHITE_NOISE\n"
+      );
+      return builder;
+   }
 
-                    if (coastLargeExists) {
-                        builder.append("""
-                                  - type: REPLACE # add small coasts
-                                    from: ocean_coast_wide
-                                    sampler:
-                                      type: EXPRESSION
-                                      expression: continentBorderCelledSmall(x, z)
-                                    to:
-                                      SELF: 1
-                                      coast_wide: 1
-                                """);
-                        builder.append("""
-                                  - type: REPLACE # make small oceans placeholders oceans again
-                                    from: ocean_coast_wide
-                                    sampler:
-                                      type: CONSTANT
-                                    to:
-                                      ocean: 1
-                                """);
-                    }
-                }
-            }
+   @NotNull
+   private StringBuilder generateCoasts() {
+      StringBuilder builder = new StringBuilder();
+      new HashMap();
+      if (this.META.calculationMethod.equals(HeightTemperatureRarityCalculationMethod.SEPARATE)) {
+         Map<String, Integer> temperateRarity = this.generateTemperatureRarityMap();
+      } else {
+         Map<String, Integer> var8 = this.generateRarityMap();
+      }
 
-        }
-
-        return builder;
-    }
-
-    @NotNull
-    private StringBuilder generateFillCoasts() {
-        StringBuilder builder = new StringBuilder();
-        Map<String, Integer> temperateRarity = new HashMap<>();
-        if (META.calculationMethod.equals(SEPARATE)) {
-            temperateRarity = generateTemperatureRarityMap();
-        }else{
-            temperateRarity = generateRarityMap();
-        }
-        Map<String, Integer> biomeAmount = getBiomeAmount();
-        Set<String> biomesPresent = getBiomesPresent();
-        Set<String> coastPresent = new HashSet<>();
-
-        if (biomesPresent.contains("COAST_SMALL") || biomesPresent.contains("COAST_LARGE")) {
-            builder.append("stages: ").append("\n");
+      Map<String, Integer> biomeAmount = this.getBiomeAmount();
+      Set<String> biomesPresent = this.getBiomesPresent();
+      new HashSet();
+      boolean coastSmallExists = false;
+      boolean coastLargeExists = false;
+      if ((biomesPresent.contains("OCEAN") || biomesPresent.contains("DEEP_OCEAN"))
+         && (biomesPresent.contains("COAST_SMALL") || biomesPresent.contains("COAST_LARGE"))) {
+         builder.append("stages:").append("\n");
+         if (biomesPresent.contains("OCEAN")) {
+            builder.append(
+               "  - type: REPLACE # split oceans into small and big coast sections\n    from: ocean\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: CellValue\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n    to:\n      SELF: 1\n"
+            );
             if (biomesPresent.contains("COAST_SMALL")) {
-                builder.append("""
-                          - type: REPLACE
-                            from: coast_small
-                            sampler:
-                              type: CELLULAR
-                              jitter: '${customization.yml:biomeSpread.cellJitter}'
-                              return: NoiseLookup
-                              frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                              lookup:
-                                type: EXPRESSION
-                                expression: 'temperature(x, z)'
-                            to:
-                        """);
-                if (biomeAmount.containsKey("coast_small_boreal")) {
-                    builder.append("      coast_small_boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
-                    coastPresent.add("coast_small_boreal");
-                }
-                if (biomeAmount.containsKey("coast_small_polar")) {
-                    builder.append("      coast_small_polar: ").append(temperateRarity.get("POLAR")).append("\n");
-                    coastPresent.add("coast_small_polar");
-                }
-                if (biomeAmount.containsKey("coast_small_subtropical")) {
-                    builder.append("      coast_small_subtropical: ").append(temperateRarity.get("SUBTROPICAL")).append("\n");
-                    coastPresent.add("coast_small_subtropical");
-                }
-                if (biomeAmount.containsKey("coast_small_tropical")) {
-                    builder.append("      coast_small_tropical: ").append(temperateRarity.get("TROPICAL")).append("\n");
-                    coastPresent.add("coast_small_tropical");
-                }
-                if (biomeAmount.containsKey("coast_small_temperate")) {
-                    builder.append("      coast_small_temperate: ").append(temperateRarity.get("TEMPERATE")).append("\n");
-                    coastPresent.add("coast_small_temperate");
-                }
-            }
-            if (biomesPresent.contains("COAST_LARGE")) {
-                builder.append("""
-                          - type: REPLACE
-                            from: coast_wide
-                            sampler:
-                              type: CELLULAR
-                              jitter: '${customization.yml:biomeSpread.cellJitter}'
-                              return: NoiseLookup
-                              frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                              lookup:
-                                type: EXPRESSION
-                                expression: 'temperature(x, z)'
-                            to:
-                        """);
-                if (biomeAmount.containsKey("coast_large_boreal")) {
-                    builder.append("      coast_large_boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
-                    coastPresent.add("coast_large_boreal");
-                }
-                if (biomeAmount.containsKey("coast_large_polar")) {
-                    builder.append("      coast_large_polar: ").append(temperateRarity.get("POLAR")).append("\n");
-                    coastPresent.add("coast_large_polar");
-                }
-                if (biomeAmount.containsKey("coast_large_subtropical")) {
-                    builder.append("      coast_large_subtropical: ").append(temperateRarity.get("SUBTROPICAL")).append("\n");
-                    coastPresent.add("coast_large_subtropical");
-                }
-                if (biomeAmount.containsKey("coast_large_tropical")) {
-                    builder.append("      coast_large_tropical: ").append(temperateRarity.get("TROPICAL")).append("\n");
-                    coastPresent.add("coast_large_tropical");
-                }
-                if (biomeAmount.containsKey("coast_large_temperate")) {
-                    builder.append("      coast_large_temperate: ").append(temperateRarity.get("TEMPERATE")).append("\n");
-                    coastPresent.add("coast_large_temperate");
-                }
-            }
-
-            if (biomesPresent.contains("COAST_SMALL")) {
-                if (coastPresent.contains("coast_small_boreal")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_small_boreal
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_small_boreal"))
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_small_polar")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_small_polar
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_small_polar"))
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_small_subtropical")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_small_subtropical
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_small_subtropical"))
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_small_tropical")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_small_tropical
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_small_tropical"))
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_small_temperate")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_small_temperate
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_small_temperate"))
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
+               builder.append("      ocean_coast_small: 2").append("\n");
+               coastSmallExists = true;
             }
 
             if (biomesPresent.contains("COAST_LARGE")) {
-                if (coastPresent.contains("coast_large_boreal")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_large_boreal
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_large_boreal"))
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_large_polar")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_large_polar
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_large_polar"))
-                            builder.append("     ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_large_subtropical")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_large_subtropical
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_large_subtropical"))
-                            builder.append("     ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_large_tropical")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_large_tropical
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_large_tropical"))
-                            builder.append("     ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-
-                if (coastPresent.contains("coast_large_temperate")) {
-                    builder.append("""
-                              - type: REPLACE
-                                from: coast_large_temperate
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: '${customization.yml:biomeSpread.cellJitter}'
-                                  return: CellValue
-                                  frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'
-                                  salt: 8726345
-                                to:
-                            """);
-                    for (BaseBiome biome : biomeSet) {
-                        if (biome.biomeType.getName().equalsIgnoreCase("coast_large_temperate"))
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                    }
-                }
-            }
-        }
-
-        return builder;
-    }
-
-    @NotNull
-    private StringBuilder generateOceans() {
-        StringBuilder builder = new StringBuilder();
-
-        Map<String, Integer> temperateRarity;
-        if (META.calculationMethod.equals(SEPARATE)) {
-            temperateRarity = generateTemperatureRarityMap();
-        }else{
-            temperateRarity = generateRarityMap();
-        }
-        Map<String, Integer> biomeAmount = getBiomeAmountEC();
-        Set<String> biomesPresent = getBiomesPresent();
-        Set<String> oceansPresent = new HashSet<>();
-
-        if (biomesPresent.contains("OCEAN")) {
-            builder.append("""
-                    stages:
-                      - type: REPLACE
-                        from: ocean
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: NoiseLookup
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                          lookup:
-                            type: EXPRESSION\s
-                            expression: temperature(x, z)
-                        to:
-                    """);
-            if (biomeAmount.containsKey("ocean_boreal")) {
-                builder.append("      ocean_boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
-                oceansPresent.add("ocean_boreal");
-            }
-            if (biomeAmount.containsKey("ocean_polar")) {
-                builder.append("      ocean_polar: ").append(temperateRarity.get("POLAR")).append("\n");
-                oceansPresent.add("ocean_polar");
-            }
-            if (biomeAmount.containsKey("ocean_subtropical")) {
-                builder.append("      ocean_subtropical: ").append(temperateRarity.get("SUBTROPICAL")).append("\n");
-                oceansPresent.add("ocean_subtropical");
-            }
-            if (biomeAmount.containsKey("ocean_tropical")) {
-                builder.append("      ocean_tropical: ").append(temperateRarity.get("TROPICAL")).append("\n");
-                oceansPresent.add("ocean_tropical");
-            }
-            if (biomeAmount.containsKey("ocean_temperate")) {
-                builder.append("      ocean_temperate: ").append(temperateRarity.get("TEMPERATE")).append("\n");
-                oceansPresent.add("ocean_temperate");
+               builder.append("      ocean_coast_large: 1").append("\n");
+               coastLargeExists = true;
             }
 
-            if (oceansPresent.contains("ocean_boreal")) {
-                builder.append("""
-                      - type: REPLACE
-                        from: ocean_boreal
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: CellValue
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                        to:
-                    """);
-                for (BaseBiome biome : biomeSet) {
-                    if (biome.biomeType.getName().equalsIgnoreCase("ocean_boreal"))
-                        builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                }
+            if (coastSmallExists) {
+               builder.append(
+                  "  - type: REPLACE # add small coasts\n    from: ocean_coast_small\n    sampler:\n      type: EXPRESSION\n      expression: continentBorderCelledSmall(x, z)\n    to:\n      SELF: 1\n      coast_small: 1\n"
+               );
+               builder.append(
+                  "  - type: REPLACE # make small oceans placeholders oceans again\n    from: ocean_coast_small\n    sampler:\n      type: CONSTANT\n    to:\n      ocean: 1\n"
+               );
             }
 
-            if (oceansPresent.contains("ocean_polar")) {
-                builder.append("""
-                      - type: REPLACE
-                        from: ocean_polar
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: CellValue
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                        to:
-                    """);
-                for (BaseBiome biome : biomeSet) {
-                    if (biome.biomeType.getName().equalsIgnoreCase("ocean_polar"))
-                        builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                }
+            if (coastLargeExists) {
+               builder.append(
+                  "  - type: REPLACE # add small coasts\n    from: ocean_coast_wide\n    sampler:\n      type: EXPRESSION\n      expression: continentBorderCelledSmall(x, z)\n    to:\n      SELF: 1\n      coast_wide: 1\n"
+               );
+               builder.append(
+                  "  - type: REPLACE # make small oceans placeholders oceans again\n    from: ocean_coast_wide\n    sampler:\n      type: CONSTANT\n    to:\n      ocean: 1\n"
+               );
+            }
+         }
+      }
+
+      return builder;
+   }
+
+   @NotNull
+   private StringBuilder generateFillCoasts() {
+      StringBuilder builder = new StringBuilder();
+      new HashMap();
+      Map temperateRarity;
+      if (this.META.calculationMethod.equals(HeightTemperatureRarityCalculationMethod.SEPARATE)) {
+         temperateRarity = this.generateTemperatureRarityMap();
+      } else {
+         temperateRarity = this.generateRarityMap();
+      }
+
+      Map<String, Integer> biomeAmount = this.getBiomeAmount();
+      Set<String> biomesPresent = this.getBiomesPresent();
+      Set<String> coastPresent = new HashSet<>();
+      if (biomesPresent.contains("COAST_SMALL") || biomesPresent.contains("COAST_LARGE")) {
+         builder.append("stages: ").append("\n");
+         if (biomesPresent.contains("COAST_SMALL")) {
+            builder.append(
+               "  - type: REPLACE\n    from: coast_small\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: NoiseLookup\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      lookup:\n        type: EXPRESSION\n        expression: 'temperature(x, z)'\n    to:\n"
+            );
+            if (biomeAmount.containsKey("coast_small_boreal")) {
+               builder.append("      coast_small_boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
+               coastPresent.add("coast_small_boreal");
             }
 
-            if (oceansPresent.contains("ocean_subtropical")) {
-                builder.append("""
-                      - type: REPLACE
-                        from: ocean_subtropical
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: CellValue
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                        to:
-                    """);
-                for (BaseBiome biome : biomeSet) {
-                    if (biome.biomeType.getName().equalsIgnoreCase("ocean_subtropical"))
-                        builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                }
+            if (biomeAmount.containsKey("coast_small_polar")) {
+               builder.append("      coast_small_polar: ").append(temperateRarity.get("POLAR")).append("\n");
+               coastPresent.add("coast_small_polar");
             }
 
-            if (oceansPresent.contains("ocean_tropical")) {
-                builder.append("""
-                      - type: REPLACE
-                        from: ocean_tropical
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: CellValue
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                        to:
-                    """);
-                for (BaseBiome biome : biomeSet) {
-                    if (biome.biomeType.getName().equalsIgnoreCase("ocean_tropical"))
-                        builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                }
+            if (biomeAmount.containsKey("coast_small_subtropical")) {
+               builder.append("      coast_small_subtropical: ").append(temperateRarity.get("SUBTROPICAL")).append("\n");
+               coastPresent.add("coast_small_subtropical");
             }
 
-            if (oceansPresent.contains("ocean_temperate")) {
-                builder.append("""
-                      - type: REPLACE
-                        from: ocean_temperate
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: CellValue
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                        to:
-                    """);
-                for (BaseBiome biome : biomeSet) {
-                    if (biome.biomeType.getName().equalsIgnoreCase("ocean_temperate"))
-                        builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
-                }
-            }
-        }
-
-        return builder;
-    }
-
-    @NotNull
-    private StringBuilder generateSTZ() {
-        StringBuilder builder = new StringBuilder();
-        Map<String, Integer> temperateRarity;
-        if (META.calculationMethod.equals(SEPARATE)) {
-            temperateRarity = generateTemperatureRarityMap();
-        }else{
-            temperateRarity = generateRarityMap();
-        }
-        Map<String, Integer> heightRarity = generateLandHeightRarityMap();
-        Map<String, Integer> biomeAmount = getBiomeAmountEC();
-        Set<String> biomesPresent = getBiomesPresent();
-        Set<String> temperatesPresent = new HashSet<>();
-
-        if (getBiomesPresent().contains("LAND")) {
-            builder.append("""
-                    stages:
-                      - type: REPLACE
-                        from: land
-                        sampler:
-                          type: CELLULAR
-                          jitter: ${customization.yml:biomeSpread.cellJitter}
-                          return: NoiseLookup
-                          frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                          lookup:
-                            type: EXPRESSION
-                            expression: temperature(x, z)
-                        to:
-                    """);
-            if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("boreal"))) {
-                builder.append("      boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
-                temperatesPresent.add("boreal");
-                temperatureToHeightMap.put("BOREAL", new HashSet<>());
-            }
-            if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("polar"))) {
-                builder.append("      polar: ").append(temperateRarity.get("POLAR")).append("\n");
-                temperatesPresent.add("polar");
-                temperatureToHeightMap.put("POLAR", new HashSet<>());
-            }
-            if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("subtropical"))) {
-                builder.append("      subtropical: ").append(temperateRarity.get("SUBTROPICAL")).append("\n");
-                temperatesPresent.add("subtropical");
-                temperatureToHeightMap.put("SUBTROPICAL", new HashSet<>());
-            }
-            if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("tropical"))) {
-                builder.append("      tropical: ").append(temperateRarity.get("TROPICAL")).append("\n");
-                temperatesPresent.add("tropical");
-                temperatureToHeightMap.put("TROPICAL", new HashSet<>());
-            }
-            if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("temperate"))) {
-                builder.append("      temperate: ").append(temperateRarity.get("TEMPERATE")).append("\n");
-                temperatesPresent.add("temperate");
-                temperatureToHeightMap.put("TEMPERATE", new HashSet<>());
+            if (biomeAmount.containsKey("coast_small_tropical")) {
+               builder.append("      coast_small_tropical: ").append(temperateRarity.get("TROPICAL")).append("\n");
+               coastPresent.add("coast_small_tropical");
             }
 
-            if (temperatesPresent.contains("boreal")) {
-                builder.append("""
-                          - type: REPLACE
-                            from: boreal
-                            sampler:
-                              type: CELLULAR
-                              jitter: ${customization.yml:biomeSpread.cellJitter}
-                              return: NoiseLookup
-                              frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                              lookup:
-                                type: EXPRESSION
-                                expression: temperature(x, z)
-                            to:
-                        """);
-                if (biomesPresent.contains("HILLS_SMALL_BOREAL")) {
-                    builder.append("      hills_small_boreal: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("hills_small");
-                }
-                if (biomesPresent.contains("HILLS_LARGE_BOREAL")) {
-                    builder.append("      hills_large_boreal: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("hills_large");
-                }
-                if (biomesPresent.contains("MOUNTAINS_SMALL_BOREAL")) {
-                    builder.append("      mountains_small_boreal: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("mountains_small");
-                }
-                if (biomesPresent.contains("MOUNTAINS_LARGE_BOREAL")) {
-                    builder.append("      mountains_large_boreal: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("mountains_large");
-                }
-                if (biomesPresent.contains("FLAT_BOREAL")) {
-                    builder.append("      flat_boreal: ").append(heightRarity.get("FLAT")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("flat");
-                }
+            if (biomeAmount.containsKey("coast_small_temperate")) {
+               builder.append("      coast_small_temperate: ").append(temperateRarity.get("TEMPERATE")).append("\n");
+               coastPresent.add("coast_small_temperate");
             }
-            if (temperatesPresent.contains("polar")) {
-                builder.append("""
-                          - type: REPLACE
-                            from: polar
-                            sampler:
-                              type: CELLULAR
-                              jitter: ${customization.yml:biomeSpread.cellJitter}
-                              return: NoiseLookup
-                              frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                              lookup:
-                                type: EXPRESSION
-                                expression: temperature(x, z)
-                            to:
-                        """);
-                if (biomesPresent.contains("HILLS_SMALL_POLAR")) {
-                    builder.append("      hills_small_polar: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("hills_small");
-                }
-                if (biomesPresent.contains("HILLS_LARGE_POLAR")) {
-                    builder.append("      hills_large_polar: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("hills_large");
-                }
-                if (biomesPresent.contains("MOUNTAINS_SMALL_POLAR")) {
-                    builder.append("      mountains_small_polar: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("mountains_small");
-                }
-                if (biomesPresent.contains("MOUNTAINS_LARGE_POLAR")) {
-                    builder.append("      mountains_large_polar: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("mountains_large");
-                }
-                if (biomesPresent.contains("FLAT_POLAR")) {
-                    builder.append("      flat_polar: ").append(heightRarity.get("FLAT")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("flat");
-                }
-            }
-            if (temperatesPresent.contains("subtropical")) {
-                builder.append("""
-                          - type: REPLACE
-                            from: subtropical
-                            sampler:
-                              type: CELLULAR
-                              jitter: ${customization.yml:biomeSpread.cellJitter}
-                              return: NoiseLookup
-                              frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                              lookup:
-                                type: EXPRESSION
-                                expression: temperature(x, z)
-                            to:
-                        """);
-                if (biomesPresent.contains("HILLS_SMALL_SUBTROPICAL")) {
-                    builder.append("      hills_small_subtropical: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("hills_small");
-                }
-                if (biomesPresent.contains("HILLS_LARGE_SUBTROPICAL")) {
-                    builder.append("      hills_large_subtropical: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("hills_large");
-                }
-                if (biomesPresent.contains("MOUNTAINS_SMALL_SUBTROPICAL")) {
-                    builder.append("      mountains_small_subtropical: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("mountains_small");
-                }
-                if (biomesPresent.contains("MOUNTAINS_LARGE_SUBTROPICAL")) {
-                    builder.append("      mountains_large_subtropical: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("mountains_large");
-                }
-                if (biomesPresent.contains("FLAT_SUBTROPICAL")) {
-                    builder.append("      flat_subtropical: ").append(heightRarity.get("FLAT")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("flat");
-                }
-            }
-            if (temperatesPresent.contains("tropical")) {
-                builder.append("""
-                          - type: REPLACE
-                            from: tropical
-                            sampler:
-                              type: CELLULAR
-                              jitter: ${customization.yml:biomeSpread.cellJitter}
-                              return: NoiseLookup
-                              frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                              lookup:
-                                type: EXPRESSION
-                                expression: temperature(x, z)
-                            to:
-                        """);
-                if (biomesPresent.contains("HILLS_SMALL_TROPICAL")) {
-                    builder.append("      hills_small_tropical: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("hills_small");
-                }
-                if (biomesPresent.contains("HILLS_LARGE_TROPICAL")) {
-                    builder.append("      hills_large_tropical: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("hills_large");
-                }
-                if (biomesPresent.contains("MOUNTAINS_SMALL_TROPICAL")) {
-                    builder.append("      mountains_small_tropical: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("mountains_small");
-                }
-                if (biomesPresent.contains("MOUNTAINS_LARGE_TROPICAL")) {
-                    builder.append("      mountains_large_tropical: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("mountains_large");
-                }
-                if (biomesPresent.contains("FLAT_TROPICAL")) {
-                    builder.append("      flat_tropical: ").append(heightRarity.get("FLAT")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("flat");
-                }
-            }
-            if (temperatesPresent.contains("temperate")) {
-                builder.append("""
-                          - type: REPLACE
-                            from: temperate
-                            sampler:
-                              type: CELLULAR
-                              jitter: ${customization.yml:biomeSpread.cellJitter}
-                              return: NoiseLookup
-                              frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                              lookup:
-                                type: EXPRESSION
-                                expression: temperature(x, z)
-                            to:
-                        """);
-                if (biomesPresent.contains("HILLS_SMALL_TEMPERATE")) {
-                    builder.append("      hills_small_temperate: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("hills_small");
-                }
-                if (biomesPresent.contains("HILLS_LARGE_TEMPERATE")) {
-                    builder.append("      hills_large_temperate: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("hills_large");
-                }
-                if (biomesPresent.contains("MOUNTAINS_SMALL_TEMPERATE")) {
-                    builder.append("      mountains_small_temperate: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("mountains_small");
-                }
-                if (biomesPresent.contains("MOUNTAINS_LARGE_TEMPERATE")) {
-                    builder.append("      mountains_large_temperate: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("mountains_large");
-                }
-                if (biomesPresent.contains("FLAT_TEMPERATE")) {
-                    builder.append("      flat_temperate: ").append(heightRarity.get("FLAT")).append("\n");
-                    temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("flat");
-                }
-            }
-        }
+         }
 
-        return builder;
-    }
+         if (biomesPresent.contains("COAST_LARGE")) {
+            builder.append(
+               "  - type: REPLACE\n    from: coast_wide\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: NoiseLookup\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      lookup:\n        type: EXPRESSION\n        expression: 'temperature(x, z)'\n    to:\n"
+            );
+            if (biomeAmount.containsKey("coast_large_boreal")) {
+               builder.append("      coast_large_boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
+               coastPresent.add("coast_large_boreal");
+            }
 
-    @NotNull
-    private StringBuilder generateFTZ() {
-        StringBuilder builder = new StringBuilder();
+            if (biomeAmount.containsKey("coast_large_polar")) {
+               builder.append("      coast_large_polar: ").append(temperateRarity.get("POLAR")).append("\n");
+               coastPresent.add("coast_large_polar");
+            }
 
-        if (!generateSTZ().isEmpty()) {
-            builder.append("stages:").append("\n");
-            for (Map.Entry<String, Set<String>> currentTH : temperatureToHeightMap.entrySet()) {
-                for (String key : currentTH.getValue()) {
-                    builder.append("""
-                              - type: REPLACE
-                            """);
-                    String current = key + "_" + currentTH.getKey().toLowerCase();
-                    builder.append("    from: ").append(current).append("\n");
-                    builder.append("""
-                                sampler:
-                                  type: CELLULAR
-                                  jitter: ${customization.yml:biomeSpread.cellJitter}
-                                  return: CellValue
-                                  frequency: 1 / ${customization.yml:biomeSpread.cellDistance}
-                                to:
-                            """);
+            if (biomeAmount.containsKey("coast_large_subtropical")) {
+               builder.append("      coast_large_subtropical: ").append(temperateRarity.get("SUBTROPICAL")).append("\n");
+               coastPresent.add("coast_large_subtropical");
+            }
 
-                    for (BaseBiome biome : biomeSet) {
-                        if (!biome.biomeType.isCoast() && biome.biomeType.getName().toLowerCase().equals(current)) {
-                            builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
+            if (biomeAmount.containsKey("coast_large_tropical")) {
+               builder.append("      coast_large_tropical: ").append(temperateRarity.get("TROPICAL")).append("\n");
+               coastPresent.add("coast_large_tropical");
+            }
+
+            if (biomeAmount.containsKey("coast_large_temperate")) {
+               builder.append("      coast_large_temperate: ").append(temperateRarity.get("TEMPERATE")).append("\n");
+               coastPresent.add("coast_large_temperate");
+            }
+         }
+
+         if (biomesPresent.contains("COAST_SMALL")) {
+            if (coastPresent.contains("coast_small_boreal")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_small_boreal\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biome : this.biomeSet) {
+                  if (biome.biomeType.getName().equalsIgnoreCase("coast_small_boreal")) {
+                     builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_small_polar")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_small_polar\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomex : this.biomeSet) {
+                  if (biomex.biomeType.getName().equalsIgnoreCase("coast_small_polar")) {
+                     builder.append("      ").append(biomex.getId()).append(": ").append(biomex.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_small_subtropical")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_small_subtropical\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexx : this.biomeSet) {
+                  if (biomexx.biomeType.getName().equalsIgnoreCase("coast_small_subtropical")) {
+                     builder.append("      ").append(biomexx.getId()).append(": ").append(biomexx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_small_tropical")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_small_tropical\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexxx : this.biomeSet) {
+                  if (biomexxx.biomeType.getName().equalsIgnoreCase("coast_small_tropical")) {
+                     builder.append("      ").append(biomexxx.getId()).append(": ").append(biomexxx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_small_temperate")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_small_temperate\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexxxx : this.biomeSet) {
+                  if (biomexxxx.biomeType.getName().equalsIgnoreCase("coast_small_temperate")) {
+                     builder.append("      ").append(biomexxxx.getId()).append(": ").append(biomexxxx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+         }
+
+         if (biomesPresent.contains("COAST_LARGE")) {
+            if (coastPresent.contains("coast_large_boreal")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_large_boreal\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexxxxx : this.biomeSet) {
+                  if (biomexxxxx.biomeType.getName().equalsIgnoreCase("coast_large_boreal")) {
+                     builder.append("      ").append(biomexxxxx.getId()).append(": ").append(biomexxxxx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_large_polar")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_large_polar\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexxxxxx : this.biomeSet) {
+                  if (biomexxxxxx.biomeType.getName().equalsIgnoreCase("coast_large_polar")) {
+                     builder.append("     ").append(biomexxxxxx.getId()).append(": ").append(biomexxxxxx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_large_subtropical")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_large_subtropical\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexxxxxxx : this.biomeSet) {
+                  if (biomexxxxxxx.biomeType.getName().equalsIgnoreCase("coast_large_subtropical")) {
+                     builder.append("     ").append(biomexxxxxxx.getId()).append(": ").append(biomexxxxxxx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_large_tropical")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_large_tropical\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexxxxxxxx : this.biomeSet) {
+                  if (biomexxxxxxxx.biomeType.getName().equalsIgnoreCase("coast_large_tropical")) {
+                     builder.append("     ").append(biomexxxxxxxx.getId()).append(": ").append(biomexxxxxxxx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+
+            if (coastPresent.contains("coast_large_temperate")) {
+               builder.append(
+                  "  - type: REPLACE\n    from: coast_large_temperate\n    sampler:\n      type: CELLULAR\n      jitter: '${customization.yml:biomeSpread.cellJitter}'\n      return: CellValue\n      frequency: '1 / ${customization.yml:biomeSpread.cellDistance}'\n      salt: 8726345\n    to:\n"
+               );
+
+               for (BaseBiome biomexxxxxxxxx : this.biomeSet) {
+                  if (biomexxxxxxxxx.biomeType.getName().equalsIgnoreCase("coast_large_temperate")) {
+                     builder.append("      ").append(biomexxxxxxxxx.getId()).append(": ").append(biomexxxxxxxxx.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+         }
+      }
+
+      return builder;
+   }
+
+   @NotNull
+   private StringBuilder generateOceans() {
+      StringBuilder builder = new StringBuilder();
+      Map<String, Integer> temperatureRarity = this.META.calculationMethod.equals(HeightTemperatureRarityCalculationMethod.SEPARATE)
+         ? this.generateTemperatureRarityMap()
+         : this.generateRarityMap();
+      Map<String, Integer> oceanHeightRarityMap = this.generateOceanHeightRarityMap();
+      Set<String> biomesPresent = this.getBiomesPresent();
+      Map<String, Integer> biomeAmount = this.getBiomeAmountEC();
+      if (biomesPresent.contains("OCEAN")) {
+         builder.append(
+            "stages:\n  - type: REPLACE\n    from: ocean\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: NoiseLookup\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n      lookup:\n        type: EXPRESSION\n        expression: temperature(x, z)\n    to:\n"
+         );
+         List<String> terrainTypes = List.of("FLAT", "HILLS");
+
+         for (String terrain : terrainTypes) {
+            String oceanBiome = "OCEAN_" + terrain;
+            if (biomesPresent.contains(oceanBiome) && oceanHeightRarityMap.containsKey(terrain)) {
+               builder.append("      ").append(oceanBiome).append(": ").append(oceanHeightRarityMap.get(terrain)).append("\n");
+            }
+         }
+
+         for (String terrainx : terrainTypes) {
+            String oceanBiome = "OCEAN_" + terrainx;
+            if (biomesPresent.contains(oceanBiome)) {
+               builder.append("  - type: REPLACE\n");
+               builder.append("    from: ").append(oceanBiome).append("\n");
+               builder.append("    sampler:\n");
+               builder.append("      type: CELLULAR\n");
+               builder.append("      jitter: ${customization.yml:biomeSpread.cellJitter}\n");
+               builder.append("      return: CellValue\n");
+               builder.append("      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n");
+               builder.append("    to:\n");
+
+               for (Entry<String, Integer> entry : temperatureRarity.entrySet()) {
+                  String zone = entry.getKey();
+                  String biomeName = "OCEAN_" + terrainx + "_" + zone;
+                  biomeName = biomeName.toLowerCase();
+                  if (biomeAmount.containsKey(biomeName)) {
+                     builder.append("      ").append(biomeName).append(": ").append(entry.getValue()).append("\n");
+                  }
+               }
+
+               for (Entry<String, Integer> entryx : temperatureRarity.entrySet()) {
+                  String zone = entryx.getKey();
+                  String biomeName = "OCEAN_" + terrainx + "_" + zone;
+                  biomeName = biomeName.toLowerCase();
+                  if (biomeAmount.containsKey(biomeName)) {
+                     builder.append("  - type: REPLACE\n");
+                     builder.append("    from: ").append(biomeName).append("\n");
+                     builder.append("    sampler:\n");
+                     builder.append("      type: CELLULAR\n");
+                     builder.append("      jitter: ${customization.yml:biomeSpread.cellJitter}\n");
+                     builder.append("      return: CellValue\n");
+                     builder.append("      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n");
+                     builder.append("    to:\n");
+
+                     for (BaseBiome biome : this.biomeSet) {
+                        if (biome.biomeType.getName().equalsIgnoreCase(biomeName)) {
+                           builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                         }
-                    }
-                }
+                     }
+                  }
+               }
             }
-        }
+         }
+      }
 
-        return builder;
-    }
+      return builder;
+   }
 
-    private Map<String, Integer> getBiomeAmount() {
-        Map<String, Integer> biomeMap = new HashMap<>();
+   @NotNull
+   private StringBuilder generateSTZ() {
+      StringBuilder builder = new StringBuilder();
+      Map<String, Integer> temperateRarity;
+      if (this.META.calculationMethod.equals(HeightTemperatureRarityCalculationMethod.SEPARATE)) {
+         temperateRarity = this.generateTemperatureRarityMap();
+      } else {
+         temperateRarity = this.generateRarityMap();
+      }
 
-        biomeSet.forEach(biome -> {
-                String simpleName = biome.biomeType.getName();
+      Map<String, Integer> heightRarity = this.generateLandHeightRarityMap();
+      Map<String, Integer> biomeAmount = this.getBiomeAmountEC();
+      Set<String> biomesPresent = this.getBiomesPresent();
+      Set<String> temperatesPresent = new HashSet<>();
+      if (this.getBiomesPresent().contains("LAND")) {
+         builder.append(
+            "stages:\n  - type: REPLACE\n    from: land\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: NoiseLookup\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n      lookup:\n        type: EXPRESSION\n        expression: temperature(x, z)\n    to:\n"
+         );
+         if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("boreal"))) {
+            builder.append("      boreal: ").append(temperateRarity.get("BOREAL")).append("\n");
+            temperatesPresent.add("boreal");
+            this.temperatureToHeightMap.put("BOREAL", new HashSet<>());
+         }
 
-                simpleName = simpleName.toLowerCase();
-                biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
+         if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("polar"))) {
+            builder.append("      polar: ").append(temperateRarity.get("POLAR")).append("\n");
+            temperatesPresent.add("polar");
+            this.temperatureToHeightMap.put("POLAR", new HashSet<>());
+         }
 
-        });
+         if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("subtropical"))) {
+            builder.append("      subtropical: ").append(temperateRarity.get("SUBTROPICAL")).append("\n");
+            temperatesPresent.add("subtropical");
+            this.temperatureToHeightMap.put("SUBTROPICAL", new HashSet<>());
+         }
 
-        return biomeMap;
-    }
+         if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("tropical"))) {
+            builder.append("      tropical: ").append(temperateRarity.get("TROPICAL")).append("\n");
+            temperatesPresent.add("tropical");
+            this.temperatureToHeightMap.put("TROPICAL", new HashSet<>());
+         }
 
-    private Map<String, Integer> getBiomeAmountEC() {
-        Map<String, Integer> biomeMap = new HashMap<>();
+         if (biomeAmount.keySet().stream().anyMatch(key -> (key.contains("mountains") || key.contains("hills")) && key.contains("temperate"))) {
+            builder.append("      temperate: ").append(temperateRarity.get("TEMPERATE")).append("\n");
+            temperatesPresent.add("temperate");
+            this.temperatureToHeightMap.put("TEMPERATE", new HashSet<>());
+         }
 
-        biomeSet.forEach(biome -> {
-            if (!biome.biomeType.isCoast()) {
-                String simpleName = biome.biomeType.getName();
-
-                simpleName = simpleName.toLowerCase();
-                biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
+         if (temperatesPresent.contains("boreal")) {
+            builder.append(
+               "  - type: REPLACE\n    from: boreal\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: NoiseLookup\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n      lookup:\n        type: EXPRESSION\n        expression: temperature(x, z)\n    to:\n"
+            );
+            if (biomesPresent.contains("HILLS_SMALL_BOREAL")) {
+               builder.append("      hills_small_boreal: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("hills_small");
             }
 
-        });
-
-        return biomeMap;
-    }
-
-    private Set<String> getBiomesPresent() {
-        Set<String> biomeMap = new HashSet<>();
-
-        biomeSet.forEach(biome -> {
-            String simpleName = biome.biomeType.getName().toLowerCase();
-
-            if (simpleName.contains("coast")) {
-                if (simpleName.contains("small")) {
-                    biomeMap.add("COAST_SMALL");
-                    if (simpleName.contains("boreal")) {
-                        biomeMap.add("COAST_SMALL_BOREAL");
-                    } else if (simpleName.contains("temperate")) {
-                        biomeMap.add("COAST_SMALL_TEMPERATE");
-                    } else if (simpleName.contains("polar")) {
-                        biomeMap.add("COAST_SMALL_POLAR");
-                    } else if (simpleName.contains("subtropical")) {
-                        biomeMap.add("COAST_SMALL_SUBTROPICAL");
-                    } else if (simpleName.contains("tropical")) {
-                        biomeMap.add("COAST_SMALL_TROPICAL");
-                    }
-                    biomeMap.add("LAND");
-                }
-                if (simpleName.contains("large")) {
-                    biomeMap.add("COAST_LARGE");
-                    if (simpleName.contains("boreal")) {
-                        biomeMap.add("COAST_LARGE_BOREAL");
-                    } else if (simpleName.contains("temperate")) {
-                        biomeMap.add("COAST_LARGE_TEMPERATE");
-                    } else if (simpleName.contains("polar")) {
-                        biomeMap.add("COAST_LARGE_POLAR");
-                    } else if (simpleName.contains("subtropical")) {
-                        biomeMap.add("COAST_LARGE_SUBTROPICAL");
-                    } else if (simpleName.contains("tropical")) {
-                        biomeMap.add("COAST_LARGE_TROPICAL");
-                    }
-                    biomeMap.add("LAND");
-                }
+            if (biomesPresent.contains("HILLS_LARGE_BOREAL")) {
+               builder.append("      hills_large_boreal: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("hills_large");
             }
-            else if (simpleName.contains("hills_small")) {
-                biomeMap.add("HILLS_SMALL");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("HILLS_SMALL_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("HILLS_SMALL_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("HILLS_SMALL_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("HILLS_SMALL_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("HILLS_SMALL_TROPICAL");
-                }
-                biomeMap.add("LAND");
+
+            if (biomesPresent.contains("MOUNTAINS_SMALL_BOREAL")) {
+               builder.append("      mountains_small_boreal: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("mountains_small");
             }
-            else if (simpleName.contains("hills_large")) {
-                biomeMap.add("HILLS_LARGE");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("HILLS_LARGE_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("HILLS_LARGE_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("HILLS_LARGE_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("HILLS_LARGE_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("HILLS_LARGE_TROPICAL");
-                }
-                biomeMap.add("LAND");
+
+            if (biomesPresent.contains("MOUNTAINS_LARGE_BOREAL")) {
+               builder.append("      mountains_large_boreal: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("mountains_large");
             }
-            else if (simpleName.contains("mountains_small")) {
-                biomeMap.add("MOUNTAINS_SMALL");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("MOUNTAINS_SMALL_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("MOUNTAINS_SMALL_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("MOUNTAINS_SMALL_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("MOUNTAINS_SMALL_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("MOUNTAINS_SMALL_TROPICAL");
-                }
-                biomeMap.add("LAND");
+
+            if (biomesPresent.contains("FLAT_BOREAL")) {
+               builder.append("      flat_boreal: ").append(heightRarity.get("FLAT")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("BOREAL", k -> new HashSet<>()).add("flat");
             }
-            else if (simpleName.contains("mountains_large")) {
-                biomeMap.add("MOUNTAINS_LARGE");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("MOUNTAINS_LARGE_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("MOUNTAINS_LARGE_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("MOUNTAINS_LARGE_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("MOUNTAINS_LARGE_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("MOUNTAINS_LARGE_TROPICAL");
-                }
-                biomeMap.add("LAND");
+         }
+
+         if (temperatesPresent.contains("polar")) {
+            builder.append(
+               "  - type: REPLACE\n    from: polar\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: NoiseLookup\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n      lookup:\n        type: EXPRESSION\n        expression: temperature(x, z)\n    to:\n"
+            );
+            if (biomesPresent.contains("HILLS_SMALL_POLAR")) {
+               builder.append("      hills_small_polar: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("hills_small");
             }
-            else if (simpleName.contains("ocean")) {
-                if (simpleName.contains("deep")) {
-                    biomeMap.add("DEEP_OCEAN");
-                } else {
-                    biomeMap.add("OCEAN");
-                }
+
+            if (biomesPresent.contains("HILLS_LARGE_POLAR")) {
+               builder.append("      hills_large_polar: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("hills_large");
             }
-            else if (simpleName.contains("river")) {
-                biomeMap.add("RIVER");
+
+            if (biomesPresent.contains("MOUNTAINS_SMALL_POLAR")) {
+               builder.append("      mountains_small_polar: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("mountains_small");
             }
-            else if (simpleName.contains("flat")) {
-                biomeMap.add("FLAT");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("FLAT_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("FLAT_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("FLAT_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("FLAT_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("FLAT_TROPICAL");
-                }
-                biomeMap.add("LAND");
+
+            if (biomesPresent.contains("MOUNTAINS_LARGE_POLAR")) {
+               builder.append("      mountains_large_polar: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("mountains_large");
             }
-        });
 
-        return biomeMap;
-    }
+            if (biomesPresent.contains("FLAT_POLAR")) {
+               builder.append("      flat_polar: ").append(heightRarity.get("FLAT")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("POLAR", k -> new HashSet<>()).add("flat");
+            }
+         }
 
-    private Map<String, Integer> generateTemperatureRarityMap() {
-        Map<String, Integer> rarityMap = new LinkedHashMap<>();
-        double coldness = META.temperatureVariance;
-        coldness = (coldness * -1);
+         if (temperatesPresent.contains("subtropical")) {
+            builder.append(
+               "  - type: REPLACE\n    from: subtropical\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: NoiseLookup\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n      lookup:\n        type: EXPRESSION\n        expression: temperature(x, z)\n    to:\n"
+            );
+            if (biomesPresent.contains("HILLS_SMALL_SUBTROPICAL")) {
+               builder.append("      hills_small_subtropical: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("hills_small");
+            }
 
-        Map<String, double[]> temperatureZones = Map.of(
-                "TROPICAL", new double[]{20, 30},
-                "TEMPERATE", new double[]{5, 20},
-                "POLAR", new double[]{-50, 0},
-                "BOREAL", new double[]{-10, 10},
-                "SUBTROPICAL", new double[]{10, 25}
-        );
+            if (biomesPresent.contains("HILLS_LARGE_SUBTROPICAL")) {
+               builder.append("      hills_large_subtropical: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("hills_large");
+            }
 
-        for (Map.Entry<String, double[]> entry : temperatureZones.entrySet()) {
-            String zone = entry.getKey();
-            double[] tempRange = entry.getValue();
+            if (biomesPresent.contains("MOUNTAINS_SMALL_SUBTROPICAL")) {
+               builder.append("      mountains_small_subtropical: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("mountains_small");
+            }
 
-            double tempCenter = (tempRange[0] + tempRange[1]) / 2;
+            if (biomesPresent.contains("MOUNTAINS_LARGE_SUBTROPICAL")) {
+               builder.append("      mountains_large_subtropical: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("mountains_large");
+            }
 
-            double suitability = Math.max(0, 1 - Math.abs(coldness - normalizeTemperature(tempCenter)));
+            if (biomesPresent.contains("FLAT_SUBTROPICAL")) {
+               builder.append("      flat_subtropical: ").append(heightRarity.get("FLAT")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("SUBTROPICAL", k -> new HashSet<>()).add("flat");
+            }
+         }
 
-            // Convert suitability to rarity (higher suitability = lower rarity)
-            int rarity = (int) ((1 - suitability) * 10); // Scale rarity to 0-10
-            rarityMap.put(zone, rarity);
-        }
+         if (temperatesPresent.contains("tropical")) {
+            builder.append(
+               "  - type: REPLACE\n    from: tropical\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: NoiseLookup\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n      lookup:\n        type: EXPRESSION\n        expression: temperature(x, z)\n    to:\n"
+            );
+            if (biomesPresent.contains("HILLS_SMALL_TROPICAL")) {
+               builder.append("      hills_small_tropical: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("hills_small");
+            }
 
-        return rarityMap;
-    }
+            if (biomesPresent.contains("HILLS_LARGE_TROPICAL")) {
+               builder.append("      hills_large_tropical: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("hills_large");
+            }
 
-    private Map<String, Integer> generateHeightRarityMap() {
-        Map<String, Integer> heightRarityMap = new LinkedHashMap<>();
-        double elevation = META.heightVariance;
+            if (biomesPresent.contains("MOUNTAINS_SMALL_TROPICAL")) {
+               builder.append("      mountains_small_tropical: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("mountains_small");
+            }
 
-        // Define height zones
-        Map<String, double[]> heightZones = Map.of(
-                "TROPICAL", new double[]{5000, 7000},        // Elevated tropical
-                "TEMPERATE", new double[]{1000, 3000},       // Typical temperate
-                "POLAR", new double[]{0, 500},               // Low polar
-                "BOREAL", new double[]{500, 1000},           // Boreal with moderate height
-                "SUBTROPICAL", new double[]{3000, 5000}      // Subtropical ranges
-        );
+            if (biomesPresent.contains("MOUNTAINS_LARGE_TROPICAL")) {
+               builder.append("      mountains_large_tropical: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("mountains_large");
+            }
 
-        // Calculate rarity based on height suitability
-        for (Map.Entry<String, double[]> entry : heightZones.entrySet()) {
-            String zone = entry.getKey();
-            double[] heightRange = entry.getValue();
+            if (biomesPresent.contains("FLAT_TROPICAL")) {
+               builder.append("      flat_tropical: ").append(heightRarity.get("FLAT")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TROPICAL", k -> new HashSet<>()).add("flat");
+            }
+         }
 
-            double heightCenter = (heightRange[0] + heightRange[1]) / 2;
+         if (temperatesPresent.contains("temperate")) {
+            builder.append(
+               "  - type: REPLACE\n    from: temperate\n    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: NoiseLookup\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n      lookup:\n        type: EXPRESSION\n        expression: temperature(x, z)\n    to:\n"
+            );
+            if (biomesPresent.contains("HILLS_SMALL_TEMPERATE")) {
+               builder.append("      hills_small_temperate: ").append(heightRarity.get("HILLS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("hills_small");
+            }
 
-            double heightSuitability = calculateHeightSuitability(elevation, heightRange);
+            if (biomesPresent.contains("HILLS_LARGE_TEMPERATE")) {
+               builder.append("      hills_large_temperate: ").append(heightRarity.get("HILLS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("hills_large");
+            }
 
-            int rarity = (int) ((heightSuitability) * 10);
-            heightRarityMap.put(zone, rarity);
-        }
+            if (biomesPresent.contains("MOUNTAINS_SMALL_TEMPERATE")) {
+               builder.append("      mountains_small_temperate: ").append(heightRarity.get("MOUNTAINS_SMALL")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("mountains_small");
+            }
 
-        return heightRarityMap;
-    }
+            if (biomesPresent.contains("MOUNTAINS_LARGE_TEMPERATE")) {
+               builder.append("      mountains_large_temperate: ").append(heightRarity.get("MOUNTAINS_LARGE")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("mountains_large");
+            }
 
-    private Map<String, Integer> generateRarityMap() {
-        Map<String, Integer> rarityMap = new LinkedHashMap<>();
-        double coldness = META.temperatureVariance;
-        double elevation = META.heightVariance;
+            if (biomesPresent.contains("FLAT_TEMPERATE")) {
+               builder.append("      flat_temperate: ").append(heightRarity.get("FLAT")).append("\n");
+               this.temperatureToHeightMap.computeIfAbsent("TEMPERATE", k -> new HashSet<>()).add("flat");
+            }
+         }
+      }
 
-        Map<String, double[][]> biomeZones = Map.of(
-                "TROPICAL", new double[][]{{20, 30}, {5000, 7000}},
-                "TEMPERATE", new double[][]{{5, 20}, {1000, 3000}},
-                "POLAR", new double[][]{{-50, 0}, {0, 500}},
-                "BOREAL", new double[][]{{-10, 10}, {500, 1000}},
-                "SUBTROPICAL", new double[][]{{10, 25}, {3000, 5000}}
-        );
+      return builder;
+   }
 
-        for (Map.Entry<String, double[][]> entry : biomeZones.entrySet()) {
-            String zone = entry.getKey();
-            double[] tempRange = entry.getValue()[0];
-            double[] elevRange = entry.getValue()[1];
+   @NotNull
+   private StringBuilder generateFTZ() {
+      StringBuilder builder = new StringBuilder();
+      if (!this.generateSTZ().isEmpty()) {
+         builder.append("stages:").append("\n");
 
-            double tempCenter = (tempRange[0] + tempRange[1]) / 2;
+         for (Entry<String, Set<String>> currentTH : this.temperatureToHeightMap.entrySet()) {
+            for (String key : currentTH.getValue()) {
+               builder.append("  - type: REPLACE\n");
+               String current = key + "_" + currentTH.getKey().toLowerCase();
+               builder.append("    from: ").append(current).append("\n");
+               builder.append(
+                  "    sampler:\n      type: CELLULAR\n      jitter: ${customization.yml:biomeSpread.cellJitter}\n      return: CellValue\n      frequency: 1 / ${customization.yml:biomeSpread.cellDistance}\n    to:\n"
+               );
 
-            double normalizedTemp = normalizeTemperature(tempCenter);
-            double tempSuitability = Math.max(0, 1 - Math.abs(coldness - normalizedTemp));
+               for (BaseBiome biome : this.biomeSet) {
+                  if (!biome.biomeType.isCoast() && biome.biomeType.getName().toLowerCase().equals(current)) {
+                     builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
+                  }
+               }
+            }
+         }
+      }
 
-            double elevSuitability = calculateHeightSuitability(elevation, elevRange);
+      return builder;
+   }
 
-            double suitability = (tempSuitability + elevSuitability) / 2;
+   private Map<String, Integer> getBiomeAmount() {
+      Map<String, Integer> biomeMap = new HashMap<>();
+      this.biomeSet.forEach(biome -> {
+         String simpleName = biome.biomeType.getName();
+         simpleName = simpleName.toLowerCase();
+         biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
+      });
+      return biomeMap;
+   }
 
-            int rarity = (int) ((suitability) * 10);
-            rarityMap.put(zone, rarity);
-        }
+   private Map<String, Integer> getBiomeAmountEC() {
+      Map<String, Integer> biomeMap = new HashMap<>();
+      this.biomeSet.forEach(biome -> {
+         if (!biome.biomeType.isCoast()) {
+            String simpleName = biome.biomeType.getName();
+            simpleName = simpleName.toLowerCase();
+            biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
+         }
+      });
+      return biomeMap;
+   }
 
-        return rarityMap;
-    }
+   private Set<String> getBiomesPresent() {
+      Set<String> biomeMap = new HashSet<>();
+      this.biomeSet.forEach(biome -> {
+         String simpleName = biome.biomeType.getName().toLowerCase();
+         if (simpleName.contains("coast")) {
+            if (simpleName.contains("small")) {
+               biomeMap.add("COAST_SMALL");
+               if (simpleName.contains("boreal")) {
+                  biomeMap.add("COAST_SMALL_BOREAL");
+               } else if (simpleName.contains("temperate")) {
+                  biomeMap.add("COAST_SMALL_TEMPERATE");
+               } else if (simpleName.contains("polar")) {
+                  biomeMap.add("COAST_SMALL_POLAR");
+               } else if (simpleName.contains("subtropical")) {
+                  biomeMap.add("COAST_SMALL_SUBTROPICAL");
+               } else if (simpleName.contains("tropical")) {
+                  biomeMap.add("COAST_SMALL_TROPICAL");
+               }
 
-    private Map<String, Integer> generateLandHeightRarityMap() {
-        Map<String, Integer> heightRarityMap = new LinkedHashMap<>();
-        double elevation = META.heightVariance;
+               biomeMap.add("LAND");
+            }
 
-        // Define elevation ranges for each biome type
-        Map<String, double[]> elevationZones = Map.of(
-                "MOUNTAINS_SMALL", new double[]{1000, 3700},      // Ideal range for small mountains
-                "MOUNTAINS_LARGE", new double[]{3000, 7000},      // Ideal range for large mountains
-                "HILLS_SMALL", new double[]{300, 1000},           // Ideal range for small hills
-                "HILLS_LARGE", new double[]{800, 2500},          // Ideal range for large hills
-                "FLAT", new double[]{0, 300}                      // Ideal range for flat lands
-        );
+            if (simpleName.contains("large")) {
+               biomeMap.add("COAST_LARGE");
+               if (simpleName.contains("boreal")) {
+                  biomeMap.add("COAST_LARGE_BOREAL");
+               } else if (simpleName.contains("temperate")) {
+                  biomeMap.add("COAST_LARGE_TEMPERATE");
+               } else if (simpleName.contains("polar")) {
+                  biomeMap.add("COAST_LARGE_POLAR");
+               } else if (simpleName.contains("subtropical")) {
+                  biomeMap.add("COAST_LARGE_SUBTROPICAL");
+               } else if (simpleName.contains("tropical")) {
+                  biomeMap.add("COAST_LARGE_TROPICAL");
+               }
 
-        for (Map.Entry<String, double[]> entry : elevationZones.entrySet()) {
-            String zone = entry.getKey();
-            int rarity = getLHRarity(entry, elevation);
-            heightRarityMap.put(zone, rarity);
-        }
+               biomeMap.add("LAND");
+            }
+         } else if (simpleName.contains("hills_small")) {
+            biomeMap.add("HILLS_SMALL");
+            if (simpleName.contains("boreal")) {
+               biomeMap.add("HILLS_SMALL_BOREAL");
+            } else if (simpleName.contains("temperate")) {
+               biomeMap.add("HILLS_SMALL_TEMPERATE");
+            } else if (simpleName.contains("polar")) {
+               biomeMap.add("HILLS_SMALL_POLAR");
+            } else if (simpleName.contains("subtropical")) {
+               biomeMap.add("HILLS_SMALL_SUBTROPICAL");
+            } else if (simpleName.contains("tropical")) {
+               biomeMap.add("HILLS_SMALL_TROPICAL");
+            }
 
-        return heightRarityMap;
-    }
+            biomeMap.add("LAND");
+         } else if (simpleName.contains("hills_large")) {
+            biomeMap.add("HILLS_LARGE");
+            if (simpleName.contains("boreal")) {
+               biomeMap.add("HILLS_LARGE_BOREAL");
+            } else if (simpleName.contains("temperate")) {
+               biomeMap.add("HILLS_LARGE_TEMPERATE");
+            } else if (simpleName.contains("polar")) {
+               biomeMap.add("HILLS_LARGE_POLAR");
+            } else if (simpleName.contains("subtropical")) {
+               biomeMap.add("HILLS_LARGE_SUBTROPICAL");
+            } else if (simpleName.contains("tropical")) {
+               biomeMap.add("HILLS_LARGE_TROPICAL");
+            }
 
-    private int getLHRarity(Map.Entry<String, double[]> entry, double elevation) {
-        double[] elevationRange = entry.getValue();
+            biomeMap.add("LAND");
+         } else if (simpleName.contains("mountains_small")) {
+            biomeMap.add("MOUNTAINS_SMALL");
+            if (simpleName.contains("boreal")) {
+               biomeMap.add("MOUNTAINS_SMALL_BOREAL");
+            } else if (simpleName.contains("temperate")) {
+               biomeMap.add("MOUNTAINS_SMALL_TEMPERATE");
+            } else if (simpleName.contains("polar")) {
+               biomeMap.add("MOUNTAINS_SMALL_POLAR");
+            } else if (simpleName.contains("subtropical")) {
+               biomeMap.add("MOUNTAINS_SMALL_SUBTROPICAL");
+            } else if (simpleName.contains("tropical")) {
+               biomeMap.add("MOUNTAINS_SMALL_TROPICAL");
+            }
 
-        // Calculate the center of the elevation range
-        double elevationCenter = (elevationRange[0] + elevationRange[1]) / 2;
+            biomeMap.add("LAND");
+         } else if (simpleName.contains("mountains_large")) {
+            biomeMap.add("MOUNTAINS_LARGE");
+            if (simpleName.contains("boreal")) {
+               biomeMap.add("MOUNTAINS_LARGE_BOREAL");
+            } else if (simpleName.contains("temperate")) {
+               biomeMap.add("MOUNTAINS_LARGE_TEMPERATE");
+            } else if (simpleName.contains("polar")) {
+               biomeMap.add("MOUNTAINS_LARGE_POLAR");
+            } else if (simpleName.contains("subtropical")) {
+               biomeMap.add("MOUNTAINS_LARGE_SUBTROPICAL");
+            } else if (simpleName.contains("tropical")) {
+               biomeMap.add("MOUNTAINS_LARGE_TROPICAL");
+            }
 
-        // Calculate suitability based on the current elevation
-        double suitability = Math.max(0, 1 - Math.abs(elevation - normalizeHeight(elevationCenter)));
+            biomeMap.add("LAND");
+         } else if (simpleName.contains("ocean")) {
+            if (simpleName.contains("deep")) {
+               biomeMap.add("DEEP_OCEAN");
+            } else if (simpleName.contains("ocean_flat")) {
+               biomeMap.add("OCEAN_FLAT");
+               biomeMap.add("OCEAN");
+            } else if (simpleName.contains("ocean_hills")) {
+               biomeMap.add("OCEAN_HILLS");
+               biomeMap.add("OCEAN");
+            } else {
+               biomeMap.add("OCEAN");
+            }
+         } else if (simpleName.contains("river")) {
+            biomeMap.add("RIVER");
+         } else if (simpleName.contains("flat")) {
+            biomeMap.add("FLAT");
+            if (simpleName.contains("boreal")) {
+               biomeMap.add("FLAT_BOREAL");
+            } else if (simpleName.contains("temperate")) {
+               biomeMap.add("FLAT_TEMPERATE");
+            } else if (simpleName.contains("polar")) {
+               biomeMap.add("FLAT_POLAR");
+            } else if (simpleName.contains("subtropical")) {
+               biomeMap.add("FLAT_SUBTROPICAL");
+            } else if (simpleName.contains("tropical")) {
+               biomeMap.add("FLAT_TROPICAL");
+            }
 
-        // Convert suitability to rarity (higher suitability = lower rarity)
-        return (int) ((1 - suitability) * 10);
-    }
+            biomeMap.add("LAND");
+         }
+      });
+      return biomeMap;
+   }
 
-    private double normalizeHeight(double height) {
-        // Assuming the highest possible elevation is 8000m and lowest is 0m (sea level)
-        double minHeight = 0;
-        double maxHeight = 8000;
-        return (height - minHeight) / (maxHeight - minHeight) * 2 - 1;
-    }
+   private Map<String, Integer> generateHeightRarityMap() {
+      Map<String, Integer> heightRarityMap = new LinkedHashMap<>();
+      double elevation = this.META.heightVariance;
+      Map<String, double[]> heightZones = Map.of(
+         "TROPICAL",
+         new double[]{5000.0, 7000.0},
+         "TEMPERATE",
+         new double[]{1000.0, 3000.0},
+         "POLAR",
+         new double[]{0.0, 500.0},
+         "BOREAL",
+         new double[]{500.0, 1000.0},
+         "SUBTROPICAL",
+         new double[]{3000.0, 5000.0}
+      );
 
-    private double normalizeTemperature(double temperature) {
-        double minTemp = -50;
-        double maxTemp = 30;
-        return (temperature - minTemp) / (maxTemp - minTemp) * 2 - 1;
-    }
+      for (Entry<String, double[]> entry : heightZones.entrySet()) {
+         String zone = entry.getKey();
+         double[] heightRange = entry.getValue();
+         double heightCenter = (heightRange[0] + heightRange[1]) / 2.0;
+         double heightSuitability = this.calculateHeightSuitability(elevation, heightRange);
+         int rarity = (int)(heightSuitability * 10.0);
+         heightRarityMap.put(zone, rarity);
+      }
 
-    private double calculateHeightSuitability(double elevation, double[] elevRange) {
-        double minElev = elevRange[0];
-        double maxElev = elevRange[1];
-        double elevCenter = (minElev + maxElev) / 2;
-        return Math.max(0, 1 - Math.abs(elevation - elevCenter) / (maxElev - minElev));
-    }
+      return heightRarityMap;
+   }
 
+   private Map<String, Integer> generateOceanHeightRarityMap() {
+      Map<String, Integer> heightRarityMap = new LinkedHashMap<>();
+      double oceanHeightVariance = this.META.oceanHeightVariance;
+      Map<String, double[]> heightZones = Map.of("FLAT", new double[]{-1.0, -0.2}, "HILLS", new double[]{-0.2, 1.0});
 
+      for (Entry<String, double[]> entry : heightZones.entrySet()) {
+         String zone = entry.getKey();
+         double[] heightRange = entry.getValue();
+         double heightCenter = (heightRange[0] + heightRange[1]) / 2.0;
+         double heightSuitability = this.calculateHeightSuitability(oceanHeightVariance, heightRange);
+         int rarity = Math.max(2, Math.min(8, (int)(2.0 + heightSuitability * 6.0)));
+         heightRarityMap.put(zone, rarity);
+      }
+
+      return heightRarityMap;
+   }
+
+   private Map<String, Integer> generateTemperatureRarityMap() {
+      Map<String, Integer> rarityMap = new LinkedHashMap<>();
+      double coldness = this.META.temperatureVariance;
+      coldness *= -1.0;
+      Map<String, double[]> temperatureZones = Map.of(
+         "TROPICAL",
+         new double[]{20.0, 30.0},
+         "TEMPERATE",
+         new double[]{5.0, 20.0},
+         "POLAR",
+         new double[]{-50.0, 0.0},
+         "BOREAL",
+         new double[]{-10.0, 10.0},
+         "SUBTROPICAL",
+         new double[]{10.0, 25.0}
+      );
+      Map<String, Double> normalizedCenters = new HashMap<>();
+
+      for (Entry<String, double[]> entry : temperatureZones.entrySet()) {
+         double tempCenter = (entry.getValue()[0] + entry.getValue()[1]) / 2.0;
+         normalizedCenters.put(entry.getKey(), this.normalizeTemperature(tempCenter));
+      }
+
+      for (Entry<String, double[]> entry : temperatureZones.entrySet()) {
+         String zone = entry.getKey();
+         double[] tempRange = entry.getValue();
+         double tempCenter = (tempRange[0] + tempRange[1]) / 2.0;
+         double suitability = Math.max(0.0, 1.0 - Math.abs(coldness - this.normalizeTemperature(tempCenter)));
+         double clusterFactor = 0.0;
+
+         for (Entry<String, Double> neighbor : normalizedCenters.entrySet()) {
+            if (!neighbor.getKey().equals(zone)) {
+               double proximity = 1.0 - Math.abs(neighbor.getValue() - this.normalizeTemperature(tempCenter));
+               clusterFactor += Math.max(0.0, proximity);
+            }
+         }
+
+         double adjustedSuitability = (suitability + clusterFactor / (double)temperatureZones.size()) / 2.0;
+         int rarity = (int)((1.0 - adjustedSuitability) * 10.0);
+         rarityMap.put(zone, rarity);
+      }
+
+      return rarityMap;
+   }
+
+   private Map<String, Integer> generateRarityMap() {
+      Map<String, Integer> rarityMap = new LinkedHashMap<>();
+      double coldness = this.META.temperatureVariance;
+      double elevation = this.META.heightVariance;
+      Map<String, double[][]> biomeZones = Map.of(
+         "TROPICAL",
+         new double[][]{{20.0, 30.0}, {5000.0, 7000.0}},
+         "TEMPERATE",
+         new double[][]{{5.0, 20.0}, {1000.0, 3000.0}},
+         "POLAR",
+         new double[][]{{-50.0, 0.0}, {0.0, 500.0}},
+         "BOREAL",
+         new double[][]{{-10.0, 10.0}, {500.0, 1000.0}},
+         "SUBTROPICAL",
+         new double[][]{{10.0, 25.0}, {3000.0, 5000.0}}
+      );
+
+      for (Entry<String, double[][]> entry : biomeZones.entrySet()) {
+         String zone = entry.getKey();
+         double[] tempRange = entry.getValue()[0];
+         double[] elevRange = entry.getValue()[1];
+         double tempCenter = (tempRange[0] + tempRange[1]) / 2.0;
+         double normalizedTemp = this.normalizeTemperature(tempCenter);
+         double tempSuitability = Math.max(0.0, 1.0 - Math.abs(coldness - normalizedTemp));
+         double elevSuitability = this.calculateHeightSuitability(elevation, elevRange);
+         double suitability = (tempSuitability + elevSuitability) / 2.0;
+         int rarity = (int)(suitability * 10.0);
+         rarityMap.put(zone, rarity);
+      }
+
+      return rarityMap;
+   }
+
+   private Map<String, Integer> generateLandHeightRarityMap() {
+      Map<String, Integer> heightRarityMap = new LinkedHashMap<>();
+      double elevation = this.META.heightVariance;
+      Map<String, double[]> elevationZones = Map.of(
+         "MOUNTAINS_SMALL",
+         new double[]{1000.0, 3700.0},
+         "MOUNTAINS_LARGE",
+         new double[]{3000.0, 7000.0},
+         "HILLS_SMALL",
+         new double[]{300.0, 1000.0},
+         "HILLS_LARGE",
+         new double[]{800.0, 2500.0},
+         "FLAT",
+         new double[]{0.0, 300.0}
+      );
+
+      for (Entry<String, double[]> entry : elevationZones.entrySet()) {
+         String zone = entry.getKey();
+         int rarity = this.getLHRarity(entry, elevation);
+         heightRarityMap.put(zone, rarity);
+      }
+
+      return heightRarityMap;
+   }
+
+   private int getLHRarity(Entry<String, double[]> entry, double elevation) {
+      double[] elevationRange = entry.getValue();
+      double elevationCenter = (elevationRange[0] + elevationRange[1]) / 2.0;
+      double suitability = Math.max(0.0, 1.0 - Math.abs(elevation - this.normalizeHeight(elevationCenter)));
+      return (int)((1.0 - suitability) * 10.0);
+   }
+
+   private double normalizeHeight(double height) {
+      double minHeight = 0.0;
+      double maxHeight = 8000.0;
+      return (height - minHeight) / (maxHeight - minHeight) * 2.0 - 1.0;
+   }
+
+   private double normalizeTemperature(double temperature) {
+      double minTemp = -50.0;
+      double maxTemp = 30.0;
+      return (temperature - minTemp) / (maxTemp - minTemp) * 2.0 - 1.0;
+   }
+
+   private double calculateHeightSuitability(double elevation, double[] elevRange) {
+      double minElev = elevRange[0];
+      double maxElev = elevRange[1];
+      double elevCenter = (minElev + maxElev) / 2.0;
+      return Math.max(0.0, 1.0 - Math.abs(elevation - elevCenter) / (maxElev - minElev));
+   }
 }

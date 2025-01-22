@@ -1,7 +1,3 @@
-/**
- * Represents a base advancement that can be extended to create custom advancements.
- * This class integrates with CrazyAdvancements for managing advancements and their properties.
- */
 package org.vicky.vspe.features.AdvancementPlus;
 
 import eu.endercentral.crazy_advancements.NameKey;
@@ -9,7 +5,12 @@ import eu.endercentral.crazy_advancements.advancement.AdvancementDisplay;
 import eu.endercentral.crazy_advancements.advancement.AdvancementFlag;
 import eu.endercentral.crazy_advancements.advancement.AdvancementReward;
 import eu.endercentral.crazy_advancements.advancement.AdvancementVisibility;
+import eu.endercentral.crazy_advancements.advancement.AdvancementDisplay.AdvancementFrame;
 import eu.endercentral.crazy_advancements.advancement.criteria.Criteria;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -18,309 +19,196 @@ import org.jetbrains.annotations.NotNull;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.systems.BroadcastSystem.ToastType;
 import org.vicky.vspe.systems.Dimension.BaseDimension;
+import org.vicky.vspe.utilities.UUIDGenerator;
 import org.vicky.vspe.utilities.DatabaseManager.templates.Advancement;
 import org.vicky.vspe.utilities.DatabaseManager.templates.DatabasePlayer;
-import org.vicky.vspe.utilities.UUIDGenerator;
+import org.vicky.vspe.utilities.global.GlobalResources;
 import org.vicky.vspe.utilities.global.Events.PlayerReceivedAdvancement;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.vicky.vspe.utilities.global.GlobalResources.advancementManager;
-import static org.vicky.vspe.utilities.global.GlobalResources.databaseManager;
-
 public abstract class BaseAdvancement {
-    /**
-     * The description of the advancement.
-     */
-    protected String description;
+   protected String description;
+   protected String title;
+   protected String namespace;
+   protected UUID Id;
+   protected AdvancementType advancementType;
+   protected ToastType advancementTT;
+   protected AdvancementFrame toastType;
+   protected List<BaseDimension> eligibleDimensions;
+   protected ItemStack icon;
+   protected boolean hasParent;
+   protected BaseAdvancement parent;
+   protected AdvancementVisibility visibility;
 
-    /**
-     * The title of the advancement.
-     */
-    protected String title;
+   public BaseAdvancement(
+      ItemStack icon,
+      String namespace,
+      AdvancementFrame toastFrame,
+      String description,
+      String title,
+      List<BaseDimension> permittedDimensions,
+      AdvancementType advancementType,
+      AdvancementVisibility visibility,
+      ToastType aTT
+   ) {
+      this.description = description;
+      this.advancementType = advancementType;
+      this.title = title;
+      this.advancementTT = aTT;
+      this.namespace = namespace;
+      this.toastType = toastFrame;
+      this.icon = icon;
+      this.hasParent = false;
+      this.Id = UUIDGenerator.generateUUIDFromString(this.getFormattedTitle());
+      this.parent = null;
+      this.visibility = visibility;
+      this.eligibleDimensions = (List<BaseDimension>)(permittedDimensions != null && !permittedDimensions.isEmpty() ? permittedDimensions : new ArrayList<>());
+      GlobalResources.advancementManager.LOADED_ADVANCEMENTS.add(this);
+   }
 
-    /**
-     * The namespace associated with the advancement.
-     */
-    protected String namespace;
+   public BaseAdvancement(
+      ItemStack icon,
+      AdvancementFrame toastFrame,
+      String description,
+      String title,
+      List<BaseDimension> permittedDimensions,
+      AdvancementType advancementType,
+      AdvancementVisibility visibility,
+      ToastType aTT,
+      Class<? extends BaseAdvancement> parentClass
+   ) {
+      this.description = description;
+      this.advancementType = advancementType;
+      this.title = title;
+      this.advancementTT = aTT;
+      this.toastType = toastFrame;
+      this.icon = icon;
+      this.Id = UUIDGenerator.generateUUIDFromString(this.getFormattedTitle());
+      this.hasParent = true;
+      this.parent = GlobalResources.advancementManager.getAdvancement(parentClass);
+      this.namespace = this.parent.namespace;
+      this.visibility = visibility;
+      this.eligibleDimensions = (List<BaseDimension>)(permittedDimensions != null && !permittedDimensions.isEmpty() ? permittedDimensions : new ArrayList<>());
+      GlobalResources.advancementManager.LOADED_ADVANCEMENTS.add(this);
+   }
 
-    /**
-     * The unique identifier for the advancement.
-     */
-    protected UUID Id;
+   public eu.endercentral.crazy_advancements.advancement.Advancement getInstance() {
+      eu.endercentral.crazy_advancements.advancement.Advancement instancedAdvancement = this.getInstancedAdvancement(this.visibility);
+      if (this.advancementCriteria() != null) {
+         instancedAdvancement.setCriteria(this.advancementCriteria());
+      }
 
-    /**
-     * The type of the advancement.
-     */
-    protected AdvancementType advancementType;
+      if (this.advancementReward() != null) {
+         instancedAdvancement.setReward(this.advancementReward());
+      }
 
-    /**
-     * The toast type used for the advancement.
-     */
-    protected ToastType advancementTT;
+      return instancedAdvancement;
+   }
 
-    /**
-     * The toast frame used to display the advancement.
-     */
-    protected AdvancementDisplay.AdvancementFrame toastType;
+   @NotNull
+   private eu.endercentral.crazy_advancements.advancement.Advancement getInstancedAdvancement(AdvancementVisibility visibility) {
+      AdvancementDisplay display = new AdvancementDisplay(this.icon, this.title, this.description, this.toastType, visibility);
+      if (this.parent != null) {
+         display.setX(this.parent.getInstance().getDisplay().getX() + 1.0F);
+         if (this.parent.getInstance().getChildren().size() <= 4) {
+            display.setY((float)(this.parent.getInstance().getChildren().size() - 1));
+         } else if (this.parent.getInstance().getChildren().size() <= 10) {
+            display.setY((float)(this.parent.getInstance().getChildren().size() - 5));
+         } else {
+            display.setY((float)(this.parent.getInstance().getChildren().size() - 10));
+         }
+      } else {
+         display.setBackgroundTexture("textures/gui/advancements/backgrounds/" + this.getFormattedTitle() + ".png");
+         display.setX(2.0F);
+         display.setY(0.0F);
+      }
 
-    /**
-     * The dimensions in which the advancement can be granted.
-     */
-    protected List<BaseDimension> eligibleDimensions;
+      return this.getAdvancement(display);
+   }
 
-    /**
-     * The icon representing the advancement.
-     */
-    protected ItemStack icon;
+   @NotNull
+   private eu.endercentral.crazy_advancements.advancement.Advancement getAdvancement(AdvancementDisplay display) {
+      eu.endercentral.crazy_advancements.advancement.Advancement instancedAdvancement;
+      if (!this.hasParent) {
+         instancedAdvancement = new eu.endercentral.crazy_advancements.advancement.Advancement(
+            new NameKey(this.namespace, this.getFormattedTitle()), display, new AdvancementFlag[]{AdvancementFlag.SHOW_TOAST}
+         );
+      } else {
+         instancedAdvancement = new eu.endercentral.crazy_advancements.advancement.Advancement(
+            this.parent.getInstance(), new NameKey(this.namespace, this.getFormattedTitle()), display, new AdvancementFlag[]{AdvancementFlag.SHOW_TOAST}
+         );
+      }
 
-    /**
-     * Indicates if the advancement is a parent advancement.
-     */
-    protected boolean hasParent;
+      return instancedAdvancement;
+   }
 
-    /**
-     * The parent advancement of this advancement.
-     */
-    protected BaseAdvancement parent;
+   public String getFormattedTitle() {
+      return this.title.toLowerCase().replace(" ", "_").replace("! @ # $ % ^ & * ( ) - + = { } [ ] : ; ' < , > . ? / ` ~ ", "_");
+   }
 
-    protected AdvancementVisibility visibility;
+   public void grantAdvancement(Player player) {
+      this.performGrantAdvancement(player);
+      PlayerReceivedAdvancement event = new PlayerReceivedAdvancement(player, this);
+      Bukkit.getPluginManager().callEvent(event);
+   }
 
-    /**
-     * Constructs a new BaseAdvancement.
-     *
-     * @param icon                The icon representing the advancement.
-     * @param namespace           The namespace of the advancement.
-     * @param toastFrame          The toast frame to display the advancement.
-     * @param description         The description of the advancement.
-     * @param title               The title of the advancement.
-     * @param permittedDimensions The dimensions in which the advancement is permitted.
-     * @param advancementType     The type of the advancement.
-     * @param aTT                 The toast type associated with the advancement.
-     */
-    public BaseAdvancement(ItemStack icon, String namespace, AdvancementDisplay.AdvancementFrame toastFrame, String description, String title, List<BaseDimension> permittedDimensions, AdvancementType advancementType, AdvancementVisibility visibility, ToastType aTT) {
-        this.description = description;
-        this.advancementType = advancementType;
-        this.title = title;
-        this.advancementTT = aTT;
-        this.namespace = namespace;
-        this.toastType = toastFrame;
-        this.icon = icon;
-        this.hasParent = false;
-        this.Id = UUIDGenerator.generateUUIDFromString(getFormattedTitle());
-        this.parent = null;
-        this.visibility = visibility;
-        this.eligibleDimensions = permittedDimensions != null && !permittedDimensions.isEmpty()
-                ? permittedDimensions
-                : new ArrayList<>();
+   protected boolean canGrantInDimension(Player player) {
+      return this.eligibleDimensions.isEmpty() ? true : this.eligibleDimensions.stream().anyMatch(dimension -> dimension.isPlayerInDimension(player));
+   }
 
-        advancementManager.LOADED_ADVANCEMENTS.add(this);
-    }
+   protected abstract Criteria advancementCriteria();
 
-    /**
-     * Constructs a new BaseAdvancement with a specified parent.
-     * <p>namespace - The namespace of the advancement is gotten from the specified parent.</p>
-     *
-     * @param icon                The icon representing the advancement.
-     * @param toastFrame          The toast frame to display the advancement.
-     * @param description         The description of the advancement.
-     * @param title               The title of the advancement.
-     * @param permittedDimensions The dimensions in which the advancement is permitted.
-     * @param advancementType     The type of the advancement.
-     * @param aTT                 The toast type associated with the advancement.
-     * @param parentClass         The parent advancement's class.
-     */
-    public BaseAdvancement(ItemStack icon, AdvancementDisplay.AdvancementFrame toastFrame, String description, String title, List<BaseDimension> permittedDimensions, AdvancementType advancementType, AdvancementVisibility visibility, ToastType aTT, Class<? extends BaseAdvancement> parentClass) {
-        this.description = description;
-        this.advancementType = advancementType;
-        this.title = title;
-        this.advancementTT = aTT;
-        this.toastType = toastFrame;
-        this.icon = icon;
-        this.Id = UUIDGenerator.generateUUIDFromString(getFormattedTitle());
-        this.hasParent = true;
-        this.parent = advancementManager.getAdvancement(parentClass);
-        this.namespace = parent.namespace;
-        this.visibility = visibility;
-        this.eligibleDimensions = permittedDimensions != null && !permittedDimensions.isEmpty()
-                ? permittedDimensions
-                : new ArrayList<>();
+   protected abstract AdvancementReward advancementReward();
 
-        advancementManager.LOADED_ADVANCEMENTS.add(this);
-    }
+   protected boolean isPlayerEligible(Player player) {
+      try {
+         DatabasePlayer contextPlayer = GlobalResources.databaseManager.getEntityById(DatabasePlayer.class, player.getUniqueId());
+         org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager advancementManager = GlobalResources.databaseManager
+            .getEntityById(org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager.class, 1);
+         Optional<Advancement> contextAdvancement = advancementManager.getAdvancements()
+            .stream()
+            .filter(advancement -> advancement.getId().equals(this.getId()))
+            .findAny();
+         if (contextAdvancement.isPresent()) {
+            return !contextPlayer.getAccomplishedAdvancements().contains(contextAdvancement.get());
+         } else {
+            throw new AdvancementNotExists("Failed to check eligibility of player for advancement", this);
+         }
+      } catch (Exception var5) {
+         throw new RuntimeException("Error encountered with SQL manager: " + var5);
+      }
+   }
 
-    /**
-     * Gets the CrazyAdvancements instance of the advancement.
-     *
-     * @return The advancement instance.
-     */
-    public eu.endercentral.crazy_advancements.advancement.Advancement getInstance() {
-        eu.endercentral.crazy_advancements.advancement.Advancement instancedAdvancement = getInstancedAdvancement(visibility);
+   protected abstract void performGrantAdvancement(OfflinePlayer var1);
 
-        if (advancementCriteria() != null)
-            instancedAdvancement.setCriteria(advancementCriteria());
-        if (advancementReward() != null)
-            instancedAdvancement.setReward(advancementReward());
+   public String getDescription() {
+      return this.description;
+   }
 
-        return instancedAdvancement;
-    }
+   public AdvancementType getAdvancementType() {
+      return this.advancementType;
+   }
 
-    @NotNull
-    private eu.endercentral.crazy_advancements.advancement.Advancement getInstancedAdvancement(AdvancementVisibility visibility) {
-        AdvancementDisplay display = new AdvancementDisplay(icon, title, description, toastType, visibility);
+   public ToastType getAdvancementTT() {
+      return this.advancementTT;
+   }
 
-        if (parent != null) {
-            display.setX(parent.getInstance().getDisplay().getX() + 1);
+   public List<BaseDimension> getEligibleDimensions() {
+      return this.eligibleDimensions;
+   }
 
-            if (parent.getInstance().getChildren().size() <= 4)
-                display.setY(parent.getInstance().getChildren().size() - 1);
-            else if (parent.getInstance().getChildren().size() <= 10)
-                display.setY(parent.getInstance().getChildren().size() - 5);
-            else
-                display.setY(parent.getInstance().getChildren().size() - 10);
+   public String getTitle() {
+      return this.title;
+   }
 
-        } else {
-            display.setBackgroundTexture("textures/gui/advancements/backgrounds/" + getFormattedTitle() + ".png");
-            display.setX(2);
-            display.setY(0);
-        }
+   public UUID getId() {
+      return this.Id;
+   }
 
-        return getAdvancement(display);
-    }
+   public String getNamespace() {
+      return this.namespace;
+   }
 
-    @NotNull
-    private eu.endercentral.crazy_advancements.advancement.Advancement getAdvancement(AdvancementDisplay display) {
-        eu.endercentral.crazy_advancements.advancement.Advancement instancedAdvancement;
-        if (!hasParent) {
-            instancedAdvancement = new eu.endercentral.crazy_advancements.advancement.Advancement(
-                    new NameKey(namespace, getFormattedTitle()), display,
-                    AdvancementFlag.SHOW_TOAST
-            );
-
-        } else {
-            instancedAdvancement = new eu.endercentral.crazy_advancements.advancement.Advancement(
-                    parent.getInstance(),
-                    new NameKey(namespace, getFormattedTitle()), display, AdvancementFlag.SHOW_TOAST
-            );
-
-        }
-        return instancedAdvancement;
-    }
-
-    /**
-     * Formats the title of the advancement to a valid format.
-     *
-     * @return The formatted title.
-     */
-    public String getFormattedTitle() {
-        return title.toLowerCase().replace(" ", "_").replace("! @ # $ % ^ & * ( ) - + = { } [ ] : ; ' < , > . ? / ` ~ ", "_");
-    }
-
-    /**
-     * Grants the advancement to a player.
-     *
-     * @param player The player to grant the advancement to.
-     */
-    public void grantAdvancement(Player player) {
-        performGrantAdvancement(player);
-        PlayerReceivedAdvancement event = new PlayerReceivedAdvancement(player, this);
-        Bukkit.getPluginManager().callEvent(event);
-    }
-
-    /**
-     * Checks if the player is in an eligible dimension to receive the advancement if any.
-     *
-     * @param player The player to check.
-     * @return True if the player is in an eligible dimension, false otherwise.
-     */
-    protected boolean canGrantInDimension(Player player) {
-        if (eligibleDimensions.isEmpty()) {
-            return true;
-        }
-        return eligibleDimensions.stream().anyMatch(dimension -> dimension.isPlayerInDimension(player));
-    }
-
-    /**
-     * Gets the criteria for the advancement.
-     *
-     * @return The advancement criteria.
-     */
-    protected abstract Criteria advancementCriteria();
-
-    /**
-     * Gets the reward for completing the advancement.
-     *
-     * @return The advancement reward.
-     */
-    protected abstract AdvancementReward advancementReward();
-
-
-    /**
-     * Checks if a player is eligible for the advancement.
-     *
-     * @param player The player to check.
-     * @return True if the player is eligible, false otherwise.
-     */
-    protected boolean isPlayerEligible(Player player) {
-        try {
-            DatabasePlayer contextPlayer = databaseManager.getEntityById(DatabasePlayer.class, player.getUniqueId());
-            org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager advancementManager =
-                    databaseManager.getEntityById(org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager.class, 1);
-
-            Optional<Advancement> contextAdvancement = advancementManager.getAdvancements()
-                    .stream()
-                    .filter(advancement -> advancement.getId().equals(getId()))
-                    .findAny();
-
-            if (contextAdvancement.isPresent()) {
-                return !contextPlayer.getAccomplishedAdvancements().contains(contextAdvancement.get());
-            } else {
-                throw new AdvancementNotExists("Failed to check eligibility of player for advancement", this);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error encountered with SQL manager: " + e);
-        }
-    }
-
-    /**
-     * Performs the action to grant the advancement to the player.
-     *
-     * @param player The player to grant the advancement to.
-     */
-    protected abstract void performGrantAdvancement(OfflinePlayer player);
-
-    public String getDescription() {
-        return description;
-    }
-
-    public AdvancementType getAdvancementType() {
-        return advancementType;
-    }
-
-    public ToastType getAdvancementTT() {
-        return advancementTT;
-    }
-
-    public List<BaseDimension> getEligibleDimensions() {
-        return eligibleDimensions;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public UUID getId() {
-        return Id;
-    }
-
-    public String getNamespace() {
-        return namespace;
-    }
-
-    public boolean isHasParent() {
-        return hasParent;
-    }
+   public boolean isHasParent() {
+      return this.hasParent;
+   }
 }

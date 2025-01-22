@@ -1,46 +1,41 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locators;
 
-import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locator;
+import java.util.ArrayList;
+import java.util.List;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Ymlable;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locator;
 
 public class XorLocator implements Locator, Ymlable {
-    private final List<Object> locators;
+   private final List<Object> locators = new ArrayList<>();
 
-    public XorLocator() {
-        this.locators = new ArrayList<>();
-    }
+   public void addLocator(Locator locator) {
+      this.locators.add(locator);
+   }
 
-    public void addLocator(Locator locator) {
-        this.locators.add(locator);
-    }
+   public void addLocator(NoiseSampler locator) {
+      this.locators.add(locator);
+   }
 
-    public void addLocator(NoiseSampler locator) {
-        this.locators.add(locator);
-    }
+   @Override
+   public StringBuilder getYml() {
+      StringBuilder builder = new StringBuilder();
+      builder.append("type: XOR").append("\n");
 
-    @Override
-    public StringBuilder getYml() {
-        StringBuilder builder = new StringBuilder();
+      for (Object locator : this.locators) {
+         if (locator instanceof Locator) {
+            builder.append(" -").append(Utilities.getIndentedBlock(((Ymlable)locator).getYml().toString(), "   ")).append("\n");
+         } else if (locator instanceof NoiseSampler) {
+            builder.append(" -").append(Utilities.getIndentedBlock(((NoiseSampler)locator).getYml().toString(), "   ")).append("\n");
+         }
+      }
 
-        builder.append("type: XOR").append("\n");
-        for (Object locator : locators)
-            if (locator instanceof Locator)
-                builder.append(" -").append(Utilities.getIndentedBlock(((Ymlable) locator).getYml().toString(), "   ")).append("\n");
-            else if (locator instanceof NoiseSampler)
-                builder.append(" -").append(Utilities.getIndentedBlock(((NoiseSampler) locator).getYml().toString(), "   ")).append("\n");
+      return builder;
+   }
 
-
-        return builder;
-    }
-
-    @Override
-    public String getType() {
-        return null;
-    }
+   @Override
+   public String getType() {
+      return null;
+   }
 }
-

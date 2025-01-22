@@ -54,7 +54,7 @@ variables:
   terrainScale: $customization.yml:terrain-height
   oceanBase: $customization.yml:terrain-ocean-base-y-level
   oceanDepth: $customization.yml:terrain-ocean-depth
-  
+
 expression: | # If > 0 then carve
   -carvingThreshold
   + if(y<carvingMinHeight,0, // Skip unnecessary calculations if y value is below min height

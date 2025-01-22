@@ -1,25 +1,24 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type;
 
 public class Precipitation {
+   private final float precipitationAmount;
+   private final PrecipitaionType precipitationType;
 
-    public enum PrecipitaionType {
-        RAIN, SNOW
-    }
+   public Precipitation(float precipitationAmount, PrecipitaionType precipitaionType) {
+      this.precipitationAmount = precipitationAmount;
+      this.precipitationType = precipitaionType;
+   }
 
-    private final float precipitationAmount;
-    private final PrecipitaionType precipitationType;
+   public float getPrecipitationAmount() {
+      return this.precipitationAmount;
+   }
 
+   public PrecipitaionType getPrecipitationType() {
+      return this.precipitationType;
+   }
 
-    public Precipitation(float precipitationAmount, PrecipitaionType precipitaionType) {
-        this.precipitationAmount = precipitationAmount;
-        this.precipitationType = precipitaionType;
-    }
-
-    public float getPrecipitationAmount() {
-        return precipitationAmount;
-    }
-
-    public PrecipitaionType getPrecipitationType() {
-        return precipitationType;
-    }
+   public static enum PrecipitaionType {
+      RAIN,
+      SNOW;
+   }
 }

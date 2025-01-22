@@ -23,7 +23,7 @@ terrain:
     expression: "smooth((simplex(x, z)+1)/2 * height, (cellular_shift - cells(x, z)) * scale)"
     functions:
       smooth:
-        arguments: [simplex, cell]
+        arguments: [ simplex, cell ]
         #expression: "max(simplex, cell)"
         expression: "lerp(max(min(cell, 100), 0), 0, simplex, 100, cell)"
         functions:

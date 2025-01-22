@@ -3,11 +3,11 @@ package org.vicky.vspe.systems.Dimension.Generator.utils.Variant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;
 
 public interface Variant {
-    String getVariantName();
+   String getVariantName();
 
-    Rarity getVariantRarity();
+   Rarity getVariantRarity();
 
-    BiomeVariant getVariantOf();
+   BiomeVariant getVariantOf();
 
-    ClimateVariant getClimateVariantOf();
+   ClimateVariant getClimateVariantOf();
 }
