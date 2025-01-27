@@ -1,15 +1,10 @@
 package org.vicky.vspe.systems.Dimension;
 
-import java.io.File;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashSet;
-import java.util.Set;
+import io.lumine.mythic.bukkit.utils.lib.jooq.exception.IOException;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.reflections.Reflections;
-import org.reflections.scanners.Scanner;
-import org.vicky.vspe.VSPE;
+import org.vicky.utilities.ANSIColor;
 import org.vicky.vspe.addon.util.BaseStructure;
 import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
@@ -18,103 +13,228 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Feature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.BaseClass;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.MetaClass;
+import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.Palette;
-import org.vicky.vspe.systems.Dimension.Generator.utils.progressbar.progressbars.ConsoleProgressBar;
+import org.vicky.vspe.systems.Dimension.Generator.utils.progressbar.progressbars.NullProgressBar;
+import org.yaml.snakeyaml.Yaml;
+
+import java.io.File;
+import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 public class DimensionManager {
-   public static final Set<String> DIMENSION_PACKAGES = new HashSet<>();
-   public static final Set<String> DIMENSION_ZIP_NAMES = new HashSet<>();
-   public final Set<BaseDimension> LOADED_DIMENSIONS = new HashSet<>();
+    public static final Set<String> DIMENSION_PACKAGES = new HashSet<>();
+    public static final Set<String> DIMENSION_ZIP_NAMES = new HashSet<>();
+    private static final String YAML_FILE = "pack.yml";
 
-   public void processDimensionGenerators(boolean clean) {
-      for (String packagePath : DIMENSION_PACKAGES) {
-         Reflections reflections = new Reflections(packagePath, new Scanner[0]);
-         Set<Class<? extends BaseGenerator>> dimensionGenerators = reflections.getSubTypesOf(BaseGenerator.class);
+    static {
+        DIMENSION_PACKAGES.add("org.vicky.vspe.systems.Dimension.Dimensions");
+    }
 
-         for (Class<? extends BaseGenerator> clazz : dimensionGenerators) {
+    public final Set<BaseDimension> LOADED_DIMENSIONS = new HashSet<>();
+
+    public void processDimensionGenerators(boolean clean) {
+        for (String packagePath : DIMENSION_PACKAGES) {
+            Reflections reflections = new Reflections(packagePath);
+            Set<Class<? extends BaseGenerator>> dimensionGenerators = reflections.getSubTypesOf(BaseGenerator.class);
+
+            for (Class<? extends BaseGenerator> clazz : dimensionGenerators) {
+                try {
+                    Constructor<? extends BaseGenerator> constructor = clazz.getDeclaredConstructor();
+                    constructor.setAccessible(true);
+                    BaseGenerator generator = constructor.newInstance();
+                    DIMENSION_ZIP_NAMES.add(generator.getPackID() + "-" + generator.getPackVersion() + ".zip");
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException var18) {
+                    throw new RuntimeException(var18);
+                }
+            }
+
+            if (clean) {
+                File[] files = new File("./plugins/Terra/packs/").listFiles(File::isFile);
+                if (files != null) {
+                    for (File file : files) {
+                        if (DIMENSION_ZIP_NAMES.stream().anyMatch(name -> name.equals(file.getName()))) {
+                            file.delete();
+                        }
+                    }
+                }
+            }
+
+            for (Class<? extends BaseGenerator> clazz : dimensionGenerators) {
+                try {
+                    Constructor<? extends BaseGenerator> constructor = clazz.getDeclaredConstructor();
+                    constructor.setAccessible(true);
+                    BaseGenerator generator = constructor.newInstance();
+                    String packName = generator.getPackName();
+                    if (shouldOverwrite(Paths.get("./plugins/Terra/packs/" + packName), generator.getPackName())) {
+                        Bukkit.getLogger().info(ANSIColor.colorize("purple[Updating pack " + packName + "]"));
+                        try {
+                            generator.generatePack(new NullProgressBar());
+                        } catch (StackOverflowError var19) {
+                            StackTraceElement[] stackTrace = var19.getStackTrace();
+                            StringBuilder classesInvolved = new StringBuilder();
+                            List<Class<?>> classesAdded = new ArrayList<>();
+                            Bukkit.getLogger().warning("Dimension " + generator.getPackID().toLowerCase().replace("_", " ") + " Has a dependency cycle...");
+
+                            for (StackTraceElement element : stackTrace) {
+                                Class<?> context = Class.forName(element.getClassName());
+                                Map<Class<?>, String> classDescriptors = Map.of(
+                                        BaseStructure.class, "Structure",
+                                        BaseGenerator.class, "Generator",
+                                        Feature.class, "Feature",
+                                        BaseBiome.class, "Biome",
+                                        MetaClass.class, "MetaClass",
+                                        BaseClass.class, "BaseClass",
+                                        Locator.class, "Locator",
+                                        Palette.class, "Palette",
+                                        Extrusion.class, "Extrusion",
+                                        NoiseSampler.class, "NoiseSampler"
+                                );
+
+                                boolean matched = false;
+                                for (Map.Entry<Class<?>, String> entry : classDescriptors.entrySet()) {
+                                    if (entry.getKey().isAssignableFrom(context)) {
+                                        if (entry.getKey() == BaseStructure.class) {
+                                            if (classesAdded.stream().noneMatch(c -> c.isAssignableFrom(context))) {
+                                                classesInvolved.append(entry.getValue()).append(" - ")
+                                                        .append(context.getSimpleName()).append(" Package: ")
+                                                        .append(context.getPackage().getName());
+                                                if (stackTrace.length > 1) {
+                                                    StackTraceElement caller = stackTrace[1];
+                                                    String callingClass = caller.getClassName();
+                                                    String callingMethod = caller.getMethodName();
+
+                                                    classesInvolved.append(" Calling class: ").append(callingClass)
+                                                            .append(" Calling method: ").append(callingMethod);
+                                                }
+                                                classesAdded.add(context);
+                                            }
+                                        } else {
+                                            if (classesAdded.stream().noneMatch(c -> c.isAssignableFrom(context))) {
+                                                classesInvolved.append(entry.getValue()).append(" - ")
+                                                        .append(context.getSimpleName()).append(" Package: ")
+                                                        .append(context.getPackage().getName()).append(", \n");
+                                                classesAdded.add(context);
+                                            }
+                                        }
+                                        matched = true;
+                                    }
+                                }
+                                if (!matched) {
+                                    if (classesAdded.stream().noneMatch(c -> c.isAssignableFrom(context))) {
+                                        classesInvolved.append("Class - ").append(context.getName()).append(", \n");
+                                        classesAdded.add(context);
+                                    }
+                                }
+
+                            }
+
+                            Bukkit.getLogger().warning("Involved: \n" + classesInvolved + "Were involved please check them");
+                        } catch (Exception var20) {
+                            handleException(var20, clazz.getSimpleName());
+                        }
+                    }else {
+                        Bukkit.getLogger().info(ANSIColor.colorize("green[Pack " + packName + " is up-to-date]"));
+                    }
+                } catch (Exception var21) {
+                    Bukkit.getLogger().severe("Failed to load generator: " + var21.getCause());
+                }
+            }
+        }
+    }
+
+    public BaseDimension getPlayerDimension(Player player) {
+        for (BaseDimension dimension : this.LOADED_DIMENSIONS) {
+            if (dimension.isPlayerInDimension(player)) {
+                return dimension;
+            }
+        }
+
+        return null;
+    }
+
+    private static boolean shouldOverwrite(Path currentPack, String newVersion) throws IOException {
+        String currentVersion = extractVersionFromYaml(currentPack);
+
+        // If the current version is missing, assume overwrite is needed
+        if (currentVersion == null) {
+            return true;
+        }
+
+        // Compare versions
+        return !currentVersion.equals(newVersion);
+    }
+
+    /**
+     * Extracts the version from the YAML file inside the ZIP.
+     */
+    private static String extractVersionFromYaml(Path pack) throws IOException {
+        if (!Files.exists(pack)) {
+            return null;
+        }
+
+        try (ZipFile zipFile = new ZipFile(pack.toFile())) {
+            ZipEntry entry = zipFile.getEntry(YAML_FILE);
+            if (entry == null) {
+                return null; // YAML file not found
+            }
+
+            try (InputStream is = zipFile.getInputStream(entry)) {
+                Yaml yaml = new Yaml();
+                Map<String, Object> data = yaml.load(is);
+                return (String) data.get("version");
+            }
+        } catch (java.io.IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void handleException(Exception e, String generatorName) {
+        StringBuilder errorMessage = new StringBuilder();
+        errorMessage.append("An error occurred during dimension generation");
+        if (generatorName != null) {
+            errorMessage.append(" for generator: ").append(generatorName);
+        }
+        errorMessage.append("\n");
+
+        Throwable cause = e.getCause();
+        if (cause != null) {
+            errorMessage.append("Cause: ").append(cause.getMessage()).append("\n");
+        }
+
+        for (StackTraceElement element : e.getStackTrace()) {
+            errorMessage.append("Class: ").append(element.getClassName())
+                    .append(" | Method: ").append(element.getMethodName())
+                    .append(" | Line: ").append(element.getLineNumber()).append("\n");
+
             try {
-               Constructor<? extends BaseGenerator> constructor = clazz.getDeclaredConstructor();
-               constructor.setAccessible(true);
-               BaseGenerator generator = constructor.newInstance();
-               DIMENSION_ZIP_NAMES.add(generator.getPackID() + "-" + generator.getPackVersion() + ".zip");
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException var18) {
-               throw new RuntimeException(var18);
+                // Check for null fields in the current class (if applicable)
+                Class<?> clazz = Class.forName(element.getClassName());
+                if (clazz != null) {
+                    Field[] fields = clazz.getDeclaredFields();
+                    for (Field field : fields) {
+                        field.setAccessible(true);
+                        if (field.getType() != null && field.get(clazz) == null) {
+                            errorMessage.append("Field '").append(field.getName())
+                                    .append("' in ").append(clazz.getSimpleName())
+                                    .append(" is null.\n");
+                        }
+                    }
+                }
+            } catch (Exception reflectionException) {
+                errorMessage.append("Error during reflection: ").append(reflectionException.getMessage()).append("\n");
             }
-         }
+        }
 
-         if (clean) {
-            File[] files = new File(VSPE.getPlugin().getDataFolder().getParent(), "Terra/packs/").listFiles(File::isFile);
-            if (files != null) {
-               for (File file : files) {
-                  if (DIMENSION_ZIP_NAMES.stream().anyMatch(name -> name.equals(file.getName()))) {
-                     file.delete();
-                  }
-               }
-            }
-         }
-
-         for (Class<? extends BaseGenerator> clazz : dimensionGenerators) {
-            try {
-               Constructor<? extends BaseGenerator> constructor = clazz.getDeclaredConstructor();
-               constructor.setAccessible(true);
-               BaseGenerator generator = constructor.newInstance();
-
-               try {
-                  generator.generatePack(new ConsoleProgressBar());
-               } catch (StackOverflowError var19) {
-                  StackTraceElement[] stackTrace = var19.getStackTrace();
-                  StringBuilder classesInvolved = new StringBuilder();
-                  VSPE.getInstancedLogger().warning("Dimension " + generator.getGeneratorName() + " Has a dependency cycle");
-
-                  for (StackTraceElement element : stackTrace) {
-                     Class<?> context = Class.forName(element.getClassName());
-                     if (BaseStructure.class.isAssignableFrom(context)) {
-                        classesInvolved.append("Structure - ").append(context.getName()).append(", ");
-                     } else if (BaseGenerator.class.isAssignableFrom(context)) {
-                        classesInvolved.append("Generator - ").append(context.getName()).append(", ");
-                     } else if (Feature.class.isAssignableFrom(context)) {
-                        classesInvolved.append("Feature - ").append(context.getName()).append(", ");
-                     } else if (BaseBiome.class.isAssignableFrom(context)) {
-                        classesInvolved.append("Biome - ").append(context.getName()).append(", ");
-                     } else if (MetaClass.class.isAssignableFrom(context)) {
-                        classesInvolved.append("MetaClass - ").append(context.getName()).append(", ");
-                     } else if (BaseClass.class.isAssignableFrom(context)) {
-                        classesInvolved.append("BaseClass - ").append(context.getName()).append(", ");
-                     } else if (Locator.class.isAssignableFrom(context)) {
-                        classesInvolved.append("Locator - ").append(context.getName()).append(", ");
-                     } else if (Palette.class.isAssignableFrom(context)) {
-                        classesInvolved.append("Palette - ").append(context.getName()).append(", ");
-                     } else if (Extrusion.class.isAssignableFrom(context)) {
-                        classesInvolved.append("Extrusion - ").append(context.getName()).append(", ");
-                     } else {
-                        classesInvolved.append("Class - ").append(context.getName()).append(", ");
-                     }
-                  }
-
-                  VSPE.getInstancedLogger().warning("Classes: " + classesInvolved + " Were involved please check them");
-               } catch (Exception var20) {
-                  VSPE.getInstancedLogger().warning("An unexpected error occurred: " + var20.getMessage());
-                  var20.printStackTrace();
-               }
-            } catch (Exception var21) {
-               Bukkit.getLogger().severe("Failed to load generator: " + clazz.getName());
-               var21.printStackTrace();
-            }
-         }
-      }
-   }
-
-   public BaseDimension getPlayerDimension(Player player) {
-      for (BaseDimension dimension : this.LOADED_DIMENSIONS) {
-         if (dimension.isPlayerInDimension(player)) {
-            return dimension;
-         }
-      }
-
-      return null;
-   }
-
-   static {
-      DIMENSION_PACKAGES.add("org.vicky.vspe.systems.Dimension.Dimensions");
-   }
+        Bukkit.getLogger().severe(errorMessage.toString());
+    }
 }

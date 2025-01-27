@@ -25,8 +25,6 @@ import java.util.logging.Logger;
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
 public final class VSPE extends JavaPlugin {
-
-    public static List<Class<? extends BaseStructure>> InstancedStructures = new ArrayList<>();
     private static JavaPlugin plugin;
 
     public static JavaPlugin getPlugin() {
@@ -37,13 +35,11 @@ public final class VSPE extends JavaPlugin {
         return plugin.getLogger();
     }
 
-    public static void addInstancedStructure(Class<? extends BaseStructure> instancedStructure) {
-        InstancedStructures.add(instancedStructure);
-    }
 
     @Override
     public void onLoad() {
-
+        dimensionManager = new DimensionManager();
+        dimensionManager.processDimensionGenerators(false);
     }
 
     @Override
@@ -73,9 +69,6 @@ public final class VSPE extends JavaPlugin {
                         dimensionManager.processDimensionGenerators(Boolean.FALSE.equals(clean));
                     }).register(this);
 
-
-            dimensionManager = new DimensionManager();
-            dimensionManager.processDimensionGenerators(false);
 
             worldManager = core.getMVWorldManager();
 
@@ -132,6 +125,7 @@ public final class VSPE extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        this.getLogger().info("Disabling [ VSPE ]");
         advancementManager.saveManagerProgress();
     }
 }

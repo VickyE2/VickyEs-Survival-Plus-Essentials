@@ -1,29 +1,31 @@
 package org.vicky.vspe.utilities;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.vicky.vspe.utilities.global.GlobalResources;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Config {
-   public static final Map<String, Object> configs = new HashMap<>();
-   private final JavaPlugin plugin;
+    public static final Map<String, Object> configs = new HashMap<>();
 
-   public Config(JavaPlugin plugin) {
-      this.plugin = plugin;
-   }
+    static {
+        configs.put("Feature.AdvancementPlus.enable", true);
+    }
 
-   public void registerConfigs() {
-      for (String key : configs.keySet()) {
-         if (!GlobalResources.configManager.doesPathExist(key)) {
-            GlobalResources.configManager.setBracedConfigValue(key, configs.getOrDefault(key, ""), "");
-         }
+    private final JavaPlugin plugin;
 
-         GlobalResources.configManager.saveConfig();
-      }
-   }
+    public Config(JavaPlugin plugin) {
+        this.plugin = plugin;
+    }
 
-   static {
-      configs.put("Feature.AdvancementPlus.enable", true);
-   }
+    public void registerConfigs() {
+        for (String key : configs.keySet()) {
+            if (!GlobalResources.configManager.doesPathExist(key)) {
+                GlobalResources.configManager.setBracedConfigValue(key, configs.getOrDefault(key, ""), "");
+            }
+
+            GlobalResources.configManager.saveConfig();
+        }
+    }
 }

@@ -1,6 +1,7 @@
 name: VickyEs_Survival_Plus_Essentials
-version: '0.0.1-ARI'
+version: '0.0.1-AKARI'
 main: org.vicky.vspe.VSPE
+load: POSTWORLD
 api-version: '1.20'
 prefix: VSPE
 authors: [ VickyE2 ]

@@ -1,9 +1,9 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type;
 
 public interface BiomeType {
-   String getTemperate();
+    String getTemperate();
 
-   String getName();
+    String getName();
 
-   boolean isCoast();
+    boolean isCoast();
 }
