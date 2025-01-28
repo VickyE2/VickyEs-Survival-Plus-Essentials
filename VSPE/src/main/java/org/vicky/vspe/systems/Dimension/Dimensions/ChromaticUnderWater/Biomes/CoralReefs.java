@@ -23,23 +23,14 @@ import java.util.Map;
 
 public class CoralReefs extends BaseBiome implements BiomeVariant {
     public CoralReefs() {
-        super("CORAL_REEF", 4909768, Biome.WARM_OCEAN, Ocean_Flat.TROPICAL, new Precipitation(0.7F, Precipitation.PrecipitaionType.RAIN), Rarity.VERY_COMMON);
+        super("CORAL_REEF", 0x4909768, Biome.WARM_OCEAN, Ocean_Flat.TROPICAL, new Precipitation(0.7F, Precipitation.PrecipitaionType.RAIN), Rarity.VERY_COMMON);
         this.addTag(Tags.USE_UNDERWATER_RAVINE);
         this.addColor(Colorable.WATER, 0x3DD5A6);
-        this.addColor(Colorable.WATER_FOG, 0x3DD5A622);
+        this.addColor(Colorable.WATER_FOG, 0x3DD5A6);
         this.addPalettes(new MossOceanFloor(), 319);
         addFeaturesToParam(List.of(new SeagrassFloor()), Featureable.FLORA);
         addExtendible(Extendibles.EQ_GLOBAL_OCEAN);
-
-        Ocean ocean = new Ocean.Builder()
-                .setOceanMaterial(
-                        new PaletteBuilder("OCEAN_FLOOR")
-                                .addLayer(Map.of(Material.WATER, 2), 4)
-                                .build()
-                )
-                .setOceanLevel(319)
-                .build();
-        setOcean(ocean);
+        isOcean();
 
         NoiseSampler warpX = NoiseSamplerBuilder.of(new DOMAIN_WARP())
                 .addGlobalParameter("dimensions", 2)
@@ -99,6 +90,6 @@ public class CoralReefs extends BaseBiome implements BiomeVariant {
 
     @Override
     public Rarity getSelfRarity() {
-        return Rarity.VERY_COMMON;
+        return Rarity.LEGENDARY;
     }
 }

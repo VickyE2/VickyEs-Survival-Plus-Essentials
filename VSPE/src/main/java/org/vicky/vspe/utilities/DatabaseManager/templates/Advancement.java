@@ -9,11 +9,11 @@ import java.util.UUID;
 
 @Entity
 @Table(
-        name = "Advancement"
+        name = "RegisteredAdvancement"
 )
 public class Advancement {
     @Id
-    private UUID id;
+    private String id;
     @Column(
             name = "Name",
             nullable = false
@@ -21,11 +21,11 @@ public class Advancement {
     private String name;
 
     public UUID getId() {
-        return this.id;
+        return UUID.fromString(id);
     }
 
     public void setId(UUID id) {
-        this.id = id;
+        this.id = id.toString();
     }
 
     public String getName() {

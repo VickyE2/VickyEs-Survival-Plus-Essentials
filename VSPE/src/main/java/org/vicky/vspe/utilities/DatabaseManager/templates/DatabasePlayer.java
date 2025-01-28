@@ -8,11 +8,11 @@ import java.util.UUID;
 
 @Entity
 @Table(
-        name = "DatabasePlayer"
+        name = "ServerPlayers"
 )
 public class DatabasePlayer {
     @Id
-    private UUID id;
+    private String id;
     @Column
     private boolean isFirstTime;
     @ManyToMany(
@@ -31,11 +31,11 @@ public class DatabasePlayer {
     private List<Advancement> accomplishedAdvancements = new ArrayList<>();
 
     public UUID getId() {
-        return this.id;
+        return UUID.fromString(id);
     }
 
     public void setId(UUID id) {
-        this.id = id;
+        this.id = id.toString();
     }
 
     public boolean isFirstTime() {

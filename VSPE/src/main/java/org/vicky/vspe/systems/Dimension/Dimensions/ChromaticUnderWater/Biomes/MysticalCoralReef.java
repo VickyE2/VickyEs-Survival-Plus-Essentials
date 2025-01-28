@@ -86,7 +86,7 @@ public class MysticalCoralReef extends BaseBiome implements Variant {
 
     @Override
     public Rarity getVariantRarity() {
-        return Rarity.LEGENDARY;
+        return Rarity.COMMON;
     }
 
     @Override

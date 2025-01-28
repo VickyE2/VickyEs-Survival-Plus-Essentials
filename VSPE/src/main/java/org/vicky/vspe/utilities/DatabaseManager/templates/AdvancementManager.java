@@ -33,7 +33,11 @@ public class AdvancementManager {
         return this.advancements;
     }
 
+
     public void setAdvancements(List<Advancement> advancements) {
         this.advancements = advancements;
+    }
+    public void addAdvancement(Advancement advancement) {
+        this.advancements.add(advancement);
     }
 }

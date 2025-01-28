@@ -1,6 +1,9 @@
 package org.vicky.vspe.utilities.DatabaseManager;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.vicky.utilities.ANSIColor;
+import org.vicky.vspe.VSPE;
+import org.vicky.vspe.systems.ContextLogger.ContextLogger;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -11,14 +14,13 @@ public class DatabaseCreator {
     private static String user = "";
     private static String password = "";
     private static String databaseName = "";
-    private static JavaPlugin plugin;
     private final String jdbcUrl;
+    private ContextLogger logger = new ContextLogger(ContextLogger.ContextType.HIBERNATE, "DB");
 
-    private DatabaseCreator(DatabaseBuilder builder, JavaPlugin initialisingPlugin) {
+    private DatabaseCreator(DatabaseBuilder builder) {
         name = builder.name;
         user = builder.user;
         password = builder.password;
-        plugin = initialisingPlugin;
         databaseName = builder.databaseName;
         this.jdbcUrl = "jdbc:sqlite:" + name;
     }
@@ -48,10 +50,10 @@ public class DatabaseCreator {
 
         try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
             if (conn != null) {
-                plugin.getLogger().info("Database created and connected: " + jdbcUrl);
+                logger.print(ANSIColor.colorize("green[Database successfully created and connected @ "+ jdbcUrl + "]"));
             }
         } catch (SQLException var7) {
-            plugin.getLogger().info(var7.getMessage());
+            logger.print(ANSIColor.colorize("red[" + var7.getMessage() + "]"), true);
         }
     }
 
@@ -60,15 +62,9 @@ public class DatabaseCreator {
         private String user;
         private String password;
         private String databaseName;
-        private JavaPlugin plugin;
 
         public DatabaseBuilder name(String name) {
             this.name = name;
-            return this;
-        }
-
-        public DatabaseBuilder plugin(JavaPlugin plugin) {
-            this.plugin = plugin;
             return this;
         }
 
@@ -88,7 +84,7 @@ public class DatabaseCreator {
         }
 
         public DatabaseCreator build() {
-            return new DatabaseCreator(this, this.plugin);
+            return new DatabaseCreator(this);
         }
     }
 }

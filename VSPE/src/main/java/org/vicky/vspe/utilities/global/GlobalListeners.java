@@ -3,6 +3,7 @@ package org.vicky.vspe.utilities.global;
 import eu.endercentral.crazy_advancements.advancement.Advancement;
 import eu.endercentral.crazy_advancements.event.AdvancementGrantEvent;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -20,6 +21,7 @@ import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.AdvancementPlus.Advancements.TestAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
 import org.vicky.vspe.systems.Dimension.BaseDimension;
+import org.vicky.vspe.utilities.DatabaseManager.HibernateDatabaseManager;
 import org.vicky.vspe.utilities.DatabaseManager.templates.DatabasePlayer;
 import org.vicky.vspe.utilities.global.Events.PlayerReceivedAdvancement;
 
@@ -31,12 +33,12 @@ public class GlobalListeners implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         final Player player = event.getPlayer();
         GlobalResources.advancementManager.ADVANCEMENT_MANAGER.addPlayer(player);
-        if (!GlobalResources.databaseManager.entityExists(DatabasePlayer.class, player.getUniqueId())) {
+        if (!GlobalResources.databaseManager.entityExists(DatabasePlayer.class, player.getUniqueId().toString())) {
             VSPE.getInstancedLogger().info(ANSIColor.colorize("cyan[Creating instanced player for new player: ]" + player.getName()));
             DatabasePlayer instancedDatabasePlayer = new DatabasePlayer();
             instancedDatabasePlayer.setId(player.getUniqueId());
             instancedDatabasePlayer.setFirstTime(true);
-            GlobalResources.databaseManager.saveEntity(instancedDatabasePlayer);
+            GlobalResources.databaseManager.saveOrUpdate(instancedDatabasePlayer);
         }
 
         GlobalResources.advancementManager.ADVANCEMENT_MANAGER.addPlayer(player);
@@ -107,24 +109,26 @@ public class GlobalListeners implements Listener {
 
     @EventHandler
     public void onPlayerReceivedAdvancement(PlayerReceivedAdvancement event) {
+        final Player player = event.getPlayer();
         VSPE.getInstancedLogger().info("Player gained advancement...");
-        String playerName = event.getPlayer().getName();
+        String playerName = player.getName();
         String advancementName = event.getAdvancementName();
         String advancementDescription = event.getAdvancementDescription();
         String advancementTextColor = event.getAdvancementType().getAdvancementColor();
-        DatabasePlayer databasePlayer = GlobalResources.databaseManager.getEntityById(DatabasePlayer.class, event.getPlayer().getUniqueId());
+        DatabasePlayer databasePlayer = GlobalResources.databaseManager.getEntityById(DatabasePlayer.class, player.getUniqueId().toString());
+        Component hoverMessage = Component
+                .text()
+                .append(
+                        Component.text(event.getAdvancement().getTitle())
+                                .color(TextColor.fromHexString(advancementTextColor))
+                                .decoration(TextDecoration.BOLD, true)
+                )
+                .append(Component.text("\n" + advancementDescription))
+                .color(TextColor.fromHexString(advancementTextColor))
+                .build();
         Component hoverableAdvancement = Component.text("[" + advancementName + "]").color(TextColor.fromHexString(advancementTextColor))
-                .hoverEvent(
-                        HoverEvent.showText(
-                                Component.text(
-                                                Component.text(event.getAdvancement().getTitle()).color(TextColor.fromHexString(advancementTextColor))
-                                                        .decoration(TextDecoration.BOLD, true)
-                                                        + "\n"
-                                                        + advancementDescription
-                                        )
-                                        .color(TextColor.fromHexString(advancementTextColor))
-                        )
-                );
+                .hoverEvent(HoverEvent.showText(hoverMessage))
+                .clickEvent(ClickEvent.runCommand(""));
         Component message = Component.text()
                 .append(Component.text(playerName + " has completed the advancement: ").color(TextColor.fromHexString("#ffffff")))
                 .append(hoverableAdvancement)
@@ -134,5 +138,6 @@ public class GlobalListeners implements Listener {
         contextAdvancement.setId(event.getAdvancement().getId());
         contextAdvancement.setName(event.getAdvancement().getNamespace());
         databasePlayer.getAccomplishedAdvancements().add(contextAdvancement);
+        GlobalResources.databaseManager.saveOrUpdate(databasePlayer);
     }
 }

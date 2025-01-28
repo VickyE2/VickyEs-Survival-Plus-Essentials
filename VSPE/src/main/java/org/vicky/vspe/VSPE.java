@@ -15,13 +15,17 @@ import org.vicky.vspe.features.AdvancementPlus.AdvancementManager;
 import org.vicky.vspe.systems.Dimension.DimensionManager;
 import org.vicky.vspe.utilities.Config;
 import org.vicky.vspe.utilities.DatabaseManager.HibernateDatabaseManager;
+import org.vicky.vspe.utilities.DatabaseManager.HibernateUtil;
 import org.vicky.vspe.utilities.DatabaseManager.SQLManager;
+import org.vicky.vspe.utilities.DatabaseManager.SQLManagerBuilder;
+import org.vicky.vspe.utilities.DatabaseManager.utils.Hbm2DdlAutoType;
 import org.vicky.vspe.utilities.global.GlobalListeners;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import static org.vicky.vspe.utilities.DatabaseManager.SQLManager.generator;
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
 public final class VSPE extends JavaPlugin {
@@ -67,7 +71,16 @@ public final class VSPE extends JavaPlugin {
 
                         Boolean clean = (Boolean) executionInfo.args().get("clean");
                         dimensionManager.processDimensionGenerators(Boolean.FALSE.equals(clean));
-                    }).register(this);
+                    })
+                    .register(this);
+
+            new CommandAPICommand("refreshAdvancements")
+                    .executes(executionInfo -> {
+                        executionInfo.sender().sendMessage(ANSIColor.colorize("Refreshing Advancements... Please yellow[Standby] :D"));
+
+                        advancementManager.processAdvancements();
+                    })
+                    .register(this);
 
 
             worldManager = core.getMVWorldManager();
@@ -81,9 +94,19 @@ public final class VSPE extends JavaPlugin {
             );
 
             try {
-                sqlManager = new SQLManager();
-                sqlManager.initialize(this);
-                sqlManager.createDatabase();
+                sqlManager = new SQLManagerBuilder()
+                        .addMappingClass(org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager.class)
+                        .addMappingClass(org.vicky.vspe.utilities.DatabaseManager.templates.Advancement.class)
+                        .addMappingClass(org.vicky.vspe.utilities.DatabaseManager.templates.DatabasePlayer.class)
+                        .setUsername(generator.generate(20, true, true, true, false))
+                        .setPassword(generator.generatePassword(30))
+                        .setShowSql(false)
+                        .setFormatSql(false)
+                        .setDialect("org.hibernate.community.dialect.SQLiteDialect")
+                        .setDdlAuto(Hbm2DdlAutoType.UPDATE)
+                        .setPlugin(this)
+                        .build();
+                sqlManager.startDatabase();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -127,5 +150,6 @@ public final class VSPE extends JavaPlugin {
     public void onDisable() {
         this.getLogger().info("Disabling [ VSPE ]");
         advancementManager.saveManagerProgress();
+        HibernateUtil.shutdown();
     }
 }

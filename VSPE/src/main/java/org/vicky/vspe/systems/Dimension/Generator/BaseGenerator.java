@@ -22,6 +22,7 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.BaseClass;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.Configuration;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.HeightTemperatureRarityCalculationMethod;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.MetaClass;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.misc.MetaMap;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSamplerBuilder;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.*;
@@ -48,10 +49,10 @@ import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.generat
 import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.getIndentedBlock;
 
 public abstract class BaseGenerator {
-    private final String packID;
+    public final String packID;
     private final String packVersion;
     private final String packAuthors;
-    private final List<BaseBiome> BIOMES;
+    public final List<BaseBiome> BIOMES;
     private final List<String> CUSTOM_STAGES;
     private final List<Extrusion> CUSTOM_EXTRUSIONS;
     private final Map<BiomeType, Integer> biomeTypeIntegerMap = new HashMap<>();
@@ -110,8 +111,8 @@ public abstract class BaseGenerator {
         return "Terra:" + this.packID;
     }
 
-    public void addBiome(BaseBiome biome) {
-        this.BIOMES.add(biome);
+    public void addBiome(BaseBiome... biomes) {
+        this.BIOMES.addAll(Arrays.asList(biomes));
     }
 
     public void addExtrusion(Extrusion extrusion) {
@@ -348,8 +349,11 @@ public abstract class BaseGenerator {
     private Map<String, Map<String, StringBuilder>> getBiomesYml() {
         Map<String, Map<String, StringBuilder>> biomes = new HashMap<>();
         Map<String, BaseBiome> biomeIds = new HashMap<>();
+        List<BaseBiome> additionalBiomes = new ArrayList<>();
 
         for (BaseBiome biome : this.BIOMES) {
+            if (biome.isAbstract)
+                continue;
             addEntry(this.colorMap, biome.getBiomeColor(), biome.getId());
             if (biomeIds.containsKey(biome.getId())) {
                 Bukkit.getLogger()
@@ -365,18 +369,25 @@ public abstract class BaseGenerator {
                 biomeIds.put(biome.getId(), biome);
             }
         }
+        for (BaseBiome biome : this.BIOMES) {
+            if (!biome.biomeExtendibles.isEmpty()) {
+                additionalBiomes.addAll(biome.getBiomeExtendibles());
+            }
+        }
+
+        BIOMES.addAll(additionalBiomes);
 
         this.generateColorsFile();
 
-        for (BaseBiome biomex : this.BIOMES) {
+        for (BaseBiome biome : this.BIOMES) {
             StringBuilder builder = new StringBuilder();
-            builder.append("id: ").append(biomex.getId()).append("\n");
+            builder.append("id: ").append(biome.getId()).append("\n");
             builder.append("type: BIOME").append("\n");
-            if (!biomex.customExtendibles.isEmpty() || !biomex.extendibles.isEmpty() || !biomex.biomeExtendibles.isEmpty()) {
+            if (!biome.customExtendibles.isEmpty() || !biome.extendibles.isEmpty() || !biome.biomeExtendibles.isEmpty()) {
                 builder.append("extends: [ ");
                 boolean firstElement = true;
 
-                for (BaseExtendibles customExtendible : biomex.getCustomExtendibles()) {
+                for (BaseExtendibles customExtendible : biome.getCustomExtendibles()) {
                     if (!firstElement) {
                         builder.append(", ");
                     }
@@ -386,16 +397,16 @@ public abstract class BaseGenerator {
                     this.INCLUDED_CUSTOM_BASE_EXTENDIBLES.add(customExtendible);
                 }
 
-                for (String biomeExtendible : biomex.getBiomeExtendibles()) {
+                for (BaseBiome biomeExtendible : biome.getBiomeExtendibles()) {
                     if (!firstElement) {
                         builder.append(", ");
                     }
 
-                    builder.append(biomeExtendible);
+                    builder.append(biomeExtendible.getId());
                     firstElement = false;
                 }
 
-                for (Extendibles extendible : biomex.getExtendibles()) {
+                for (Extendibles extendible : biome.getExtendibles()) {
                     if (!firstElement) {
                         builder.append(", ");
                     }
@@ -406,36 +417,46 @@ public abstract class BaseGenerator {
 
                 builder.append(" ]").append("\n");
             }
-
-            builder.append("vanilla: ").append(biomex.getBiome()).append("\n");
-            builder.append("color: $biomes/colors.yml:").append(this.INCLUDED_COLOR_MAP.get(biomex.getBiomeColor())).append("\n");
-            if (!biomex.getTags().isEmpty()) {
+            if (biome.isAbstract) {
+                builder.append("abstract: true").append("\n");
+            }
+            if (biome.carving_update_palette) {
+                builder.append("carving:").append("\n").append("  update-palette: true").append("\n");
+            }
+            if (!biome.isAbstract)
+                builder.append("vanilla: ").append(biome.getBiome()).append("\n");
+            if (!(biome.getBiomeColor() == null))
+                builder.append("color: $biomes/colors.yml:").append(this.INCLUDED_COLOR_MAP.get(biome.getBiomeColor())).append("\n");
+            if (!biome.getTags().isEmpty()) {
                 builder.append("tags: ").append("\n");
 
-                for (Tags tag : biomex.getTags()) {
+                for (Tags tag : biome.getTags()) {
                     builder.append(" - ").append(tag).append("\n");
                 }
             }
 
-            if (!biomex.getColors().isEmpty()) {
+            if (!biome.getColors().isEmpty()) {
                 builder.append("colors: ").append("\n");
 
-                for (Entry<Colorable, String> entry : biomex.colors.entrySet()) {
+                for (Entry<Colorable, String> entry : biome.colors.entrySet()) {
                     builder.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
                 }
             }
 
-            if (biomex.getOcean() != null) {
-                builder.append("ocean: ").append("\n");
-                builder.append("  palette: ").append(biomex.getOcean().getOceanMaterial().id).append("\n");
-                INCLUDED_PALETTES.add(biomex.getOcean().getOceanMaterial());
-                builder.append("  level: ").append(biomex.getOcean().getOceanLevel()).append("\n");
+            if (biome.isOcean) {
+                biome.setMeta(this.META);
+                if (biome.getOcean() != null) {
+                    builder.append("ocean: ").append("\n");
+                    builder.append("  palette: ").append(biome.getOcean().getOceanMaterial().id).append("\n");
+                    INCLUDED_PALETTES.add(biome.getOcean().getOceanMaterial());
+                    builder.append("  level: ").append(biome.getOcean().getOceanLevel()).append("\n");
+                }
             }
 
-            if (!biomex.palettes.isEmpty()) {
+            if (!biome.palettes.isEmpty()) {
                 builder.append("palette: ").append("\n");
 
-                for (Entry<Palette, Object> entry : biomex.getPalettes().entrySet()) {
+                for (Entry<Palette, Object> entry : biome.getPalettes().entrySet()) {
                     builder.append(" - ").append(entry.getKey().id).append(": ").append(entry.getValue()).append("\n");
                     this.INCLUDED_PALETTES.add(entry.getKey());
                 }
@@ -443,10 +464,10 @@ public abstract class BaseGenerator {
                 builder.append(" - << meta.yml:palette-bottom").append("\n");
             }
 
-            if (!biomex.slant.isEmpty()) {
+            if (!biome.slant.isEmpty()) {
                 builder.append("slant: ").append("\n");
 
-                for (Entry<Integer, Map<BasePalette, Integer>> entry : biomex.getSlant().entrySet()) {
+                for (Entry<Integer, Map<BasePalette, Integer>> entry : biome.getSlant().entrySet()) {
                     builder.append(" - threshold: ").append(entry.getKey()).append("\n");
                     builder.append("   palette: ").append("\n");
 
@@ -463,10 +484,10 @@ public abstract class BaseGenerator {
                 }
             }
 
-            if (!biomex.features.isEmpty()) {
+            if (!biome.features.isEmpty()) {
                 builder.append("features: ").append("\n");
 
-                for (Entry<Featureable, List<Feature>> entry : biomex.getFeatures().entrySet()) {
+                for (Entry<Featureable, List<Feature>> entry : biome.getFeatures().entrySet()) {
                     builder.append("  ").append(entry.getKey().toString().toLowerCase()).append(": ").append("\n");
 
                     for (Feature features : entry.getValue()) {
@@ -478,18 +499,18 @@ public abstract class BaseGenerator {
                 }
             }
 
-            if (biomex.hasTerrain) {
+            if (biome.hasTerrain) {
                 builder.append("terrain: ")
                         .append("\n")
                         .append("  sampler:\n")
                         .append(getIndentedBlock(
-                                biomex.terrain.toString(),
+                                biome.terrain.toString(),
                                 "    ")
                         )
                         .append("\n");
             }
 
-            if (biomex instanceof Variant variant) {
+            if (biome instanceof Variant variant) {
                 if (variant.getVariantOf() != null) {
                     BiomeVariant biomeVariant = variant.getVariantOf();
                     Rarity rarity = variant.getVariantRarity();
@@ -505,40 +526,46 @@ public abstract class BaseGenerator {
                     this.climateVariantRarityMap.put(climateVariant, rarity);
                     Bukkit.getLogger().info("Added Variant: " + variant + " to ClimateVariant: " + climateVariant);
                 }
-            } else if (biomex instanceof BiomeVariant biomeVariant) {
+            } else if (biome instanceof BiomeVariant biomeVariant) {
                 String variantName = biomeVariant.getVariantName();
                 Rarity selfRarity = biomeVariant.getSelfRarity();
                 this.biomeRarityMap.putIfAbsent(biomeVariant, selfRarity);
                 Bukkit.getLogger().info("Added BiomeVariant: " + variantName + " with rarity: " + selfRarity);
-            } else if (biomex instanceof ClimateVariant climateVariant) {
+            } else if (biome instanceof ClimateVariant climateVariant) {
                 String variantName = climateVariant.getVariantName();
                 Rarity selfRarity = climateVariant.getSelfRarity();
                 this.climateVariantRarityMap.putIfAbsent(climateVariant, selfRarity);
                 Bukkit.getLogger().info("Added ClimateVariant: " + variantName + " with rarity: " + selfRarity);
             }
 
-            if (biomex instanceof BiomeVariant biomeVariant && biomex instanceof Variant variant && variant.getClimateVariantOf() != null) {
+            if (biome instanceof BiomeVariant biomeVariant && biome instanceof Variant variant && variant.getClimateVariantOf() != null) {
                 this.climateVariantBiomeVariantMap.put(variant.getClimateVariantOf(), biomeVariant);
             }
 
-            if (biomex.biomeType.isCoast()) {
-                this.coastalBiomeMap.put(biomex.biomeType, this.biomeTypeIntegerMap.getOrDefault(biomex.biomeType, 0) + 1);
-            } else {
-                BiomeType type = biomex.biomeType;
-                Temperature temperature = Temperature.valueOf(type.getTemperate());
-                if (type.isCoast()) {
-                    this.coastalBiomeMap.put(type, this.coastalBiomeMap.getOrDefault(biomex.biomeType, 0) + 1);
+            if (!biome.isAbstract)
+                if (biome.biomeType.isCoast()) {
+                    this.coastalBiomeMap.put(biome.biomeType, this.biomeTypeIntegerMap.getOrDefault(biome.biomeType, 0) + 1);
                 } else {
-                    Map<Temperature, Integer> temperatureMap = this.biomeTypeTemperatureMap
-                            .computeIfAbsent(type.getClass(), k -> new HashMap<>());
-                    temperatureMap.merge(temperature, 1, Integer::sum);
+                    BiomeType type = biome.biomeType;
+                    Temperature temperature = Temperature.valueOf(type.getTemperate());
+                    if (type.isCoast()) {
+                        this.coastalBiomeMap.put(type, this.coastalBiomeMap.getOrDefault(biome.biomeType, 0) + 1);
+                    } else {
+                        Map<Temperature, Integer> temperatureMap = this.biomeTypeTemperatureMap
+                                .computeIfAbsent(type.getClass(), k -> new HashMap<>());
+                        temperatureMap.merge(temperature, 1, Integer::sum);
+                    }
                 }
-            }
 
-            this.contextBiomeRarityMap.put(biomex, Map.of(biomex.biomeType, biomex.rarity));
-            this.biomeTypes.add(biomex.biomeType);
-            this.biomeSet.add(biomex);
-            biomes.computeIfAbsent(biomex.biomeType.getName(), k -> new HashMap<>()).put(biomex.getId(), builder);
+            if (!biome.isAbstract) {
+                this.contextBiomeRarityMap.put(biome, Map.of(biome.biomeType, biome.rarity));
+                this.biomeTypes.add(biome.biomeType);
+                this.biomeSet.add(biome);
+            }
+            if (!biome.isAbstract)
+                biomes.computeIfAbsent(biome.biomeType.getName(), k -> new HashMap<>()).put(biome.getId(), builder);
+            else
+                biomes.computeIfAbsent("custom_abstracts", k -> new HashMap<>()).put(biome.getId(), builder);
         }
 
         return biomes;
@@ -734,7 +761,7 @@ public abstract class BaseGenerator {
                             .addGlobalParameter("dimensions", 2)
                             .setParameter("sampler", NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
                                     .setParameter("salt", generateRandomNumber())
-                                    .setParameter("frequency", 0.0005)
+                                    .setParameter("frequency", 0.005)
                                     .build()
                             )
                             .setParameter("warp", NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
@@ -744,16 +771,19 @@ public abstract class BaseGenerator {
                             )
                             .setParameter("amplitude", 5)
                             .build();
+                    MetaMap map = META.getMappingFor(MetaClass.MetaVariables.GLOBAL_SCALE);
+                    map.performOperation(0.3, ArithmeticOperation.DIVIDE);
                     NoiseSampler cellular = NoiseSamplerBuilder.of(new CELLULAR())
                             .addGlobalParameter("dimensions", 2)
-                            .setParameter("frequency", 0.005)
+                            .setParameter("frequency", map)
                             .setParameter("distance", "Euclidean")
                             .setParameter("return", "Distance")
                             .setParameter("salt", generateRandomNumber())
                             .build();
                     output.append(getIndentedBlock(
                             NoiseSamplerBuilder.of(new EXPRESSION())
-                                    .setParameter("expression", "((simplexFBM(x, z) * domainWarp(x, z)) + cellular(x, z) * 0.3)")
+                                    .addGlobalParameter("dimensions", 2)
+                                    .setParameter("expression", "(simplexFBM(x, z) * domainWarp(x, z)) + cellular(x, z) * 0.3")
                                     .setParameter("samplers", Map.of(
                                             "simplexFBM", simplexFBM,
                                             "domainWarp", domainWarp,
@@ -997,7 +1027,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_small_boreal")) {
                                 builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1023,7 +1053,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_small_subtropical")) {
                                 builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1037,7 +1067,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_small_tropical")) {
                                 builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1051,7 +1081,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_small_temperate")) {
                                 builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1067,7 +1097,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_large_boreal")) {
                                 builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1081,7 +1111,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_large_polar")) {
                                 builder.append("     ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1095,7 +1125,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_large_subtropical")) {
                                 builder.append("     ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1109,7 +1139,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_large_tropical")) {
                                 builder.append("     ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1123,7 +1153,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (biome.biomeType.getName().equalsIgnoreCase("coast_large_temperate")) {
                                 builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }
@@ -1194,7 +1224,7 @@ public abstract class BaseGenerator {
                             builder.append("    to:\n");
 
                             for (BaseBiome biome : this.biomeSet) {
-                                if (!(biome instanceof Variant))
+                                if (!(biome instanceof Variant) && !biome.isAbstract)
                                     if (biome.biomeType.getName().equalsIgnoreCase(biomeName)) {
                                         builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                                     }
@@ -1427,7 +1457,7 @@ public abstract class BaseGenerator {
                     );
 
                     for (BaseBiome biome : this.biomeSet) {
-                        if (!(biome instanceof Variant))
+                        if (!(biome instanceof Variant) && !biome.isAbstract)
                             if (!biome.biomeType.isCoast() && biome.biomeType.getName().toLowerCase().equals(current)) {
                                 builder.append("      ").append(biome.getId()).append(": ").append(biome.rarity.rarityValue).append("\n");
                             }

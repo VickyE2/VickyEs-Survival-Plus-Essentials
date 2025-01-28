@@ -11,6 +11,7 @@ public class Config {
 
     static {
         configs.put("Feature.AdvancementPlus.enable", true);
+        configs.put("Debug", false);
     }
 
     private final JavaPlugin plugin;

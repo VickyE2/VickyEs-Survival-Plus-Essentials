@@ -2,6 +2,7 @@ package org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater;
 
 import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Biomes.CoralReefs;
 import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Biomes.MysticalCoralReef;
+import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Extrusions.MossCaves;
 import org.vicky.vspe.systems.Dimension.Dimensions.Test.Biomes.TestExtrusionBiome;
 import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Tags;
@@ -17,8 +18,9 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
 public class ChromaticUnderwater extends BaseGenerator {
     public ChromaticUnderwater() {
         super("CHROMATIC_UNDERWATER", "1.0.0-ALPHA", "VickyE2, UltraEazzi");
-        this.addBiome(new CoralReefs());
-        this.addBiome(new MysticalCoralReef());
+
+        this.addBiome(new CoralReefs(), new MysticalCoralReef());
+
         MetaClass meta = new MetaClass();
         meta.setOceanLevel(319);
         meta.setContinentalScale(256);
@@ -39,7 +41,7 @@ public class ChromaticUnderwater extends BaseGenerator {
         sampler.setVoidParameter("return", "CellValue");
         sampler.setVoidParameter("salt", Utilities.generateRandomNumber());
         sampler.setVoidParameter("frequency", "1 / 200 / ${customization.yml:cave-biome-scale} / ${customization.yml:global-scale}");
-        extrusion.addBiome(new TestExtrusionBiome(), 4);
+        extrusion.addBiome(new MossCaves(), 4);
         extrusion.setSampler(sampler);
         this.addExtrusion(extrusion);
     }

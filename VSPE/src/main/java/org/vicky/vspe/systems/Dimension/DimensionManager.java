@@ -5,7 +5,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.reflections.Reflections;
 import org.vicky.utilities.ANSIColor;
+import org.vicky.vspe.VSPE;
 import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.systems.ContextLogger.ContextLogger;
 import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion.Extrusion;
@@ -34,6 +36,7 @@ public class DimensionManager {
     public static final Set<String> DIMENSION_PACKAGES = new HashSet<>();
     public static final Set<String> DIMENSION_ZIP_NAMES = new HashSet<>();
     private static final String YAML_FILE = "pack.yml";
+    private ContextLogger logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSIONS");
 
     static {
         DIMENSION_PACKAGES.add("org.vicky.vspe.systems.Dimension.Dimensions");
@@ -54,7 +57,7 @@ public class DimensionManager {
                     DIMENSION_ZIP_NAMES.add(generator.getPackID() + "-" + generator.getPackVersion() + ".zip");
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                          NoSuchMethodException var18) {
-                    throw new RuntimeException(var18);
+                    logger.printBukkit("Exception encountered: " + var18.getMessage(), true);
                 }
             }
 
@@ -63,7 +66,11 @@ public class DimensionManager {
                 if (files != null) {
                     for (File file : files) {
                         if (DIMENSION_ZIP_NAMES.stream().anyMatch(name -> name.equals(file.getName()))) {
-                            file.delete();
+                            try {
+                                file.delete();
+                            }catch (Exception e) {
+                                logger.printBukkit("Exception encountered:" + e.getMessage(), true);
+                            }
                         }
                     }
                 }
@@ -75,15 +82,15 @@ public class DimensionManager {
                     constructor.setAccessible(true);
                     BaseGenerator generator = constructor.newInstance();
                     String packName = generator.getPackName();
-                    if (shouldOverwrite(Paths.get("./plugins/Terra/packs/" + packName), generator.getPackName())) {
-                        Bukkit.getLogger().info(ANSIColor.colorize("purple[Updating pack " + packName + "]"));
+                    if (shouldOverwrite(Paths.get("./plugins/Terra/packs/" + packName), generator.getPackVersion())) {
+                        logger.printBukkit(ANSIColor.colorize("purple[Updating pack " + packName + "]"));
                         try {
                             generator.generatePack(new NullProgressBar());
                         } catch (StackOverflowError var19) {
                             StackTraceElement[] stackTrace = var19.getStackTrace();
                             StringBuilder classesInvolved = new StringBuilder();
                             List<Class<?>> classesAdded = new ArrayList<>();
-                            Bukkit.getLogger().warning("Dimension " + generator.getPackID().toLowerCase().replace("_", " ") + " Has a dependency cycle...");
+                            logger.printBukkit(ANSIColor.colorize("Dimension " + generator.getPackID().toLowerCase().replace("_", " ") + " Has a dependency cycle..."), true);
 
                             for (StackTraceElement element : stackTrace) {
                                 Class<?> context = Class.forName(element.getClassName());
@@ -138,15 +145,15 @@ public class DimensionManager {
 
                             }
 
-                            Bukkit.getLogger().warning("Involved: \n" + classesInvolved + "Were involved please check them");
+                            logger.printBukkit(ANSIColor.colorize("yellow[Involved: \n" + classesInvolved + "Were involved please check them]"), true);
                         } catch (Exception var20) {
                             handleException(var20, clazz.getSimpleName());
                         }
                     }else {
-                        Bukkit.getLogger().info(ANSIColor.colorize("green[Pack " + packName + " is up-to-date]"));
+                        logger.printBukkit(ANSIColor.colorize("green[Pack " + packName + " is up-to-date]"));
                     }
                 } catch (Exception var21) {
-                    Bukkit.getLogger().severe("Failed to load generator: " + var21.getCause());
+                    logger.printBukkit(ANSIColor.colorize("red[Failed to load generator: " + var21.getCause() + "]"), true);
                 }
             }
         }
@@ -198,7 +205,7 @@ public class DimensionManager {
         }
     }
 
-    private static void handleException(Exception e, String generatorName) {
+    private void handleException(Exception e, String generatorName) {
         StringBuilder errorMessage = new StringBuilder();
         errorMessage.append("An error occurred during dimension generation");
         if (generatorName != null) {
@@ -208,13 +215,13 @@ public class DimensionManager {
 
         Throwable cause = e.getCause();
         if (cause != null) {
-            errorMessage.append("Cause: ").append(cause.getMessage()).append("\n");
+            errorMessage.append("[").append(ANSIColor.colorize("red[SYSTEMS-DIMENSIONS]")).append("] ").append("Cause: ").append(cause.getMessage()).append("\n");
         }
 
         for (StackTraceElement element : e.getStackTrace()) {
-            errorMessage.append("Class: ").append(element.getClassName())
+            errorMessage.append("[").append(ANSIColor.colorize("red[SYSTEMS-DIMENSIONS]")).append("] ").append("Class: ").append(element.getClassName())
                     .append(" | Method: ").append(element.getMethodName())
-                    .append(" | Line: ").append(element.getLineNumber()).append("\n");
+                    .append(" | Line: ").append(element.getLineNumber());
 
             try {
                 // Check for null fields in the current class (if applicable)
@@ -224,17 +231,19 @@ public class DimensionManager {
                     for (Field field : fields) {
                         field.setAccessible(true);
                         if (field.getType() != null && field.get(clazz) == null) {
-                            errorMessage.append("Field '").append(field.getName())
+                            errorMessage.append(" | Field '").append(field.getName())
                                     .append("' in ").append(clazz.getSimpleName())
                                     .append(" is null.\n");
                         }
                     }
+                } else {
+                    errorMessage.append("\n");
                 }
             } catch (Exception reflectionException) {
-                errorMessage.append("Error during reflection: ").append(reflectionException.getMessage()).append("\n");
+                errorMessage.append("[").append(ANSIColor.colorize("red[SYSTEMS-DIMENSIONS]")).append("] ").append("Error during reflection: ").append(reflectionException.getMessage()).append("\n");
             }
         }
 
-        Bukkit.getLogger().severe(errorMessage.toString());
+        logger.printBukkit(errorMessage.toString(), true);
     }
 }

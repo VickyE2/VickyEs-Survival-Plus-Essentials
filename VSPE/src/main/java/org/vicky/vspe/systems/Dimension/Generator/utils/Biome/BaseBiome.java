@@ -1,5 +1,6 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils.Biome;
 
+import org.bukkit.Material;
 import org.bukkit.block.Biome;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.BaseExtendibles;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Extendibles;
@@ -10,9 +11,11 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.Prec
 import org.vicky.vspe.systems.Dimension.Generator.utils.Colorable;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Feature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Featureable;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.MetaClass;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.misc.MetaMap;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.BasePalette;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.Palette;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.PaletteBuilder;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.BiomeVariant;
@@ -27,7 +30,7 @@ public class BaseBiome {
     public final List<Extendibles> extendibles;
     public final List<Tags> tags;
     public final List<BaseExtendibles> customExtendibles;
-    public final List<String> biomeExtendibles;
+    public final List<BaseBiome> biomeExtendibles;
     private final String biomeColor;
     private final String biome;
     private final String uncleanedId;
@@ -37,8 +40,11 @@ public class BaseBiome {
     public PrecipitaionType precipitaionType;
     public Rarity rarity;
     public StringBuilder terrain;
+    public MetaClass meta = new MetaClass();
     public boolean hasTerrain = false;
     public boolean isAbstract = false;
+    public boolean isOcean = false;
+    public boolean carving_update_palette  = false;
     private String id;
     private Ocean ocean = null;
 
@@ -77,24 +83,61 @@ public class BaseBiome {
         }
     }
 
+    /**
+        <strong><em>This constructor should only ever be used if the biome is abstract.</em></strong>
+     */
+    public BaseBiome(String id) {
+        this.id = Utilities.getCleanedID(id);
+        this.uncleanedId = id;
+        this.biome = null;
+        this.biomeColor = null;
+        this.colors = new HashMap<>();
+        this.palettes = new HashMap<>();
+        this.features = new HashMap<>();
+        this.slant = new HashMap<>();
+        this.tags = new ArrayList<>();
+        this.extendibles = new ArrayList<>();
+        this.biomeExtendibles = new ArrayList<>();
+        this.customExtendibles = new ArrayList<>();
+        this.biomeType = null;
+        this.precipitaion = null;
+        this.rarity = null;
+    }
+
+    public void isCarving_update_palette() {
+        this.carving_update_palette = true;
+    }
+
     public void addColor(Colorable colorable, Integer color) {
         this.colors.put(colorable, "0x" + Integer.toHexString(color));
     }
 
     public Ocean getOcean() {
-        return ocean;
+        return
+                this.ocean = new Ocean.Builder()
+                        .setOceanMaterial(
+                                new PaletteBuilder("OCEAN_FLOOR")
+                                        .addLayer(Map.of(Material.WATER, 2), 4)
+                                        .build()
+                        )
+                        .setOceanLevel(meta.oceanLevel)
+                        .build();
     }
 
-    public void setOcean(Ocean ocean) {
-        this.ocean = ocean;
+    public void setMeta(MetaClass meta) {
+        this.meta = meta;
+    }
+
+    public void isOcean() {
+        this.isOcean = true;
     }
 
     public void addTag(Tags tag) {
         this.tags.add(tag);
     }
 
-    public void setAbstract(boolean anAbstract) {
-        isAbstract = anAbstract;
+    public void isAbstract() {
+        isAbstract = true;
     }
 
     public void addSlant(int threshold, Map<BasePalette, Integer> palette) {
@@ -120,7 +163,7 @@ public class BaseBiome {
 
     protected void addExtendibles(BaseBiome... extendibles) {
         for (BaseBiome extendible : extendibles) {
-            this.biomeExtendibles.add(extendible.id.toLowerCase().replaceAll("[^a-z]", "_"));
+            this.biomeExtendibles.add(extendible);
         }
     }
 
@@ -129,7 +172,7 @@ public class BaseBiome {
     }
 
     public void addExtendible(BaseBiome extendible) {
-        this.biomeExtendibles.add(extendible.id);
+        this.biomeExtendibles.add(extendible);
     }
 
     public void addPalettes(Palette palette, int height) {
@@ -156,7 +199,7 @@ public class BaseBiome {
         return this.biome;
     }
 
-    public List<String> getBiomeExtendibles() {
+    public List<BaseBiome> getBiomeExtendibles() {
         return this.biomeExtendibles;
     }
 

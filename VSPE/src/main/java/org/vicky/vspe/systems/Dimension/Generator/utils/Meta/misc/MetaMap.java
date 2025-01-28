@@ -22,6 +22,14 @@ public class MetaMap {
         }
     }
 
+    public void performOperation(double number, ArithmeticOperation operation) {
+        if (this.tamperedMetaMap != null) {
+            this.tamperedMetaMap = "{" + this.tamperedMetaMap + "}" + operation + number;
+        } else {
+            this.tamperedMetaMap = "${" + this.metaMap + "}" + operation + number;
+        }
+    }
+
     public void performOperation(MetaMap number, ArithmeticOperation operation) {
         if (this.tamperedMetaMap != null) {
             if (number.tamperedMetaMap != null) {
