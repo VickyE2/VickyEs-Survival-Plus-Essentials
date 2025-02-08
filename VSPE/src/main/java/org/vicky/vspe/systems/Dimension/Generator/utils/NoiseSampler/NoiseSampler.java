@@ -3,7 +3,8 @@ package org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Ymlable;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 public interface NoiseSampler {
@@ -65,6 +66,7 @@ public interface NoiseSampler {
     default void addGlobalValue(String key, Object value) {
         this.getGlobalValues().put(key, value);
     }
+
     default String name() {
         return this.getClass().getSimpleName().toUpperCase();
     }

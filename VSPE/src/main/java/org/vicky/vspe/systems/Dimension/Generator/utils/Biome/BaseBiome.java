@@ -44,7 +44,7 @@ public class BaseBiome {
     public boolean hasTerrain = false;
     public boolean isAbstract = false;
     public boolean isOcean = false;
-    public boolean carving_update_palette  = false;
+    public boolean carving_update_palette = false;
     private String id;
     private Ocean ocean = null;
 
@@ -84,7 +84,7 @@ public class BaseBiome {
     }
 
     /**
-        <strong><em>This constructor should only ever be used if the biome is abstract.</em></strong>
+     * <strong><em>This constructor should only ever be used if the biome is abstract.</em></strong>
      */
     public BaseBiome(String id) {
         this.id = Utilities.getCleanedID(id);
@@ -162,9 +162,7 @@ public class BaseBiome {
     }
 
     protected void addExtendibles(BaseBiome... extendibles) {
-        for (BaseBiome extendible : extendibles) {
-            this.biomeExtendibles.add(extendible);
-        }
+        Collections.addAll(this.biomeExtendibles, extendibles);
     }
 
     public void addExtendible(BaseExtendibles extendible) {

@@ -3,7 +3,6 @@ package org.vicky.vspe.systems.Dimension.Generator.utils.Feature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.utils.FeatureType;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locators.GaussianRandomLocator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locators.RandomLocator;
-import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.CONSTANT;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Range;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;

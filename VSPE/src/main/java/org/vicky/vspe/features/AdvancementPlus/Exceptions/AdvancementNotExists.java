@@ -21,7 +21,7 @@ public class AdvancementNotExists extends Exception {
                 ? super.toString()
                 : super.toString()
                 + ANSIColor.colorize(
-                "\n - with linked advancement:\npurple[" + this.linkedAdvancement.getTitle() + "] UUID:purple[" + this.linkedAdvancement.getId() + "]"
+                "\n - with linked advancement:\npurple[" + this.linkedAdvancement.getTitle() + "] UUID:purple[" + this.linkedAdvancement.getIdentifier() + "]"
         );
     }
 }

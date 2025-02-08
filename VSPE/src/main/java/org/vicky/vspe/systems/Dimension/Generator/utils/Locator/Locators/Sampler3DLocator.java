@@ -15,7 +15,6 @@ public class Sampler3DLocator implements Locator, Ymlable {
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: SAMPLER_3D").append("\n");
         builder.append("sampler: ").append("\n");
         builder.append(Utilities.getIndentedBlock(this.sampler.getYml().toString(), "  ")).append("\n");
         return builder;
@@ -23,6 +22,6 @@ public class Sampler3DLocator implements Locator, Ymlable {
 
     @Override
     public String getType() {
-        return null;
+        return "SAMPLER_3D";
     }
 }

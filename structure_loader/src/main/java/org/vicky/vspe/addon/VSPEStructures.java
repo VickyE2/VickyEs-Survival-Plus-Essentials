@@ -75,13 +75,13 @@ public class VSPEStructures implements AddonInitializer {
       }
 
       structures.putAll(loader.getLoadedClasses());
-      ((FunctionalEventHandler)this.platform.getEventManager().getHandler(FunctionalEventHandler.class))
+      this.platform.getEventManager().getHandler(FunctionalEventHandler.class)
          .register(this.addon, ConfigPackPreLoadEvent.class)
          .then(event -> {
             ConfigPack pack = event.getPack();
             this.logger.info(ANSIColor.colorize("The VSPE structures addon for terra is purple[loading instanced structures]"));
             CheckedRegistry<Structure> structureRegistry = pack.getOrCreateRegistry(Structure.class);
-
+            StringBuilder structureBuilder = new StringBuilder(ANSIColor.colorize("yellow[Added Structures:]") + "[");
             for (Entry<String, List<Class<? extends BaseStructure>>> structures : VSPEStructures.structures.entrySet()) {
                for (Class<? extends BaseStructure> clazz : structures.getValue()) {
                   try {
@@ -89,7 +89,7 @@ public class VSPEStructures implements AddonInitializer {
                      constructor.setAccessible(true);
                      BaseStructure instance = constructor.newInstance();
                      instance.setPlatform(this.platform);
-                     this.logger.info(ANSIColor.colorize("purple[Added structure: " + instance.getId() + "]"));
+                     structureBuilder.append(ANSIColor.colorize(" green[" + instance.getId() + "],"));
                      structureRegistry.register(instance);
                   } catch (NoSuchMethodException var10x) {
                      this.logger.error("No default constructor found for class: " + clazz.getName(), var10x);
@@ -109,6 +109,8 @@ public class VSPEStructures implements AddonInitializer {
                   }
                }
             }
+            structureBuilder.append("]");
+            this.logger.info(structureBuilder.toString());
          });
    }
 

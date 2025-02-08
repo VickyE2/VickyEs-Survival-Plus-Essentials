@@ -10,25 +10,26 @@ public class CUBIC_SPLINE implements NoiseSampler, Ymlable {
     private final Map<String, Object> values = new HashMap<>();
     private final Map<String, Object> globalValues = new HashMap<>();
 
-    public CUBIC_SPLINE() {}
-    
+    public CUBIC_SPLINE() {
+    }
+
     // Setter method to set parameters
     public CUBIC_SPLINE setParameter(String parameter, Object value) {
         this.values.put(parameter, value);
         return this;
     }
 
-    public CUBIC_SPLINE addGlobalParameter(String parameter, Object value) { 
+    public CUBIC_SPLINE addGlobalParameter(String parameter, Object value) {
         this.globalValues.put(parameter, value);
         return this;
-    } 
+    }
 
     @Override
     public Map<String, Object> getValues() {
         return values;
     }
 
-    
+
     @Override
     public Object getParameter(String parameter) {
         if (values.entrySet().stream().anyMatch(k -> k.getKey().equals(parameter)))

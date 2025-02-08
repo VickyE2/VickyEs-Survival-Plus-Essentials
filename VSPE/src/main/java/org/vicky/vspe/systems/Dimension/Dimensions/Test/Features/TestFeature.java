@@ -5,7 +5,6 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Feature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.utils.FeatureType;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locators.RandomLocator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Locator.Locators.Sampler;
-import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.CONSTANT;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Range;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Ymlable;

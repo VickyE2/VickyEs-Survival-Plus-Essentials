@@ -7,10 +7,10 @@ import com.dfsek.terra.api.world.WritableWorld;
 import org.vicky.vspe.addon.util.BaseStructure;
 
 import java.util.Random;
-import java.util.Vector;
 
 public class GlowBerriesVines extends BaseStructure {
     private final int maxHeight;
+
     public GlowBerriesVines(int maxHeight) {
         super("GLOW_BERRIES_VINES", "CHROMATIC_UNDERWATER");
         this.maxHeight = maxHeight;
@@ -26,7 +26,7 @@ public class GlowBerriesVines extends BaseStructure {
         BlockState stage_1_vine = this.platform.getWorldHandle().createBlockState("minecraft:cave_vines[age=20, berries=" + random.nextBoolean() + "]");
         BlockState stage_2_vine = this.platform.getWorldHandle().createBlockState("minecraft:cave_vines[age=13, berries=" + random.nextBoolean() + "]");
         BlockState stage_3_vine = this.platform.getWorldHandle().createBlockState("minecraft:cave_vines[age=2, berries=" + random.nextBoolean() + "]");
-        int height = random.nextInt(maxHeight-3, maxHeight);
+        int height = random.nextInt(maxHeight - 3, maxHeight + 1);
         if (random.nextInt(2, 10) == 3) {
             for (int y = 0; y < height; y++) {
                 Vector3Int vineLocation = Vector3Int.of(vector3Int, 0, -y, 0);

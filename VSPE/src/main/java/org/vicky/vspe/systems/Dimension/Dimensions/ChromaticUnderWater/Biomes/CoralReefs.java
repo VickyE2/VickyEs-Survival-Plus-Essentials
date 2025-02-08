@@ -1,7 +1,7 @@
 package org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Biomes;
 
-import org.bukkit.Material;
 import org.bukkit.block.Biome;
+import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Features.Corals;
 import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Features.SeagrassFloor;
 import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Palettes.MossOceanFloor;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
@@ -14,7 +14,6 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.Featureable;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSamplerBuilder;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.*;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.PaletteBuilder;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Rarity;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.BiomeVariant;
 
@@ -28,7 +27,10 @@ public class CoralReefs extends BaseBiome implements BiomeVariant {
         this.addColor(Colorable.WATER, 0x3DD5A6);
         this.addColor(Colorable.WATER_FOG, 0x3DD5A6);
         this.addPalettes(new MossOceanFloor(), 319);
+
         addFeaturesToParam(List.of(new SeagrassFloor()), Featureable.FLORA);
+        addFeaturesToParam(List.of(new Corals()), Featureable.TREES);
+
         addExtendible(Extendibles.EQ_GLOBAL_OCEAN);
         isOcean();
 
@@ -90,6 +92,6 @@ public class CoralReefs extends BaseBiome implements BiomeVariant {
 
     @Override
     public Rarity getSelfRarity() {
-        return Rarity.LEGENDARY;
+        return Rarity.VERY_COMMON;
     }
 }

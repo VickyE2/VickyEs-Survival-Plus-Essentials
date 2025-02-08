@@ -10,26 +10,29 @@ import java.util.List;
 
 public class OrLocator implements Locator, Ymlable {
     private final List<Object> locators = new ArrayList<>();
+    private final Context context;
 
-    public void addLocator(Locator locator) {
-        this.locators.add(locator);
+    public OrLocator(Context context) {
+        this.context = context;
     }
 
-    public void addLocator(NoiseSampler locator) {
+    public void addLocator(Ymlable locator) {
         this.locators.add(locator);
     }
 
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: OR").append("\n");
-        builder.append("locators: ").append("\n");
+        if (context.equals(Context.DISTRIBUTOR))
+            builder.append("distributors: ").append("\n");
+        if (context.equals(Context.LOCATOR))
+            builder.append("locators: ").append("\n");
 
         for (Object locator : this.locators) {
             if (locator instanceof Locator) {
-                builder.append(" -").append(Utilities.getIndentedBlock(((Ymlable) locator).getYml().toString(), "   ")).append("\n");
+                builder.append("  - type: ").append(((Locator) locator).getType()).append("\n").append(Utilities.getIndentedBlock(((Ymlable) locator).getYml().toString(), "    ")).append("\n");
             } else if (locator instanceof NoiseSampler) {
-                builder.append(" -").append(Utilities.getIndentedBlock(((NoiseSampler) locator).getYml().toString(), "   ")).append("\n");
+                builder.append(Utilities.getIndentedBlock(((NoiseSampler) locator).getYml().toString(), "   ")).append("\n");
             }
         }
 

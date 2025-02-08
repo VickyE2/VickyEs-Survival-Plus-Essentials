@@ -11,24 +11,18 @@ import java.util.List;
 public class XorLocator implements Locator, Ymlable {
     private final List<Object> locators = new ArrayList<>();
 
-    public void addLocator(Locator locator) {
-        this.locators.add(locator);
-    }
-
-    public void addLocator(NoiseSampler locator) {
+    public void addLocator(Ymlable locator) {
         this.locators.add(locator);
     }
 
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: XOR").append("\n");
-
         for (Object locator : this.locators) {
             if (locator instanceof Locator) {
-                builder.append(" -").append(Utilities.getIndentedBlock(((Ymlable) locator).getYml().toString(), "   ")).append("\n");
+                builder.append("  - type: ").append(((Locator) locator).getType()).append("\n").append(Utilities.getIndentedBlock(((Ymlable) locator).getYml().toString(), "    ")).append("\n");
             } else if (locator instanceof NoiseSampler) {
-                builder.append(" -").append(Utilities.getIndentedBlock(((NoiseSampler) locator).getYml().toString(), "   ")).append("\n");
+                builder.append(Utilities.getIndentedBlock(((NoiseSampler) locator).getYml().toString(), "   ")).append("\n");
             }
         }
 
@@ -37,6 +31,6 @@ public class XorLocator implements Locator, Ymlable {
 
     @Override
     public String getType() {
-        return null;
+        return "XOR";
     }
 }

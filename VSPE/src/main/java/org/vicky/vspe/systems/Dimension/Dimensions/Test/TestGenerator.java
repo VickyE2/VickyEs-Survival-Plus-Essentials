@@ -6,7 +6,6 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Tags;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion.ReplaceExtrusion;
 import org.vicky.vspe.systems.Dimension.Generator.utils.GlobalPreprocessor;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.BaseClass;
-import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.CELLULAR;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Range;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;

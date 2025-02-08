@@ -8,10 +8,17 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.reflections.Reflections;
 import org.vicky.utilities.ANSIColor;
+import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.vspe.VSPE;
-import org.vicky.vspe.systems.ContextLogger.ContextLogger;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementProcessingFailureException;
 import org.vicky.vspe.systems.Dimension.BaseDimension;
+import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
+import org.vicky.utilities.Identifiable;
+import org.vicky.vspe.utilities.Manager.IdentifiableManager;
+import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.UUIDGenerator;
+import org.vicky.vspe.utilities.api.AdvancementManagerService;
+import org.vicky.vspe.utilities.api.AdvancementService;
 import org.vicky.vspe.utilities.global.GlobalResources;
 
 import java.lang.reflect.Constructor;
@@ -19,79 +26,94 @@ import java.util.*;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.configManager;
 
-public class AdvancementManager {
+public class AdvancementManager implements IdentifiableManager {
     public static Advancement[] SORTED_ADVANCEMENTS;
     public final Set<BaseAdvancement> LOADED_ADVANCEMENTS = new TreeSet<>(Comparator.comparing(BaseAdvancement::isHasParent).reversed());
+    public final Set<BaseAdvancement> UNLOADED_ADVANCEMENTS = new TreeSet<>(Comparator.comparing(BaseAdvancement::isHasParent).reversed());
     public final eu.endercentral.crazy_advancements.manager.AdvancementManager ADVANCEMENT_MANAGER = new eu.endercentral.crazy_advancements.manager.AdvancementManager(
             new NameKey("vspe", "manager")
     );
-    private ContextLogger logger = new ContextLogger(ContextLogger.ContextType.FEATURE, "ADVANCEMENT");
+    private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.FEATURE, "ADVANCEMENT");
 
-    public void processAdvancements() {
-        org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager databaseAM =
-            GlobalResources.databaseManager.getEntityById(
-                    org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager.class,
-                    UUIDGenerator.generateUUIDFromString("vspe_advancement_manager").toString()
-            );
+    public AdvancementManager() {
+        ManagerRegistry.register(this);
+    }
 
-        if (databaseAM == null) {
-            databaseAM = new org.vicky.vspe.utilities.DatabaseManager.templates.AdvancementManager();
-            databaseAM.setId(UUIDGenerator.generateUUIDFromString("vspe_advancement_manager").toString());
-            GlobalResources.databaseManager.saveEntity(databaseAM);
-        }
+    public void processAdvancements() throws AdvancementProcessingFailureException {
+        try {
+            AdvancementManagerService managerService = AdvancementManagerService.getInstance();
+            AdvancementService advancementService = AdvancementService.getInstance();
 
-        logger.print(ANSIColor.colorize("yellow[Starting advancement Processing...]"));
-        int index = 0;
-        Reflections reflections = new Reflections("org.vicky.vspe.features.AdvancementPlus.Advancements");
+            org.vicky.vspe.utilities.DBTemplates.AdvancementManager databaseAM =
+                    managerService.getAdvancementManagerById(UUIDGenerator.generateUUIDFromString("vspe_advancement_manager").toString());
 
-        for (Class<? extends BaseAdvancement> clazz : reflections.getSubTypesOf(BaseAdvancement.class)) {
-            try {
-                Constructor<? extends BaseAdvancement> constructor = clazz.getDeclaredConstructor();
-                constructor.setAccessible(true);
-                BaseAdvancement advancement = constructor.newInstance();
-                logger.print(ANSIColor.colorize("purple[Loaded advancement: ]") + advancement.getTitle());
-            } catch (Exception var9) {
-                VSPE.getInstancedLogger().severe("Failed to load advancement: " + clazz.getName());
-                var9.printStackTrace();
+            if (databaseAM == null) {
+                databaseAM = new org.vicky.vspe.utilities.DBTemplates.AdvancementManager();
+                databaseAM.setId(UUIDGenerator.generateUUIDFromString("vspe_advancement_manager").toString());
+                databaseAM = managerService.createAdvancementManager(databaseAM);
             }
-        }
 
-        SORTED_ADVANCEMENTS = new Advancement[this.LOADED_ADVANCEMENTS.size()];
+            logger.print(ANSIColor.colorize("yellow[Starting advancement Processing...]"));
+            int index = 0;
+            Reflections reflections = new Reflections("org.vicky.vspe.features.AdvancementPlus.Advancements");
 
-        for (BaseAdvancement advancement : this.LOADED_ADVANCEMENTS) {
-            if (configManager.getBooleanValue("Debug")) {
-                logger.print(ANSIColor.colorize("Processing advancement: purple[" + advancement.getNamespace() + "]"));
-                logger.print(ANSIColor.colorize("    Advancement Title: purple[" + advancement.getFormattedTitle() + "]"));
-                logger.print(ANSIColor.colorize("    Advancement toast type: purple[" + advancement.getAdvancementTT() + "]"));
-                logger.print(ANSIColor.colorize("    Advancement type: purple[" + advancement.getAdvancementType() + "]"));
-                logger.print(ANSIColor.colorize("    Advancement description: purple[" + advancement.getDescription() + "]"));
+            for (Class<? extends BaseAdvancement> clazz : reflections.getSubTypesOf(BaseAdvancement.class)) {
+                try {
+                    Constructor<? extends BaseAdvancement> constructor = clazz.getDeclaredConstructor();
+                    constructor.setAccessible(true);
+                    BaseAdvancement advancement = constructor.newInstance();
+                    logger.print(ANSIColor.colorize("purple[Loaded advancement: ]") + advancement.getTitle());
+                } catch (Exception var9) {
+                    VSPE.getInstancedLogger().severe("Failed to load advancement: " + clazz.getName());
+                    var9.printStackTrace();
+                }
+            }
 
-                StringBuilder dimensions = new StringBuilder();
-                if (advancement.getEligibleDimensions() != null) {
-                    for (BaseDimension dimension : advancement.getEligibleDimensions()) {
-                        dimensions.append("    \n").append(dimension.getName());
+            SORTED_ADVANCEMENTS = new Advancement[this.LOADED_ADVANCEMENTS.size()];
+
+            for (BaseAdvancement advancement : this.LOADED_ADVANCEMENTS) {
+                if (configManager.getBooleanValue("Debug")) {
+                    logger.print(ANSIColor.colorize("Processing advancement: purple[" + advancement.getNamespace() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement Title: purple[" + advancement.getFormattedTitle() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement toast type: purple[" + advancement.getAdvancementTT() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement type: purple[" + advancement.getAdvancementType() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement description: purple[" + advancement.getDescription() + "]"));
+
+                    StringBuilder dimensions = new StringBuilder();
+                    if (advancement.getEligibleDimensions() != null) {
+                        for (BaseDimension dimension : advancement.getEligibleDimensions()) {
+                            dimensions.append("    \n").append(dimension.getName());
+                        }
                     }
+
+                    logger.print(ANSIColor.colorize("    Advancement permitted dimensions: purple[-" + (dimensions.isEmpty() ? "null [basically all]" : dimensions) + "-]"));
                 }
 
-                logger.print(ANSIColor.colorize("    Advancement permitted dimensions: purple[-" + (dimensions.isEmpty() ? "null [basically all]" : dimensions) + "-]"));
+                org.vicky.vspe.utilities.DBTemplates.Advancement databaseAdvancement =
+                        advancementService.getAdvancementById(advancement.getIdentifier());
+
+                if (databaseAdvancement == null) {
+                    databaseAdvancement = new org.vicky.vspe.utilities.DBTemplates.Advancement();
+                    databaseAdvancement.setId(advancement.getId());
+                    databaseAdvancement.setName(advancement.getTitle());
+                    if (databaseAM.getAdvancements().stream().noneMatch(a -> a.getId().equals(advancement.getId())))
+                        databaseAM.addAdvancement(databaseAdvancement);
+
+                    advancementService.createAdvancement(databaseAdvancement);
+                } else {
+                    databaseAdvancement.setName(advancement.getTitle());
+                    advancementService.updateAdvancement(databaseAdvancement);
+                }
+                SORTED_ADVANCEMENTS[index] = advancement.instance;
+                index++;
             }
-            org.vicky.vspe.utilities.DatabaseManager.templates.Advancement databaseAdvancement =
-                    new org.vicky.vspe.utilities.DatabaseManager.templates.Advancement();
 
-            databaseAdvancement.setName(advancement.getTitle());
-            databaseAdvancement.setId(advancement.getId());
+            managerService.updateAdvancementManager(databaseAM);
 
-            databaseAM.addAdvancement(databaseAdvancement);
-
-            GlobalResources.databaseManager.saveOrUpdate(databaseAdvancement);
-            SORTED_ADVANCEMENTS[index] = advancement.getInstance();
-            index++;
+            this.ADVANCEMENT_MANAGER.addAdvancement(SORTED_ADVANCEMENTS);
+        } catch (Exception e) {
+            throw new AdvancementProcessingFailureException("Failure on advancement Processing", e);
         }
-
-        GlobalResources.databaseManager.saveOrUpdate(databaseAM);
-
-        this.ADVANCEMENT_MANAGER.addAdvancement(SORTED_ADVANCEMENTS);
-
     }
 
     public void saveManagerProgress() {
@@ -122,7 +144,7 @@ public class AdvancementManager {
         if (contextAdvancementOptional.isPresent()) {
             BaseAdvancement contextAdvancement = contextAdvancementOptional.get();
             contextAdvancement.grantAdvancement(player);
-            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
+            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.instance);
         } else {
             logger.print("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
         }
@@ -135,7 +157,7 @@ public class AdvancementManager {
                 .findFirst();
         if (contextAdvancementOptional.isPresent()) {
             BaseAdvancement contextAdvancement = contextAdvancementOptional.get();
-            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
+            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.instance);
         } else {
             logger.print("Advancement of Id " + advancementId + " not found in LOADED_ADVANCEMENTS.", true);
         }
@@ -157,5 +179,58 @@ public class AdvancementManager {
             logger.print("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
             return null;
         }
+    }
+
+    @Override
+    public String getManagerId() {
+        return "advancement_manager";
+    }
+
+    @Override
+    public void removeEntity(String namespace) throws EntityNotFoundException {
+        Optional<BaseAdvancement> optional = LOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
+        if (optional.isPresent()) {
+            BaseAdvancement context = optional.get();
+            context.deleteAdvancement();
+            saveAndUnloadManagerProgress();
+        } else {
+            throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
+        }
+
+    }
+
+    @Override
+    public void disableEntity(String namespace) throws EntityNotFoundException {
+        Optional<BaseAdvancement> optional = LOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
+        if (optional.isPresent()) {
+            BaseAdvancement context = optional.get();
+            context.disableAdvancement();
+            saveAndUnloadManagerProgress();
+        } else {
+            throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
+        }
+
+    }
+
+    @Override
+    public void enableEntity(String namespace) throws EntityNotFoundException {
+        Optional<BaseAdvancement> optional = UNLOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
+        if (optional.isPresent()) {
+            BaseAdvancement context = optional.get();
+            context.enableAdvancement();
+            saveAndUnloadManagerProgress();
+        } else {
+            throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
+        }
+    }
+
+    @Override
+    public List<Identifiable> getRegisteredEntities() {
+        return new ArrayList<>(LOADED_ADVANCEMENTS);
+    }
+
+    @Override
+    public List<Identifiable> getUnregisteredEntities() {
+        return new ArrayList<>(UNLOADED_ADVANCEMENTS);
     }
 }

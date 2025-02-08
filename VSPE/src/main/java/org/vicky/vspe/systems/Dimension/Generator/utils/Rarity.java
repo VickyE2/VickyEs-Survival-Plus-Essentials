@@ -1,12 +1,13 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils;
 
 public enum Rarity {
-    VERY_COMMON(6),
-    COMMON(5),
-    RARE(4),
-    EPIC(3),
-    LEGENDARY(2),
-    GOD_TIER(1);
+    VERY_COMMON(20),
+    COMMON(18),
+    RARE(15),
+    EPIC(12),
+    LEGENDARY(9),
+    MYTHIC(6),
+    GOD_TIER(2);
 
     public final int rarityValue;
 

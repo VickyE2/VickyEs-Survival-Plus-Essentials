@@ -18,11 +18,10 @@ public class SamplerLocator implements Locator, Ymlable {
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: SAMPLER").append("\n");
         builder.append("samplers: ").append("\n");
 
         for (NoiseSampler locator : this.samplers) {
-            builder.append(Utilities.getIndentedBlock(locator.getYml().toString(), "  ")).append("\n");
+            builder.append(Utilities.getIndentedBlock(locator.getYml().toString(), "   ")).append("\n");
         }
 
         return builder;
@@ -30,6 +29,6 @@ public class SamplerLocator implements Locator, Ymlable {
 
     @Override
     public String getType() {
-        return null;
+        return "SAMPLER";
     }
 }

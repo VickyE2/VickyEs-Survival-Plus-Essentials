@@ -53,7 +53,6 @@ public class GaussianRandomLocator implements Locator, Ymlable {
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: RANGE").append("\n");
         if (this.amountRange != null) {
             builder.append("amount: ").append(this.amountRange).append("\n");
         }
@@ -75,6 +74,6 @@ public class GaussianRandomLocator implements Locator, Ymlable {
 
     @Override
     public String getType() {
-        return null;
+        return "GAUSSIAN_RANDOM";
     }
 }

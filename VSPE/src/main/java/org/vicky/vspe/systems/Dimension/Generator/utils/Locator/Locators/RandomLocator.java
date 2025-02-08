@@ -50,7 +50,6 @@ public class RandomLocator implements Locator, Ymlable {
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: RANDOM").append("\n");
         if (this.amountRange != null) {
             builder.append("amount: ");
             if (this.amountRange.getMax() instanceof Integer && this.amountRange.getMin() instanceof Integer) {
@@ -85,6 +84,6 @@ public class RandomLocator implements Locator, Ymlable {
 
     @Override
     public String getType() {
-        return null;
+        return "RANDOM";
     }
 }

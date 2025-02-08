@@ -9,7 +9,7 @@ import org.vicky.vspe.utilities.NumberToWords;
 public class Cave extends BaseBiome {
     public Cave(int size) {
         super("CHROMATIC_UNDERWATER_CAVE_" + NumberToWords.convert(size));
-        addExtendible(Extendibles.CARVING_LAND);
+        addExtendible(Extendibles.CARVING_OCEAN);
         isAbstract();
         isCarving_update_palette();
         setTerrain(NoiseSamplerBuilder.of(new CONSTANT())

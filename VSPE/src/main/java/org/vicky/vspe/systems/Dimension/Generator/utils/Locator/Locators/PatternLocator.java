@@ -18,7 +18,6 @@ public class PatternLocator implements Locator, Ymlable {
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: PATTERN").append("\n");
         builder.append("range: ")
                 .append("\n")
                 .append("  min: ")
@@ -33,6 +32,6 @@ public class PatternLocator implements Locator, Ymlable {
 
     @Override
     public String getType() {
-        return null;
+        return "PATTERN";
     }
 }

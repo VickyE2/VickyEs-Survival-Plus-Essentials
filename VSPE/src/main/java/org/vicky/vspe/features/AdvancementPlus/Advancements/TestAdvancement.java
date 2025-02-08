@@ -5,6 +5,7 @@ import eu.endercentral.crazy_advancements.advancement.AdvancementReward;
 import eu.endercentral.crazy_advancements.advancement.AdvancementVisibility;
 import eu.endercentral.crazy_advancements.advancement.criteria.Criteria;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -21,7 +22,7 @@ public class TestAdvancement extends BaseAdvancement {
     public TestAdvancement() {
         super(
                 new ItemStack(Material.PAPER),
-                "vspe",
+                new NamespacedKey("vspe", "a_simple_test"),
                 AdvancementFrame.CHALLENGE,
                 "This is a simple Text for the advancement System D:",
                 "A simple test",

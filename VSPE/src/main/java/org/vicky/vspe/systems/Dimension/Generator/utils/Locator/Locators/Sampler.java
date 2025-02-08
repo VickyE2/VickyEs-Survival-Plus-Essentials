@@ -40,10 +40,9 @@ public class Sampler implements Locator, Ymlable {
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: SAMPLER").append("\n");
         if (this.sampler != null) {
             builder.append("sampler: ").append("\n");
-            builder.append(Utilities.getIndentedBlock(this.sampler.getYml().toString(), "  ")).append("\n");
+            builder.append(Utilities.getIndentedBlock(this.sampler.getYml().toString(), "  "));
         }
 
         builder.append("threshold: ").append(this.threshold);

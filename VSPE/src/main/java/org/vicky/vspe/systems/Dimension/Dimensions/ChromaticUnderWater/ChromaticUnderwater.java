@@ -1,9 +1,7 @@
 package org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater;
 
-import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Biomes.CoralReefs;
-import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Biomes.MysticalCoralReef;
+import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Biomes.*;
 import org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Extrusions.MossCaves;
-import org.vicky.vspe.systems.Dimension.Dimensions.Test.Biomes.TestExtrusionBiome;
 import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Tags;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion.ReplaceExtrusion;
@@ -17,19 +15,26 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Utilities;
 
 public class ChromaticUnderwater extends BaseGenerator {
     public ChromaticUnderwater() {
-        super("CHROMATIC_UNDERWATER", "1.0.0-ALPHA", "VickyE2, UltraEazzi");
+        super("CHROMATIC_UNDERWATER", "1.0.1-TWO-BIOME-TEST", "VickyE2, UltraEazzi");
 
-        this.addBiome(new CoralReefs(), new MysticalCoralReef());
+        this.addBiome(
+                new CoralReefs(), new MysticalCoralReef(), //Coral Reefs
+                new SeagrassMeadows(), new BlueSeagrassMeadows(), new DeadSeagrassMeadows() //Seagrass Meadows
+        );
 
         MetaClass meta = new MetaClass();
         meta.setOceanLevel(319);
         meta.setContinentalScale(256);
         meta.setTemperatureVariance(0.3);
         meta.setHeightVariance(600.0);
+        meta.setContinentalScale(200);
+        meta.setGlobalScale(0.7);
         BaseClass base = new BaseClass();
         base.setOceanLevel(319);
         Configuration conf = new Configuration.Builder()
                 .terrainOceanBaseYLevel(319)
+                .continentalScale(200)
+                .globalScale(0.7)
                 .build();
         this.setMeta(meta);
         this.setBase(base);

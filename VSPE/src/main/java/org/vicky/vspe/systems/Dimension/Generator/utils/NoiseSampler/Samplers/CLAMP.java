@@ -10,25 +10,26 @@ public class CLAMP implements NoiseSampler, Ymlable {
     private final Map<String, Object> values = new HashMap<>();
     private final Map<String, Object> globalValues = new HashMap<>();
 
-    public CLAMP() {}
-    
+    public CLAMP() {
+    }
+
     // Setter method to set parameters
     public CLAMP setParameter(String parameter, Object value) {
         this.values.put(parameter, value);
         return this;
     }
 
-    public CLAMP addGlobalParameter(String parameter, Object value) { 
+    public CLAMP addGlobalParameter(String parameter, Object value) {
         this.globalValues.put(parameter, value);
         return this;
-    } 
+    }
 
     @Override
     public Map<String, Object> getValues() {
         return values;
     }
 
-    
+
     @Override
     public Object getParameter(String parameter) {
         if (values.entrySet().stream().anyMatch(k -> k.getKey().equals(parameter)))

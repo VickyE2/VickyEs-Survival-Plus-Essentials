@@ -3,6 +3,8 @@ package org.vicky.vspe.systems.Dimension.Generator;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.systems.Dimension.Exceptions.MissingConfigrationException;
+import org.vicky.vspe.systems.Dimension.Generator.utils.*;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.BaseExtendibles;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.extend.Extendibles;
@@ -11,7 +13,6 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.BiomeType;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.Land;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.Temperature;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.type.subEnums.*;
-import org.vicky.vspe.systems.Dimension.Generator.utils.*;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion.Extrusion;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Extrusion.ReplaceExtrusion;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Feature.DepositableFeature;
@@ -34,6 +35,7 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.BiomeVariant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.ClimateVariant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.Variant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.progressbar.ProgressListener;
+import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.utilities.ZipUtils;
 
 import java.io.File;
@@ -48,11 +50,11 @@ import java.util.zip.ZipOutputStream;
 import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.generateRandomNumber;
 import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.getIndentedBlock;
 
-public abstract class BaseGenerator {
+public abstract class BaseGenerator implements Identifiable {
     public final String packID;
+    public final List<BaseBiome> BIOMES;
     private final String packVersion;
     private final String packAuthors;
-    public final List<BaseBiome> BIOMES;
     private final List<String> CUSTOM_STAGES;
     private final List<Extrusion> CUSTOM_EXTRUSIONS;
     private final Map<BiomeType, Integer> biomeTypeIntegerMap = new HashMap<>();
@@ -135,7 +137,13 @@ public abstract class BaseGenerator {
         this.BASEClass = BASEClass;
     }
 
-    public void generatePack(ProgressListener progressListener) throws IOException {
+    public void generatePack(ProgressListener progressListener) throws IOException, MissingConfigrationException {
+        if (META == null)
+            throw new MissingConfigrationException("The generator " + packID + " fails to provide a META configuration");
+        if (BASEClass == null)
+            throw new MissingConfigrationException("The generator " + packID + " fails to provide a BASE configuration");
+        if (configuration == null)
+            throw new MissingConfigrationException("The generator " + packID + " fails to provide a COMMONS(Configuration) configuration");
         int progress = 0;
         progressListener.onProgressUpdate(progress, "Starting pack generation.");
         File temporaryZip = Utilities.createTemporaryZipFile();
@@ -371,7 +379,12 @@ public abstract class BaseGenerator {
         }
         for (BaseBiome biome : this.BIOMES) {
             if (!biome.biomeExtendibles.isEmpty()) {
-                additionalBiomes.addAll(biome.getBiomeExtendibles());
+                for (BaseBiome extendible : biome.biomeExtendibles) {
+                    if (extendible.isAbstract) {
+                        if (additionalBiomes.stream().noneMatch(k -> k.getClass().equals(extendible.getClass())))
+                            additionalBiomes.add(extendible);
+                    }
+                }
             }
         }
 
@@ -512,7 +525,9 @@ public abstract class BaseGenerator {
 
             if (biome instanceof Variant variant) {
                 if (variant.getVariantOf() != null) {
-                    BiomeVariant biomeVariant = variant.getVariantOf();
+                    Optional<BiomeVariant> optionalBiomeVariant = variantMap.keySet().stream().filter(k -> k.getClass().equals(variant.getVariantOf().getClass())).findAny();
+                    BiomeVariant biomeVariant;
+                    biomeVariant = optionalBiomeVariant.orElseGet(variant::getVariantOf);
                     Rarity rarity = variant.getVariantRarity();
                     this.variantMap.computeIfAbsent(biomeVariant, k -> new ArrayList<>()).add(variant);
                     this.biomeRarityMap.put(biomeVariant, rarity);
@@ -596,17 +611,22 @@ public abstract class BaseGenerator {
             builder.append("type: FEATURE").append("\n");
             if (feature.getDistributor() != null) {
                 builder.append("distributor: ").append("\n");
-                if (feature.getDistributor() instanceof Locator) {
-                    builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
+                if (feature.getDistributor() instanceof Locator locator) {
+                    builder.append("  type: ").append(locator.getType()).append("\n").append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
                 } else if (feature.getDistributor() instanceof NoiseSampler) {
-                    builder.append("type: ").append(((NoiseSampler) feature.getDistributor()).name()).append("\n");
+                    builder.append("  type: ").append(((NoiseSampler) feature.getDistributor()).name()).append("\n");
                     builder.append(getIndentedBlock(feature.getDistributor().getYml().toString(), "  ")).append("\n");
                 }
             }
 
             if (feature.getLocator() != null) {
                 builder.append("locator: ").append("\n");
-                builder.append(getIndentedBlock(feature.getLocator().getYml().toString(), "  ")).append("\n");
+                if (feature.getLocator() instanceof Locator locator) {
+                    builder.append("  type: ").append(locator.getType()).append("\n").append(getIndentedBlock(feature.getLocator().getYml().toString(), "  ")).append("\n");
+                } else if (feature.getLocator() instanceof NoiseSampler sampler) {
+                    builder.append("  type: ").append(sampler.name()).append("\n");
+                    builder.append(getIndentedBlock(sampler.getYml().toString(), "  ")).append("\n");
+                }
             }
 
             builder.append("structures: ").append("\n");
@@ -735,66 +755,79 @@ public abstract class BaseGenerator {
         StringBuilder output = new StringBuilder();
         if (!variantMap.isEmpty()) {
             output.append("stages:").append("\n");
-            for (Map.Entry<BiomeVariant, List<Variant>> variant : variantMap.entrySet()) {
-                if (!variant.getValue().isEmpty()) {
-                    output.append("  - type: REPLACE\n");
-                    output.append("    from: ").append(variant.getKey().getVariantName()).append("\n");
-                    output.append("    to:\n");
-                    output.append("      - SELF: ").append(variant.getKey().getSelfRarity().rarityValue + 2).append("\n");
-                    for (Variant context : variant.getValue()) {
-                        output.append("      - ").append(context.getVariantName()).append(": ").append(context.getVariantRarity().rarityValue + 1).append("\n");
-                    }
-                    output.append("    sampler:\n");
-                    NoiseSampler simplexFBM = NoiseSamplerBuilder.of(new FBM())
-                            .addGlobalParameter("dimensions", 2)
-                            .setParameter("octaves", 5)
-                            .setParameter("gain", 0.5)
-                            .setParameter("lacunarity", 0.05)
-                            .setParameter("sampler",
-                                    NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
-                                    .setParameter("salt", generateRandomNumber())
-                                    .setParameter("frequency", 0.002)
-                                    .build()
-                            )
-                            .build();
-                    NoiseSampler domainWarp = NoiseSamplerBuilder.of(new DOMAIN_WARP())
-                            .addGlobalParameter("dimensions", 2)
-                            .setParameter("sampler", NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
-                                    .setParameter("salt", generateRandomNumber())
-                                    .setParameter("frequency", 0.005)
-                                    .build()
-                            )
-                            .setParameter("warp", NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
-                                    .setParameter("salt", generateRandomNumber())
-                                    .setParameter("frequency", 0.002)
-                                    .build()
-                            )
-                            .setParameter("amplitude", 5)
-                            .build();
-                    MetaMap map = META.getMappingFor(MetaClass.MetaVariables.GLOBAL_SCALE);
-                    map.performOperation(0.3, ArithmeticOperation.DIVIDE);
-                    NoiseSampler cellular = NoiseSamplerBuilder.of(new CELLULAR())
-                            .addGlobalParameter("dimensions", 2)
-                            .setParameter("frequency", map)
-                            .setParameter("distance", "Euclidean")
-                            .setParameter("return", "Distance")
-                            .setParameter("salt", generateRandomNumber())
-                            .build();
-                    output.append(getIndentedBlock(
-                            NoiseSamplerBuilder.of(new EXPRESSION())
-                                    .addGlobalParameter("dimensions", 2)
-                                    .setParameter("expression", "(simplexFBM(x, z) * domainWarp(x, z)) + cellular(x, z) * 0.3")
-                                    .setParameter("samplers", Map.of(
-                                            "simplexFBM", simplexFBM,
-                                            "domainWarp", domainWarp,
-                                            "cellular", cellular
-                                    ))
-                                    .build()
-                                    .getYml()
-                                    .toString(),
-                                    "      "));
+            output.append("  - type: REPLACE_LIST\n");
+            List<Map.Entry<BiomeVariant, List<Variant>>> variantList = new ArrayList<>(variantMap.entrySet());
+            Map.Entry<BiomeVariant, List<Variant>> firstVariant = variantList.get(0);
+            if (!firstVariant.getValue().isEmpty()) {
+                output.append("    default-from: ").append(firstVariant.getKey().getVariantName()).append("\n");
+                output.append("    default-to:\n");
+                output.append("      - SELF: ").append(firstVariant.getKey().getSelfRarity().rarityValue + 2).append("\n");
+                for (Variant context : firstVariant.getValue()) {
+                    output.append("      - ").append(context.getVariantName()).append(": ").append(context.getVariantRarity().rarityValue + 1).append("\n");
                 }
             }
+            if (variantList.size() > 1) {
+                output.append("    to:\n");
+                for (int i = 1; i < variantList.size(); i++) {
+                    Map.Entry<BiomeVariant, List<Variant>> variant = variantList.get(i);
+                    if (!variant.getValue().isEmpty()) {
+                        output.append("      ").append(variant.getKey().getVariantName()).append(":").append("\n");
+                        output.append("        - SELF: ").append(variant.getKey().getSelfRarity().rarityValue + 2).append("\n");
+                        for (Variant context : variant.getValue()) {
+                            output.append("        - ").append(context.getVariantName()).append(": ").append(context.getVariantRarity().rarityValue + 1).append("\n");
+                        }
+                    }
+                }
+            }
+            output.append("    sampler:\n");
+            NoiseSampler simplexFBM = NoiseSamplerBuilder.of(new FBM())
+                    .addGlobalParameter("dimensions", 2)
+                    .setParameter("octaves", 5)
+                    .setParameter("gain", 0.5)
+                    .setParameter("lacunarity", 0.05)
+                    .setParameter("sampler",
+                            NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
+                                    .setParameter("salt", generateRandomNumber())
+                                    .setParameter("frequency", 0.002)
+                                    .build()
+                    )
+                    .build();
+            NoiseSampler domainWarp = NoiseSamplerBuilder.of(new DOMAIN_WARP())
+                    .addGlobalParameter("dimensions", 2)
+                    .setParameter("sampler", NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
+                            .setParameter("salt", generateRandomNumber())
+                            .setParameter("frequency", 0.005)
+                            .build()
+                    )
+                    .setParameter("warp", NoiseSamplerBuilder.of(new OPEN_SIMPLEX_2S())
+                            .setParameter("salt", generateRandomNumber())
+                            .setParameter("frequency", 0.002)
+                            .build()
+                    )
+                    .setParameter("amplitude", 5)
+                    .build();
+            MetaMap map = META.getMappingFor(MetaClass.MetaVariables.GLOBAL_SCALE);
+            map.performOperation(0.3, ArithmeticOperation.DIVIDE);
+            NoiseSampler cellular = NoiseSamplerBuilder.of(new CELLULAR())
+                    .addGlobalParameter("dimensions", 2)
+                    .setParameter("frequency", map)
+                    .setParameter("distance", "Euclidean")
+                    .setParameter("return", "Distance")
+                    .setParameter("salt", generateRandomNumber())
+                    .build();
+            output.append(getIndentedBlock(
+                    NoiseSamplerBuilder.of(new EXPRESSION())
+                            .addGlobalParameter("dimensions", 2)
+                            .setParameter("expression", "(simplexFBM(x, z) * domainWarp(x, z)) + cellular(x, z) * 0.3")
+                            .setParameter("samplers", Map.of(
+                                    "simplexFBM", simplexFBM,
+                                    "domainWarp", domainWarp,
+                                    "cellular", cellular
+                            ))
+                            .build()
+                            .getYml()
+                            .toString(),
+                    "      "));
         }
 
         return output;
@@ -1188,8 +1221,8 @@ public abstract class BaseGenerator {
                 }
             }
 
-            for (String terrainx : terrainTypes) {
-                String oceanBiome = "OCEAN_" + terrainx;
+            for (String terrain : terrainTypes) {
+                String oceanBiome = "OCEAN_" + terrain;
                 if (biomesPresent.contains(oceanBiome)) {
                     builder.append("  - type: REPLACE\n");
                     builder.append("    from: ").append(oceanBiome).append("\n");
@@ -1202,16 +1235,16 @@ public abstract class BaseGenerator {
 
                     for (Entry<String, Integer> entry : temperatureRarity.entrySet()) {
                         String zone = entry.getKey();
-                        String biomeName = "OCEAN_" + terrainx + "_" + zone;
+                        String biomeName = "OCEAN_" + terrain + "_" + zone;
                         biomeName = biomeName.toLowerCase();
                         if (biomeAmount.containsKey(biomeName)) {
                             builder.append("      ").append(biomeName).append(": ").append(entry.getValue()).append("\n");
                         }
                     }
 
-                    for (Entry<String, Integer> entryx : temperatureRarity.entrySet()) {
-                        String zone = entryx.getKey();
-                        String biomeName = "OCEAN_" + terrainx + "_" + zone;
+                    for (Entry<String, Integer> entry : temperatureRarity.entrySet()) {
+                        String zone = entry.getKey();
+                        String biomeName = "OCEAN_" + terrain + "_" + zone;
                         biomeName = biomeName.toLowerCase();
                         if (biomeAmount.containsKey(biomeName)) {
                             builder.append("  - type: REPLACE\n");
@@ -1483,7 +1516,7 @@ public abstract class BaseGenerator {
     private Map<String, Integer> getBiomeAmountEC() {
         Map<String, Integer> biomeMap = new HashMap<>();
         this.biomeSet.forEach(biome -> {
-            if (!biome.biomeType.isCoast()) {
+            if (!biome.biomeType.isCoast() && !(biome instanceof Variant)) {
                 String simpleName = biome.biomeType.getName();
                 simpleName = simpleName.toLowerCase();
                 biomeMap.put(simpleName, biomeMap.getOrDefault(simpleName, 0) + 1);
@@ -1495,130 +1528,132 @@ public abstract class BaseGenerator {
     private Set<String> getBiomesPresent() {
         Set<String> biomeMap = new HashSet<>();
         this.biomeSet.forEach(biome -> {
-            String simpleName = biome.biomeType.getName().toLowerCase();
-            if (simpleName.contains("coast")) {
-                if (simpleName.contains("small")) {
-                    biomeMap.add("COAST_SMALL");
+            if (!(biome instanceof Variant)) {
+                String simpleName = biome.biomeType.getName().toLowerCase();
+                if (simpleName.contains("coast")) {
+                    if (simpleName.contains("small")) {
+                        biomeMap.add("COAST_SMALL");
+                        if (simpleName.contains("boreal")) {
+                            biomeMap.add("COAST_SMALL_BOREAL");
+                        } else if (simpleName.contains("temperate")) {
+                            biomeMap.add("COAST_SMALL_TEMPERATE");
+                        } else if (simpleName.contains("polar")) {
+                            biomeMap.add("COAST_SMALL_POLAR");
+                        } else if (simpleName.contains("subtropical")) {
+                            biomeMap.add("COAST_SMALL_SUBTROPICAL");
+                        } else if (simpleName.contains("tropical")) {
+                            biomeMap.add("COAST_SMALL_TROPICAL");
+                        }
+
+                        biomeMap.add("LAND");
+                    }
+
+                    if (simpleName.contains("large")) {
+                        biomeMap.add("COAST_LARGE");
+                        if (simpleName.contains("boreal")) {
+                            biomeMap.add("COAST_LARGE_BOREAL");
+                        } else if (simpleName.contains("temperate")) {
+                            biomeMap.add("COAST_LARGE_TEMPERATE");
+                        } else if (simpleName.contains("polar")) {
+                            biomeMap.add("COAST_LARGE_POLAR");
+                        } else if (simpleName.contains("subtropical")) {
+                            biomeMap.add("COAST_LARGE_SUBTROPICAL");
+                        } else if (simpleName.contains("tropical")) {
+                            biomeMap.add("COAST_LARGE_TROPICAL");
+                        }
+
+                        biomeMap.add("LAND");
+                    }
+                } else if (simpleName.contains("hills_small")) {
+                    biomeMap.add("HILLS_SMALL");
                     if (simpleName.contains("boreal")) {
-                        biomeMap.add("COAST_SMALL_BOREAL");
+                        biomeMap.add("HILLS_SMALL_BOREAL");
                     } else if (simpleName.contains("temperate")) {
-                        biomeMap.add("COAST_SMALL_TEMPERATE");
+                        biomeMap.add("HILLS_SMALL_TEMPERATE");
                     } else if (simpleName.contains("polar")) {
-                        biomeMap.add("COAST_SMALL_POLAR");
+                        biomeMap.add("HILLS_SMALL_POLAR");
                     } else if (simpleName.contains("subtropical")) {
-                        biomeMap.add("COAST_SMALL_SUBTROPICAL");
+                        biomeMap.add("HILLS_SMALL_SUBTROPICAL");
                     } else if (simpleName.contains("tropical")) {
-                        biomeMap.add("COAST_SMALL_TROPICAL");
+                        biomeMap.add("HILLS_SMALL_TROPICAL");
+                    }
+
+                    biomeMap.add("LAND");
+                } else if (simpleName.contains("hills_large")) {
+                    biomeMap.add("HILLS_LARGE");
+                    if (simpleName.contains("boreal")) {
+                        biomeMap.add("HILLS_LARGE_BOREAL");
+                    } else if (simpleName.contains("temperate")) {
+                        biomeMap.add("HILLS_LARGE_TEMPERATE");
+                    } else if (simpleName.contains("polar")) {
+                        biomeMap.add("HILLS_LARGE_POLAR");
+                    } else if (simpleName.contains("subtropical")) {
+                        biomeMap.add("HILLS_LARGE_SUBTROPICAL");
+                    } else if (simpleName.contains("tropical")) {
+                        biomeMap.add("HILLS_LARGE_TROPICAL");
+                    }
+
+                    biomeMap.add("LAND");
+                } else if (simpleName.contains("mountains_small")) {
+                    biomeMap.add("MOUNTAINS_SMALL");
+                    if (simpleName.contains("boreal")) {
+                        biomeMap.add("MOUNTAINS_SMALL_BOREAL");
+                    } else if (simpleName.contains("temperate")) {
+                        biomeMap.add("MOUNTAINS_SMALL_TEMPERATE");
+                    } else if (simpleName.contains("polar")) {
+                        biomeMap.add("MOUNTAINS_SMALL_POLAR");
+                    } else if (simpleName.contains("subtropical")) {
+                        biomeMap.add("MOUNTAINS_SMALL_SUBTROPICAL");
+                    } else if (simpleName.contains("tropical")) {
+                        biomeMap.add("MOUNTAINS_SMALL_TROPICAL");
+                    }
+
+                    biomeMap.add("LAND");
+                } else if (simpleName.contains("mountains_large")) {
+                    biomeMap.add("MOUNTAINS_LARGE");
+                    if (simpleName.contains("boreal")) {
+                        biomeMap.add("MOUNTAINS_LARGE_BOREAL");
+                    } else if (simpleName.contains("temperate")) {
+                        biomeMap.add("MOUNTAINS_LARGE_TEMPERATE");
+                    } else if (simpleName.contains("polar")) {
+                        biomeMap.add("MOUNTAINS_LARGE_POLAR");
+                    } else if (simpleName.contains("subtropical")) {
+                        biomeMap.add("MOUNTAINS_LARGE_SUBTROPICAL");
+                    } else if (simpleName.contains("tropical")) {
+                        biomeMap.add("MOUNTAINS_LARGE_TROPICAL");
+                    }
+
+                    biomeMap.add("LAND");
+                } else if (simpleName.contains("ocean")) {
+                    if (simpleName.contains("deep")) {
+                        biomeMap.add("DEEP_OCEAN");
+                    } else if (simpleName.contains("ocean_flat")) {
+                        biomeMap.add("OCEAN_FLAT");
+                        biomeMap.add("OCEAN");
+                    } else if (simpleName.contains("ocean_hills")) {
+                        biomeMap.add("OCEAN_HILLS");
+                        biomeMap.add("OCEAN");
+                    } else {
+                        biomeMap.add("OCEAN");
+                    }
+                } else if (simpleName.contains("river")) {
+                    biomeMap.add("RIVER");
+                } else if (simpleName.contains("flat")) {
+                    biomeMap.add("FLAT");
+                    if (simpleName.contains("boreal")) {
+                        biomeMap.add("FLAT_BOREAL");
+                    } else if (simpleName.contains("temperate")) {
+                        biomeMap.add("FLAT_TEMPERATE");
+                    } else if (simpleName.contains("polar")) {
+                        biomeMap.add("FLAT_POLAR");
+                    } else if (simpleName.contains("subtropical")) {
+                        biomeMap.add("FLAT_SUBTROPICAL");
+                    } else if (simpleName.contains("tropical")) {
+                        biomeMap.add("FLAT_TROPICAL");
                     }
 
                     biomeMap.add("LAND");
                 }
-
-                if (simpleName.contains("large")) {
-                    biomeMap.add("COAST_LARGE");
-                    if (simpleName.contains("boreal")) {
-                        biomeMap.add("COAST_LARGE_BOREAL");
-                    } else if (simpleName.contains("temperate")) {
-                        biomeMap.add("COAST_LARGE_TEMPERATE");
-                    } else if (simpleName.contains("polar")) {
-                        biomeMap.add("COAST_LARGE_POLAR");
-                    } else if (simpleName.contains("subtropical")) {
-                        biomeMap.add("COAST_LARGE_SUBTROPICAL");
-                    } else if (simpleName.contains("tropical")) {
-                        biomeMap.add("COAST_LARGE_TROPICAL");
-                    }
-
-                    biomeMap.add("LAND");
-                }
-            } else if (simpleName.contains("hills_small")) {
-                biomeMap.add("HILLS_SMALL");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("HILLS_SMALL_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("HILLS_SMALL_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("HILLS_SMALL_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("HILLS_SMALL_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("HILLS_SMALL_TROPICAL");
-                }
-
-                biomeMap.add("LAND");
-            } else if (simpleName.contains("hills_large")) {
-                biomeMap.add("HILLS_LARGE");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("HILLS_LARGE_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("HILLS_LARGE_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("HILLS_LARGE_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("HILLS_LARGE_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("HILLS_LARGE_TROPICAL");
-                }
-
-                biomeMap.add("LAND");
-            } else if (simpleName.contains("mountains_small")) {
-                biomeMap.add("MOUNTAINS_SMALL");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("MOUNTAINS_SMALL_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("MOUNTAINS_SMALL_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("MOUNTAINS_SMALL_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("MOUNTAINS_SMALL_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("MOUNTAINS_SMALL_TROPICAL");
-                }
-
-                biomeMap.add("LAND");
-            } else if (simpleName.contains("mountains_large")) {
-                biomeMap.add("MOUNTAINS_LARGE");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("MOUNTAINS_LARGE_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("MOUNTAINS_LARGE_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("MOUNTAINS_LARGE_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("MOUNTAINS_LARGE_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("MOUNTAINS_LARGE_TROPICAL");
-                }
-
-                biomeMap.add("LAND");
-            } else if (simpleName.contains("ocean")) {
-                if (simpleName.contains("deep")) {
-                    biomeMap.add("DEEP_OCEAN");
-                } else if (simpleName.contains("ocean_flat")) {
-                    biomeMap.add("OCEAN_FLAT");
-                    biomeMap.add("OCEAN");
-                } else if (simpleName.contains("ocean_hills")) {
-                    biomeMap.add("OCEAN_HILLS");
-                    biomeMap.add("OCEAN");
-                } else {
-                    biomeMap.add("OCEAN");
-                }
-            } else if (simpleName.contains("river")) {
-                biomeMap.add("RIVER");
-            } else if (simpleName.contains("flat")) {
-                biomeMap.add("FLAT");
-                if (simpleName.contains("boreal")) {
-                    biomeMap.add("FLAT_BOREAL");
-                } else if (simpleName.contains("temperate")) {
-                    biomeMap.add("FLAT_TEMPERATE");
-                } else if (simpleName.contains("polar")) {
-                    biomeMap.add("FLAT_POLAR");
-                } else if (simpleName.contains("subtropical")) {
-                    biomeMap.add("FLAT_SUBTROPICAL");
-                } else if (simpleName.contains("tropical")) {
-                    biomeMap.add("FLAT_TROPICAL");
-                }
-
-                biomeMap.add("LAND");
             }
         });
         return biomeMap;
@@ -1800,5 +1835,10 @@ public abstract class BaseGenerator {
         double maxElev = elevRange[1];
         double elevCenter = (minElev + maxElev) / 2.0;
         return Math.max(0.0, 1.0 - Math.abs(elevation - elevCenter) / (maxElev - minElev));
+    }
+
+    @Override
+    public String getIdentifier() {
+        return this.packID;
     }
 }

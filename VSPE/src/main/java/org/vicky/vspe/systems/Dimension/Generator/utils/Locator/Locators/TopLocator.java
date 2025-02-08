@@ -14,7 +14,6 @@ public class TopLocator implements Locator, Ymlable {
     @Override
     public StringBuilder getYml() {
         StringBuilder builder = new StringBuilder();
-        builder.append("type: TOP").append("\n");
         builder.append("range: ")
                 .append("\n")
                 .append("  min: ")
@@ -28,6 +27,6 @@ public class TopLocator implements Locator, Ymlable {
 
     @Override
     public String getType() {
-        return null;
+        return "TOP";
     }
 }

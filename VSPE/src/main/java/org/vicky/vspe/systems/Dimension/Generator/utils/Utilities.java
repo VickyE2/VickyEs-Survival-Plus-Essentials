@@ -1,7 +1,6 @@
 package org.vicky.vspe.systems.Dimension.Generator.utils;
 
 import com.sk89q.worldedit.util.io.ResourceLoader;
-import org.vicky.vspe.VSPE;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -36,6 +35,14 @@ public class Utilities {
         int firstDigit = random.nextInt(9) + 1;
         int remainingDigits = random.nextInt(1000);
         return firstDigit * 1000 + remainingDigits;
+    }
+
+    public static String generateRandomSeed() {
+        Random random = new Random();
+        int firstDigit = random.nextInt(1, 9);
+        int firstSet = random.nextInt(1999999999);
+        int secondSet = random.nextInt(1999999999);
+        return "" + firstDigit + firstSet + secondSet;
     }
 
     public static String generateRandomFourLetterString() {

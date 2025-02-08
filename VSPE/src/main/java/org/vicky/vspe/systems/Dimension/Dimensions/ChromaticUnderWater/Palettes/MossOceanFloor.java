@@ -2,7 +2,10 @@ package org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater.Palettes
 
 import org.bukkit.Material;
 import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.NoiseSampler;
-import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.*;
+import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.CONSTANT;
+import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.EXPRESSION;
+import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.FBM;
+import org.vicky.vspe.systems.Dimension.Generator.utils.NoiseSampler.Samplers.OPEN_SIMPLEX_2;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.Palette;
 
 import java.util.Map;

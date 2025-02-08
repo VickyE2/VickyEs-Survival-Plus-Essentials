@@ -10,25 +10,26 @@ public class SCALE implements NoiseSampler, Ymlable {
     private final Map<String, Object> values = new HashMap<>();
     private final Map<String, Object> globalValues = new HashMap<>();
 
-    public SCALE() {}
-    
+    public SCALE() {
+    }
+
     // Setter method to set parameters
     public SCALE setParameter(String parameter, Object value) {
         this.values.put(parameter, value);
         return this;
     }
 
-    public SCALE addGlobalParameter(String parameter, Object value) { 
+    public SCALE addGlobalParameter(String parameter, Object value) {
         this.globalValues.put(parameter, value);
         return this;
-    } 
+    }
 
     @Override
     public Map<String, Object> getValues() {
         return values;
     }
 
-    
+
     @Override
     public Object getParameter(String parameter) {
         if (values.entrySet().stream().anyMatch(k -> k.getKey().equals(parameter)))
