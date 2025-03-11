@@ -1,14 +1,18 @@
 package org.vicky.vspe.systems.Dimension.Dimensions.ChromaticUnderWater;
 
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldType;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.vicky.guiparent.GuiCreator;
 import org.vicky.vspe.systems.Dimension.BaseDimension;
 import org.vicky.vspe.systems.Dimension.DimensionType;
+import org.vicky.vspe.systems.Dimension.Events.PlayerEnterDimensionEvent;
 import org.vicky.vspe.systems.Dimension.Exceptions.NoGeneratorException;
 import org.vicky.vspe.systems.Dimension.Exceptions.WorldNotExistsException;
+import org.vicky.vspe.utilities.Manager.ManagerNotFoundException;
 
 import java.util.List;
 
@@ -16,7 +20,7 @@ import static org.vicky.vspe.systems.Dimension.Generator.utils.Utilities.generat
 
 public class ChromaticUnderwaterDimension extends BaseDimension {
 
-    public ChromaticUnderwaterDimension() throws WorldNotExistsException, NoGeneratorException {
+    public ChromaticUnderwaterDimension() throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
         super(
                 "Chromatic Underwater",
                 "chromatic_underwater",
@@ -27,6 +31,27 @@ public class ChromaticUnderwaterDimension extends BaseDimension {
                 false,
                 ChromaticUnderwater.class
         );
+        isGlobalSpawning(new Location(this.getWorld(), 0, 120, 0));
+    }
+
+    @Override
+    protected List<GuiCreator.ItemConfig> dimensionAdvancementGainItems() {
+        return List.of();
+    }
+
+    @Override
+    protected void dimensionAdvancementGainProcedures(Player player) {
+
+    }
+
+    @Override
+    public void applyJoinMechanics(Player var1) {
+
+    }
+
+    @Override
+    protected boolean playerEnterDimensionRequirements(Player player) {
+        return false;
     }
 
     @Override
@@ -41,10 +66,5 @@ public class ChromaticUnderwaterDimension extends BaseDimension {
         var1.removePotionEffect(PotionEffectType.WATER_BREATHING);
         var1.removePotionEffect(PotionEffectType.NIGHT_VISION);
         var1.removePotionEffect(PotionEffectType.DOLPHINS_GRACE);
-    }
-
-    @Override
-    public void applyJoinMechanics(Player var1) {
-
     }
 }

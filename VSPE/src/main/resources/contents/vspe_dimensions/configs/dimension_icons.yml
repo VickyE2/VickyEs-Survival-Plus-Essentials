@@ -1,0 +1,10 @@
+info:
+  namespace: vspe_dimensions
+items:
+  chromatic_underwater:
+    display_name: Chromatic Underwater
+    resource:
+      material: HEART_OF_THE_SEA
+      generate: true
+      textures:
+        - dimension_icons/chromatic_underwater

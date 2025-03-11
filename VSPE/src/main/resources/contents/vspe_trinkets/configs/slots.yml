@@ -1,0 +1,75 @@
+info:
+  namespace: vspe_trinkets
+
+font_images:
+  anklet:
+    path: slots/anklet.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ✶
+
+  belt:
+    path: slots/belt.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ➶
+
+  bracelet:
+    path: slots/bracelet.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ✦
+
+  charm:
+    path: slots/charm.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ❉
+
+  dual_anklet:
+    path: slots/dual_anklet.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ❈
+
+  dual_bracelet:
+    path: slots/dual_bracelet.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ✷
+
+  dual_earring:
+    path: slots/dual_earring.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ✵
+
+  dual_ring:
+    path: slots/dual_ring.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ✪
+
+  earring:
+    path: slots/earring.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ❂
+
+  head:
+    path: slots/head.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ☉
+
+  neck:
+    path: slots/neck.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ♢
+
+  ring:
+    path: slots/ring.png
+    scale_ratio: 9
+    y_position: 8
+    symbol: ◎

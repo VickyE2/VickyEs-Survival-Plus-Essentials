@@ -4,8 +4,9 @@ import io.lumine.mythic.bukkit.utils.lib.jooq.exception.IOException;
 import org.bukkit.entity.Player;
 import org.reflections.Reflections;
 import org.vicky.utilities.ANSIColor;
-import org.vicky.vspe.addon.util.BaseStructure;
 import org.vicky.utilities.ContextLogger.ContextLogger;
+import org.vicky.utilities.Identifiable;
+import org.vicky.vspe.addon.util.BaseStructure;
 import org.vicky.vspe.systems.Dimension.Exceptions.MissingConfigrationException;
 import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Biome.BaseBiome;
@@ -19,9 +20,9 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Palette.Palette;
 import org.vicky.vspe.systems.Dimension.Generator.utils.progressbar.progressbars.NullProgressBar;
 import org.vicky.vspe.utilities.ExceptionDerivator;
 import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
-import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.utilities.Manager.IdentifiableManager;
 import org.vicky.vspe.utilities.Manager.ManagerRegistry;
+import org.vicky.vspe.utilities.Pair;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
@@ -33,7 +34,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -50,6 +50,7 @@ public class DimensionManager implements IdentifiableManager {
     public final List<BaseDimension> UNLOADED_DIMENSIONS = new ArrayList<>();
     public final Set<BaseGenerator> LOADED_GENERATORS = new HashSet<>();
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSIONS");
+
     public DimensionManager() {
         ManagerRegistry.register(this);
     }
@@ -91,6 +92,7 @@ public class DimensionManager implements IdentifiableManager {
     }
 
     public void processDimensionGenerators(boolean clean) {
+        logger.printBukkit("Starting Generators Processing...", ContextLogger.LogType.PENDING);
         for (String packagePath : DIMENSION_PACKAGES) {
             Reflections reflections = new Reflections(packagePath);
             Set<Class<? extends BaseGenerator>> dimensionGenerators = reflections.getSubTypesOf(BaseGenerator.class);
@@ -131,10 +133,11 @@ public class DimensionManager implements IdentifiableManager {
                     if (shouldOverwrite(Paths.get("./plugins/Terra/packs/" + packName), generator.getPackVersion())) {
                         logger.printBukkit(ANSIColor.colorize("purple[Updating pack " + packName + "]"));
 
-                        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
+                        CompletableFuture<Void> future =
+                                CompletableFuture.supplyAsync(() -> {
                                     try {
-                                        generator.generatePack(new NullProgressBar());
-                                        return generator;
+                                        int timeTaken = generator.generatePack(new NullProgressBar());
+                                        return new Pair<>(generator, timeTaken);
                                     } catch (StackOverflowError var19) {
                                         StackTraceElement[] stackTrace = var19.getStackTrace();
                                         StringBuilder classesInvolved = new StringBuilder();
@@ -203,7 +206,7 @@ public class DimensionManager implements IdentifiableManager {
                                         }
 
                                         logger.printBukkit(ANSIColor.colorize("yellow[Involved: \n" + classesInvolved + "Were involved please check them]"), true);
-                                        return null;
+                                        return new Pair<BaseGenerator, Integer>(null, null);
                                     } catch (Exception var20) {
                                         handleException(var20, clazz.getSimpleName());
                                         try {
@@ -213,8 +216,11 @@ public class DimensionManager implements IdentifiableManager {
                                         }
                                     }
                                 })
-                                .thenAccept(gen -> {
+                                .thenAccept(pair -> {
+                                    BaseGenerator gen = pair.first();
+                                    Integer time = pair.second();
                                     if (gen != null) {
+                                        logger.printBukkit(String.format("Pack %s has been successfully generated {%s}", gen.getPackName(), time), ContextLogger.LogType.SUCCESS);
                                         LOADED_GENERATORS.add(gen);
                                     }
                                 })
@@ -233,13 +239,10 @@ public class DimensionManager implements IdentifiableManager {
                 }
             }
         }
-
-        logger.printBukkit("LOADED_GENERATORS: " + LOADED_GENERATORS);
-        logger.printBukkit("LOADED_GENERATORS_CLASSES: " + Arrays.toString(Stream.of(LOADED_GENERATORS)
-                .map(baseGenerators -> baseGenerators.getClass().getSimpleName()).toArray()));
     }
 
     public void processDimensions() {
+        logger.printBukkit("Starting Dimensions Processing...", ContextLogger.LogType.PENDING);
         for (String packagePath : DIMENSION_PACKAGES) {
             Reflections reflections = new Reflections(packagePath);
             Set<Class<? extends BaseDimension>> dimensions = reflections.getSubTypesOf(BaseDimension.class);

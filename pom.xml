@@ -62,33 +62,6 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                            <relocations>
-                                <!-- Avoid potential conflicts with other plugins -->
-                                <relocation>
-                                    <pattern>jakarta.xml.bind</pattern>
-                                    <shadedPattern>org.vicky.shaded.jakarta.xml.bind</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>jakarta.persistence</pattern>
-                                    <shadedPattern>org.vicky.shaded.jakarta.persistence</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>jakarta.transaction</pattern>
-                                    <shadedPattern>org.vicky.shaded.jakarta.transaction</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>jakarta.activation</pattern>
-                                    <shadedPattern>org.vicky.shaded.jakarta.activation</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>jakarta.inject</pattern>
-                                    <shadedPattern>org.vicky.shaded.jakarta.inject</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.glassfish.jaxb</pattern>
-                                    <shadedPattern>org.vicky.shaded.glassfish.jaxb</shadedPattern>
-                                </relocation>
-                            </relocations>
                         </configuration>
                     </execution>
                 </executions>

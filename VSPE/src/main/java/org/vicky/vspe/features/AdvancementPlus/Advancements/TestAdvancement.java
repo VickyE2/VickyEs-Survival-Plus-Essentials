@@ -29,7 +29,8 @@ public class TestAdvancement extends BaseAdvancement {
                 new ArrayList<>(),
                 AdvancementType.CHALLENGE,
                 AdvancementVisibility.ALWAYS,
-                ToastType.POPUP_TOAST
+                ToastType.POPUP_TOAST,
+                ArrangementType.TREE
         );
     }
 

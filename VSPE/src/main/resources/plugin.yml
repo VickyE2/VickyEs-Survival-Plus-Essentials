@@ -7,11 +7,13 @@ prefix: VSPE
 authors: [ VickyE2 ]
 description: An addon for 'BALLISTIC' additions to Minecraft World
 depend:
+  - ItemsAdder
   - Vicky-s_Utilities
+  - VickyEs-Party_and_Friends
+  - VickyE-EP
   - CommandAPI
   - PlaceholderAPI
   - MythicMobs
-  - ItemsAdder
   - LoneLibs
   - LuckPerms
   - ProtocolLib

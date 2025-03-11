@@ -1,0 +1,10 @@
+info:
+  namespace: vspe_trinkets
+items:
+  ring_o_acceleration:
+    display_name: Green Arrow Right
+    resource:
+      material: GOLD_NUGGET
+      generate: true
+      textures:
+        - trinkets/ring_o_acceleration

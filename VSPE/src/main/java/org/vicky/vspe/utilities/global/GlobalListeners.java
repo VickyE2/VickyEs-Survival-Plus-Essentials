@@ -16,22 +16,49 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.vicky.utilities.ANSIColor;
+import org.vicky.utilities.ContextLogger.ContextLogger;
+import org.vicky.utilities.DatabaseManager.dao_s.DatabasePlayerDAO;
 import org.vicky.vspe.VSPE;
+import org.vicky.vspe.features.AdvancementPlus.Advancements.DimensionParentAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.Advancements.TestAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
 import org.vicky.vspe.systems.Dimension.BaseDimension;
-import org.vicky.vspe.utilities.DBTemplates.AdvanceablePlayer;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
+import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
+import org.vicky.vspe.utilities.Hibernate.dao_s.AdvanceablePlayerDAO;
+import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
+import org.vicky.vspe.utilities.Hibernate.dao_s.CnTPlayerDAO;
 import org.vicky.vspe.utilities.global.Events.PlayerReceivedAdvancement;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static org.vicky.vspe.utilities.global.GlobalResources.databaseManager;
-
 public class GlobalListeners implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         final Player player = event.getPlayer();
+        if (new AdvanceablePlayerDAO().findById(player.getUniqueId()).isEmpty()) {
+            new ContextLogger(ContextLogger.ContextType.FEATURE, "HIBERNATE-PLAYER")
+                    .printBukkit(
+                            ANSIColor.colorize(
+                                    "cyan[Creating instanced advanceable player for new player: ]" + player.getName()));
+            AdvanceablePlayer advanceablePlayer = new AdvanceablePlayer();
+            advanceablePlayer.setDatabasePlayer(new DatabasePlayerDAO().findById(player.getUniqueId()).get());
+            new AdvanceablePlayerDAO().create(advanceablePlayer);
+        }
+        if (new CnTPlayerDAO().findById(player.getUniqueId()).isEmpty()) {
+            new ContextLogger(ContextLogger.ContextType.FEATURE, "HIBERNATE-PLAYER")
+                    .printBukkit(
+                            ANSIColor.colorize(
+                                    "cyan[Creating instanced trinket player for new player: ]" + player.getName()));
+            CnTPlayer tPlayer = new CnTPlayer();
+            tPlayer.setDatabasePlayer(new DatabasePlayerDAO().findById(player.getUniqueId()).get());
+            new CnTPlayerDAO().create(tPlayer);
+        }
         GlobalResources.advancementManager.ADVANCEMENT_MANAGER.addPlayer(player);
         (new BukkitRunnable() {
             public void run() {
@@ -39,12 +66,36 @@ public class GlobalListeners implements Listener {
                 GlobalResources.advancementManager.sendAdvancementPackets(player);
             }
         }).runTaskLater(VSPE.getPlugin(), 10L);
+        World transferringWorld = player.getWorld();
+        Optional<BaseDimension> dimension2 = GlobalResources.dimensionManager
+                .LOADED_DIMENSIONS
+                .stream()
+                .filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), transferringWorld.getName()))
+                .findAny();
+        if (dimension2.isPresent()) {
+            final BaseDimension context = dimension2.get();
+            context.applyJoinMechanics(player);
+            (new BukkitRunnable() {
+                public void run() {
+                    context.applyMechanics(player);
+                }
+            }).runTaskLater(VSPE.getPlugin(), 10L);
+        }
     }
 
     @EventHandler
     public void onPlayerLeave(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        GlobalResources.advancementManager.ADVANCEMENT_MANAGER.removePlayer(player);
+        GlobalResources.advancementManager.ADVANCEMENT_MANAGER.removePlayer(player);World transferringWorld = player.getWorld();
+        Optional<BaseDimension> dimension2 = GlobalResources.dimensionManager
+                .LOADED_DIMENSIONS
+                .stream()
+                .filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), transferringWorld.getName()))
+                .findAny();
+        if (dimension2.isPresent()) {
+            final BaseDimension context = dimension2.get();
+            context.disableMechanics(player);
+        }
     }
 
     @EventHandler
@@ -99,14 +150,20 @@ public class GlobalListeners implements Listener {
     }
 
     @EventHandler
-    public void onPlayerReceivedAdvancement(PlayerReceivedAdvancement event) {
+    public void onPlayerReceivedAdvancement(PlayerReceivedAdvancement event) throws AdvancementNotExists, NullAdvancementUser {
         final Player player = event.getPlayer();
+        final AdvanceablePlayerService service = AdvanceablePlayerService.getInstance();
+        final AdvancementDAO advancementService = new AdvancementDAO();
         VSPE.getInstancedLogger().info("Player gained advancement...");
         String playerName = player.getName();
         String advancementName = event.getAdvancementName();
         String advancementDescription = event.getAdvancementDescription();
         String advancementTextColor = event.getAdvancementType().getAdvancementColor();
-        AdvanceablePlayer databasePlayer = databaseManager.getEntityById(AdvanceablePlayer.class, player.getUniqueId().toString());
+        Optional<AdvanceablePlayer> oAP = service.getPlayerById(player.getUniqueId());
+        if (oAP.isEmpty()) {
+            throw new NullAdvancementUser("Failed to get AdvancementPlayer from database", player);
+        }
+        AdvanceablePlayer databasePlayer = oAP.get();
         Component hoverMessage = Component
                 .text()
                 .append(
@@ -125,10 +182,15 @@ public class GlobalListeners implements Listener {
                 .append(hoverableAdvancement)
                 .build();
         Bukkit.getServer().sendMessage(message);
-        org.vicky.vspe.utilities.DBTemplates.Advancement contextAdvancement =
-                databaseManager.getEntityById(org.vicky.vspe.utilities.DBTemplates.Advancement.class, event.getAdvancement().getId().toString());
-        if (databasePlayer.getAccomplishedAdvancements().stream().noneMatch(a -> Objects.equals(a.getId().toString(), contextAdvancement.getId().toString())))
-            databasePlayer.getAccomplishedAdvancements().add(contextAdvancement);
-        databaseManager.saveOrUpdate(databasePlayer);
+        Optional<org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement> contextAdvancement =
+                advancementService.findByName(event.getAdvancement().getTitle());
+        if (contextAdvancement.isPresent()) {
+            if (databasePlayer.getAccomplishedAdvancements().stream().noneMatch(a -> Objects.equals(a.getId(), contextAdvancement.get().getId())))
+                databasePlayer.getAccomplishedAdvancements().add(contextAdvancement.get());
+            service.updatePlayer(databasePlayer);
+        }
+        else {
+            throw new AdvancementNotExists("Advancement could not be added to player as it fails to exist", event.getAdvancement());
+        }
     }
 }

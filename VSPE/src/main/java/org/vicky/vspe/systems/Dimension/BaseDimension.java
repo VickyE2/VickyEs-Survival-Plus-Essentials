@@ -1,5 +1,9 @@
 package org.vicky.vspe.systems.Dimension;
 
+import eu.endercentral.crazy_advancements.advancement.AdvancementDisplay;
+import eu.endercentral.crazy_advancements.advancement.AdvancementReward;
+import eu.endercentral.crazy_advancements.advancement.AdvancementVisibility;
+import eu.endercentral.crazy_advancements.advancement.criteria.Criteria;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -7,25 +11,43 @@ import org.bukkit.*;
 import org.bukkit.World.Environment;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.inventory.ItemStack;
+import org.vicky.guiparent.ButtonAction;
 import org.vicky.guiparent.GuiCreator;
-import org.vicky.utilities.ANSIColor;
+import org.vicky.items_adder.FontImageSender;
+import org.vicky.utilities.*;
 import org.vicky.utilities.ContextLogger.ContextLogger;
+import org.vicky.vspe.VSPE;
+import org.vicky.vspe.features.AdvancementPlus.AdvancementManager;
+import org.vicky.vspe.features.AdvancementPlus.AdvancementType;
+import org.vicky.vspe.features.AdvancementPlus.Advancements.DimensionParentAdvancement;
+import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.systems.BroadcastSystem.ToastType;
+import org.vicky.vspe.systems.Dimension.Events.PlayerEnterDimensionEvent;
 import org.vicky.vspe.systems.Dimension.Exceptions.NoGeneratorException;
 import org.vicky.vspe.systems.Dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.systems.Dimension.Generator.BaseGenerator;
 import org.vicky.vspe.utilities.Config;
-import org.vicky.vspe.utilities.DBTemplates.Dimension;
-import org.vicky.utilities.Identifiable;
-import org.vicky.vspe.utilities.UUIDGenerator;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.Dimension;
+import org.vicky.vspe.utilities.Hibernate.api.DimensionService;
+import org.vicky.vspe.utilities.Hibernate.dao_s.AdvanceablePlayerDAO;
+import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
+import org.vicky.vspe.utilities.Manager.ManagerNotFoundException;
+import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
-public abstract class BaseDimension implements Identifiable {
+public abstract class BaseDimension implements Identifiable, Listener {
+    private final static DimensionService service = DimensionService.getInstance();
     private final String name;
     private final String mainName;
     private final World world;
@@ -40,6 +62,7 @@ public abstract class BaseDimension implements Identifiable {
     private final ContextLogger logger;
     private String description;
     private boolean worldExists = true;
+    private Location globalSpawnLocation;
 
     public BaseDimension(
             String mainName,
@@ -50,7 +73,7 @@ public abstract class BaseDimension implements Identifiable {
             WorldType worldType,
             boolean generateStructures,
             Class<? extends BaseGenerator> generator
-    ) throws WorldNotExistsException, NoGeneratorException {
+    ) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
         this.name = name;
         this.mainName = mainName;
         this.logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSION-" + name.toUpperCase());
@@ -63,11 +86,21 @@ public abstract class BaseDimension implements Identifiable {
         this.generator = dimensionManager.LOADED_GENERATORS.stream().filter(g -> g.getClass().equals(generator)).findFirst().orElse(null);
         this.world = this.checkWorld();
         DimensionClass.registerCustomDimension(name);
-
+        Optional<AdvancementManager> oM = ManagerRegistry.getManager(AdvancementManager.class);
+        try {
+            AdvancementManager manager = oM.get();
+            Bukkit.getPluginManager().registerEvents(this, manager.getPlugin());
+            manager.addAdvancement(this.getDimensionJoinAdvancement());
+        }catch (NoSuchElementException e) {
+            throw new ManagerNotFoundException("Failed to locate advancement manager...");
+        }
         for (DimensionType dimensionType : dimensionTypes) {
             dimensionType.addDimension(this);
         }
     }
+
+    protected abstract List<GuiCreator.ItemConfig> dimensionAdvancementGainItems();
+    protected abstract void dimensionAdvancementGainProcedures(Player player);
 
     public String getName() {
         return this.name;
@@ -79,14 +112,14 @@ public abstract class BaseDimension implements Identifiable {
 
     private World checkWorld() throws WorldNotExistsException, NoGeneratorException {
         World existingWorld = Bukkit.getWorld(this.getName());
-        boolean isConfiguredAsExisting = (databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString()) != null);
+        boolean isConfiguredAsExisting = (service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString()) != null);
         if (isConfiguredAsExisting) {
             if (existingWorld != null) {
                 dimensionManager.LOADED_DIMENSIONS.add(this);
 
                 Dimension context;
-                if (databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
-                    context = databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString());
+                if (service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
+                    context = service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString());
                     context.setState(true);
                 } else {
                     context = new Dimension();
@@ -95,7 +128,7 @@ public abstract class BaseDimension implements Identifiable {
                     context.setState(true);
                 }
 
-                databaseManager.saveOrUpdate(context);
+                service.createDimension(context);
                 return existingWorld;
             } else {
                 logger.printBukkit("A critical config mismatch has occurred", true);
@@ -131,8 +164,8 @@ public abstract class BaseDimension implements Identifiable {
             dimensionManager.LOADED_DIMENSIONS.add(this);
 
             Dimension context;
-            if (databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
-                context = databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString());
+            if (service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
+                context = service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString());
                 context.setState(true);
             } else {
                 context = new Dimension();
@@ -141,7 +174,7 @@ public abstract class BaseDimension implements Identifiable {
                 context.setState(true);
             }
 
-            databaseManager.saveOrUpdate(context);
+            service.createDimension(context);
             return worldManager.getMVWorld(name).getCBWorld();
         } else {
             logger.printBukkit("Failed to generate Multiverse Dimension...", true);
@@ -154,12 +187,13 @@ public abstract class BaseDimension implements Identifiable {
         this.players.add(player);
     }
 
-    private void isRandomSpawning() {
+    protected void isRandomSpawning() {
         this.dimensionCharacteristics.add(DimensionCharacteristics.RANDOM_SPAWN);
     }
 
-    private void isGlobalSpawning() {
+    protected void isGlobalSpawning(Location spawnLocation) {
         this.dimensionCharacteristics.add(DimensionCharacteristics.GLOBAL_SPAWN);
+        this.globalSpawnLocation = spawnLocation;
     }
 
     public World getWorld() {
@@ -171,13 +205,22 @@ public abstract class BaseDimension implements Identifiable {
     }
 
     public boolean takePlayerToDimension(Player player) {
+        PlayerEnterDimensionEvent event = new PlayerEnterDimensionEvent(player, this);
+        Bukkit.getPluginManager().callEvent(event);
+
+        if (event.isCancelled()) {
+            player.sendMessage(Component.text("You cannot enter this dimension right now.")
+                    .color(TextColor.fromHexString("#FF0000")));
+            return false;
+        }
+
         if (worldExists) {
             Optional<DimensionCharacteristics> globalSpawning = this.dimensionCharacteristics
                     .stream()
                     .filter(dimensionCharacteristics1 -> dimensionCharacteristics1.equals(DimensionCharacteristics.GLOBAL_SPAWN))
                     .findAny();
             if (globalSpawning.isPresent()) {
-                Location targetLocation = new Location(this.world, 0.0, 100.0, 0.0);
+                Location targetLocation = globalSpawnLocation;
                 players.add(player);
                 return player.teleport(targetLocation);
             } else {
@@ -238,9 +281,9 @@ public abstract class BaseDimension implements Identifiable {
         worldManager.removePlayersFromWorld(this.getName());
         dimensionManager.LOADED_DIMENSIONS.remove(this);
         Dimension context;
-        if (databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
-            context = databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString());
-            databaseManager.deleteEntity(context);
+        if (service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
+            context = service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString());
+            service.deleteDimension(context);
         }
         worldManager.deleteWorld(this.getName());
     }
@@ -251,8 +294,8 @@ public abstract class BaseDimension implements Identifiable {
         dimensionManager.UNLOADED_DIMENSIONS.add(this);
         dimensionManager.LOADED_DIMENSIONS.remove(this);
         Dimension context;
-        if (databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
-            context = databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString());
+        if (service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
+            context = service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString());
             context.setState(false);
         } else {
             context = new Dimension();
@@ -260,7 +303,7 @@ public abstract class BaseDimension implements Identifiable {
             context.setName(mainName);
             context.setState(false);
         }
-        databaseManager.saveOrUpdate(context);
+        service.updateDimension(context);
         worldManager.unloadWorld(this.getName());
     }
 
@@ -269,8 +312,8 @@ public abstract class BaseDimension implements Identifiable {
         dimensionManager.LOADED_DIMENSIONS.add(this);
         dimensionManager.UNLOADED_DIMENSIONS.remove(this);
         Dimension context;
-        if (databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
-            context = databaseManager.getEntityById(Dimension.class, UUIDGenerator.generateUUIDFromString(name).toString());
+        if (service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString()) != null) {
+            context = service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString());
             context.setState(true);
         } else {
             context = new Dimension();
@@ -278,21 +321,112 @@ public abstract class BaseDimension implements Identifiable {
             context.setName(mainName);
             context.setState(true);
         }
-        databaseManager.saveOrUpdate(context);
+        service.updateDimension(context);
         worldManager.loadWorld(this.getName());
     }
 
     public GuiCreator.ItemConfig getItemConfig(int position) {
         return new GuiCreator.ItemConfig(
                 null,
-                Component.text(this.mainName).color(TextColor.fromHexString(this.dimensionTypes.get(0).getHexCode())).toString(),
+                Component.text(this.mainName).color(TextColor.fromHexString(this.dimensionTypes.get(0).getHexCode())).content(),
                 Integer.toString(position),
                 true,
                 null,
-                this.name,
-                List.of("Dimension categories: " + this.dimensionTypes, (this.description != null ? "Description: " + this.description : ""))
+                "vspe_dimensions:" + this.name,
+                List.of("Dimension categories: " +
+                                this.dimensionTypes.stream()
+                                        .map(type -> " " + FontImageSender.getImage("vspe_dimensions:" + type.name().toLowerCase()))
+                                        .collect(Collectors.joining(" ")),
+                        (this.description != null ? "Description: " + this.description : "")),
+                ButtonAction.ofRunCode(this::takePlayerToDimension, true)
         );
     }
+
+    public BaseAdvancement getDimensionJoinAdvancement() {
+
+        return new BaseAdvancement(
+                GuiCreator.createItem(getItemConfig(0), null, VSPE.getPlugin()),
+                AdvancementDisplay.AdvancementFrame.CHALLENGE,
+                BukkitHex.colorize(
+                    String.format("""
+                        orange[Find the %s portal and jump through it]
+                          purple[Rewards:]
+                        %s
+                        """,
+                                BaseDimension.this.mainName,
+                                dimensionAdvancementGainItems().isEmpty()
+                                        ? "~ nothing ~"
+                                        : dimensionAdvancementGainItems().stream()
+                                        .map(item -> "gold[    ▪ ]" + "rainbow-" + item.getRarity().getColor() + "[" + item.getName().toLowerCase() + "]")
+                                        .collect(Collectors.joining("\n")))
+                ),
+                BaseDimension.this.mainName,
+                new NamespacedKey("vspe", "dimension_"+ getIdentifier()),
+                List.of(BaseDimension.this),
+                AdvancementType.CHALLENGE,
+                AdvancementVisibility.ALWAYS,
+                ToastType.POPUP_TOAST,
+                DimensionParentAdvancement.class
+        ) {
+            @Override
+            protected Criteria advancementCriteria() {
+                return null;
+            }
+
+            @Override
+            protected AdvancementReward advancementReward() {
+                return new AdvancementReward() {
+                    @Override
+                    public void onGrant(Player player) {
+                        for(GuiCreator.ItemConfig item : dimensionAdvancementGainItems()) {
+                            ItemStack itemStack = GuiCreator.createItem(item, player, VSPE.getPlugin());
+                            player.getInventory().addItem(itemStack);
+                        }
+                        player.giveExp(5);
+                    }
+                };
+            }
+
+            @Override
+            protected void performGrantAdvancement(OfflinePlayer var1) {
+                dimensionAdvancementGainProcedures((Player) var1);
+            }
+        };
+    }
+
+    @EventHandler
+    protected final void onPlayerEnterDimension(PlayerEnterDimensionEvent event) {
+        if (!playerEnterDimensionRequirements(event.getPlayer())) {
+            event.setCancelled(true);
+            return;
+        }
+        Optional<AdvanceablePlayer> oAP = new AdvanceablePlayerDAO().findById(event.getPlayer().getUniqueId());
+        if (oAP.isEmpty()) {
+            try {
+                event.setCancelled(true);
+                throw new NullAdvancementUser("Failed to locate advanceable player whilst trying to enter dimension", event.getPlayer());
+            } catch (NullAdvancementUser e) {
+                throw new RuntimeException(e);
+            }
+        }
+        AdvanceablePlayer player = oAP.get();
+        Optional<Advancement> oDA =
+                new AdvancementDAO().findByName(this.getDimensionJoinAdvancement().getTitle());
+        if (oDA.isEmpty()) {
+            try {
+                event.setCancelled(true);
+                throw new AdvancementNotExists("Failed to locate advancement whilst trying to enter dimension", this.getDimensionJoinAdvancement());
+            } catch (AdvancementNotExists e) {
+                throw new RuntimeException(e);
+            }
+        }
+        Advancement dimensionAdvancement = oDA.get();
+        if (!player.getAccomplishedAdvancements().contains(dimensionAdvancement)) {
+            if (!advancementManager.grantAdvancemet(getDimensionJoinAdvancement().getClass(), event.getPlayer())) event.setCancelled(true);
+        };
+    }
+
+    protected abstract boolean playerEnterDimensionRequirements(Player player);
 
     @Override
     public String getIdentifier() {

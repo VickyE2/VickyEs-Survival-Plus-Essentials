@@ -5,13 +5,17 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.vicky.guiparent.BaseGui;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.utilities.ContextLogger.ContextLogger;
-import org.vicky.utilities.DatabaseManager.templates.DatabasePlayer;
 import org.vicky.vspe.VSPE;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
+import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
 
 import java.util.HashMap;
+import java.util.Optional;
 
 import static org.vicky.global.Global.storer;
-import static org.vicky.vspe.utilities.global.GlobalResources.*;
+import static org.vicky.vspe.utilities.global.GlobalResources.dimensionManager;
+import static org.vicky.vspe.utilities.global.GlobalResources.dimensionsGUIListener;
 
 public class DimensionsGUI extends BaseGui {
 
@@ -28,31 +32,38 @@ public class DimensionsGUI extends BaseGui {
 
     @Override
     public void showGui(Player player) {
-
         boolean hasMore = false;
         HashMap<String, GuiCreator.ItemConfig> Items = new HashMap<>();
         HashMap<String, GuiCreator.ItemConfig> Residual = new HashMap<>();
-        DatabasePlayer settings = databaseManager.getEntityById(DatabasePlayer.class, player.getUniqueId().toString());
+        AdvanceablePlayerService service = AdvanceablePlayerService.getInstance();
+        Optional<AdvanceablePlayer> oAP = service.getPlayerById(player.getUniqueId());
+        if (oAP.isEmpty()) {
+            try {
+                throw new NullAdvancementUser("Failed to get AdvancementPlayer from database", player);
+            } catch (NullAdvancementUser e) {
+                throw new RuntimeException(e);
+            }
+        }
+        AdvanceablePlayer settings = oAP.get();
 
         String theme_id = "";
-        if (storer.isRegisteredTheme(settings.getUserTheme())) {
-            theme_id = storer.getThemeID(settings.getUserTheme());
+        if (storer.isRegisteredTheme(settings.getDatabasePlayer().getUserTheme())) {
+            theme_id = settings.getDatabasePlayer().getUserTheme();
         } else {
             logger.print(
                     "Player " +
                             player.getName() +
                             " has an enabled theme: " +
-                            settings.getUserTheme() +
+                            settings.getDatabasePlayer().getUserTheme() +
                             " which dosent exist",
                     true
             );
-            theme_id = "light_theme";
+            theme_id = "lt";
         }
-        int index = 0;
+        int index = 1;
         int residualIndex = 0;
         for (BaseDimension dimension : dimensionManager.LOADED_DIMENSIONS) {
             if (index < 54) {
-                // For the first 54 dimensions, use the current index.
                 Items.put(dimension.getIdentifier(), dimension.getItemConfig(index));
                 index++;
             } else {

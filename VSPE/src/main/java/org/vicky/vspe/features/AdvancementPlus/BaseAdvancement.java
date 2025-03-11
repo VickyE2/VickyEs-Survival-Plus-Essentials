@@ -13,25 +13,27 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
-import org.vicky.utilities.DatabaseManager.templates.DatabasePlayer;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
-import org.vicky.vspe.systems.BroadcastSystem.ToastType;import org.vicky.utilities.ContextLogger.ContextLogger;
-import org.vicky.vspe.systems.Dimension.BaseDimension;
-import org.vicky.vspe.utilities.DBTemplates.AdvanceablePlayer;
-import org.vicky.vspe.utilities.DBTemplates.Advancement;
+import org.jetbrains.annotations.Nullable;
+import org.vicky.guiparent.GuiCreator;
+import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
-import org.vicky.vspe.utilities.UUIDGenerator;
+import org.vicky.utilities.UUIDGenerator;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
+import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.systems.BroadcastSystem.ToastType;
+import org.vicky.vspe.systems.Dimension.BaseDimension;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement;
+import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
+import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
 import org.vicky.vspe.utilities.global.Events.PlayerReceivedAdvancement;
-import org.vicky.vspe.utilities.global.GlobalResources;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.advancementManager;
 
 public abstract class BaseAdvancement implements Identifiable {
+    private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.FEATURE, "ADVANCEMENT-BASE");
     protected String description;
     protected String title;
     protected String namespace;
@@ -43,21 +45,23 @@ public abstract class BaseAdvancement implements Identifiable {
     protected List<BaseDimension> eligibleDimensions;
     protected ItemStack icon;
     protected boolean hasParent;
+    protected final Map<String, AllowedOverride<?>> overrides = new HashMap<>();
     protected eu.endercentral.crazy_advancements.advancement.Advancement instance;
     protected BaseAdvancement parent;
     protected AdvancementVisibility visibility;
-    private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.FEATURE, "ADVANCEMENT-BASE");
+    protected ArrangementType arrangementType;
 
     public BaseAdvancement(
-            ItemStack icon,
-            NamespacedKey namespace,
-            AdvancementFrame toastFrame,
-            String description,
-            String title,
-            List<BaseDimension> permittedDimensions,
-            AdvancementType advancementType,
-            AdvancementVisibility visibility,
-            ToastType aTT
+            @NotNull ItemStack icon,
+            @NotNull NamespacedKey namespace,
+            @NotNull AdvancementFrame toastFrame,
+            @Nullable String description,
+            @NotNull String title,
+            @Nullable List<BaseDimension> permittedDimensions,
+            @NotNull AdvancementType advancementType,
+            @NotNull AdvancementVisibility visibility,
+            @NotNull ToastType aTT,
+            @NotNull ArrangementType arrangementType
     ) {
         this.description = description;
         this.advancementType = advancementType;
@@ -67,26 +71,26 @@ public abstract class BaseAdvancement implements Identifiable {
         this.unInstancedNamespace = namespace;
         this.toastType = toastFrame;
         this.icon = icon;
+        this.arrangementType = arrangementType;
         this.hasParent = false;
         this.Id = UUIDGenerator.generateUUIDFromString(this.getFormattedTitle());
         this.parent = null;
         this.visibility = visibility;
         this.eligibleDimensions = permittedDimensions != null && !permittedDimensions.isEmpty() ? permittedDimensions : new ArrayList<>();
-        this.instance = getInstance();
         advancementManager.LOADED_ADVANCEMENTS.add(this);
     }
 
     public BaseAdvancement(
-            ItemStack icon,
-            AdvancementFrame toastFrame,
-            String description,
-            String title,
-            NamespacedKey namespace,
-            List<BaseDimension> permittedDimensions,
-            AdvancementType advancementType,
-            AdvancementVisibility visibility,
-            ToastType aTT,
-            Class<? extends BaseAdvancement> parentClass
+            @NotNull ItemStack icon,
+            @NotNull AdvancementFrame toastFrame,
+            @Nullable String description,
+            @NotNull String title,
+            @NotNull NamespacedKey namespace,
+            @Nullable List<BaseDimension> permittedDimensions,
+            @NotNull AdvancementType advancementType,
+            @NotNull AdvancementVisibility visibility,
+            @NotNull ToastType aTT,
+            @NotNull Class<? extends BaseAdvancement> parentClass
     ) {
         this.description = description;
         this.advancementType = advancementType;
@@ -101,12 +105,12 @@ public abstract class BaseAdvancement implements Identifiable {
         this.unInstancedNamespace = namespace;
         this.visibility = visibility;
         this.eligibleDimensions = permittedDimensions != null && !permittedDimensions.isEmpty() ? permittedDimensions : new ArrayList<>();
-        this.instance = getInstance();
         advancementManager.LOADED_ADVANCEMENTS.add(this);
     }
 
     public eu.endercentral.crazy_advancements.advancement.Advancement getInstance() {
         eu.endercentral.crazy_advancements.advancement.Advancement instancedAdvancement = this.getInstancedAdvancement(this.visibility);
+
         if (this.advancementCriteria() != null) {
             instancedAdvancement.setCriteria(this.advancementCriteria());
         }
@@ -115,23 +119,46 @@ public abstract class BaseAdvancement implements Identifiable {
             instancedAdvancement.setReward(this.advancementReward());
         }
 
+        this.instance = instancedAdvancement;
         return instancedAdvancement;
     }
 
     @NotNull
-    private eu.endercentral.crazy_advancements.advancement.Advancement getInstancedAdvancement(AdvancementVisibility visibility) {
+    private eu.endercentral.crazy_advancements.advancement.Advancement getInstancedAdvancement(
+            AdvancementVisibility visibility) {
+
         AdvancementDisplay display = new AdvancementDisplay(this.icon, this.title, this.description, this.toastType, visibility);
+        ArrangementType arrangementType = this.arrangementType;
+
         if (this.parent != null) {
-            display.setX(this.parent.getInstance().getDisplay().getX() + 1.0F);
-            if (this.parent.getInstance().getChildren().size() <= 4) {
-                display.setY((float) (this.parent.getInstance().getChildren().size() - 1));
-            } else if (this.parent.getInstance().getChildren().size() <= 10) {
-                display.setY((float) (this.parent.getInstance().getChildren().size() - 5));
-            } else {
-                display.setY((float) (this.parent.getInstance().getChildren().size() - 10));
+            float parentX = this.parent.getInstance().getDisplay().getX();
+            float parentY = this.parent.getInstance().getDisplay().getY();
+            int index = this.parent.getInstance().getChildren().size(); // Child index
+
+            if (arrangementType == ArrangementType.TREE) {
+                int depth = index / 4; // Every 4 children, move further right
+                int position = index % 4; // Spread within each depth level
+
+                display.setX(parentX + 1.5F + depth * 0.5F); // Push right per depth
+                display.setY(parentY + position * 1.2F - 1.8F); // Stagger children
+            } else if (arrangementType == ArrangementType.CIRCULAR) {
+                // Circular arrangement logic
+                double angleStep = Math.PI / 5; // Adjust spacing (π/5 = 10 divisions in a semicircle)
+                int radiusStep = index / 10 + 1; // Increase radius every 10 children
+                double angle = (index % 10) * angleStep; // Angle in radians
+
+                float offsetX = (float) (radiusStep * Math.cos(angle) * 2.0);
+                float offsetY = (float) (radiusStep * Math.sin(angle) * 2.0);
+
+                display.setX(parentX + offsetX);
+                display.setY(parentY + offsetY);
             }
         } else {
-            display.setBackgroundTexture("textures/gui/advancements/backgrounds/" + this.getFormattedTitle() + ".png");
+            // Root advancement
+            String defaultBackground = "textures/gui/advancements/backgrounds/" + this.getFormattedTitle() + ".png";
+            String overriddenBackground = (String) overrides.getOrDefault("background_texture", new AllowedPath(defaultBackground)).getValue();
+            display.setBackgroundTexture(overriddenBackground);
+
             display.setX(2.0F);
             display.setY(0.0F);
         }
@@ -141,18 +168,21 @@ public abstract class BaseAdvancement implements Identifiable {
 
     @NotNull
     private eu.endercentral.crazy_advancements.advancement.Advancement getAdvancement(AdvancementDisplay display) {
+        // Override advancement flag if available
+        AdvancementFlag flag = (AdvancementFlag) overrides.getOrDefault("advancement_flag", new AllowedAdvancementFlag<>(AdvancementFlag.SHOW_TOAST)).getValue();
+
         eu.endercentral.crazy_advancements.advancement.Advancement instancedAdvancement;
         if (!this.hasParent) {
             instancedAdvancement = new eu.endercentral.crazy_advancements.advancement.Advancement(
                     new NameKey(this.unInstancedNamespace.getNamespace(), this.unInstancedNamespace.getKey()),
                     display,
-                    AdvancementFlag.SHOW_TOAST);
+                    flag);
         } else {
             instancedAdvancement = new eu.endercentral.crazy_advancements.advancement.Advancement(
-                    this.parent.instance,
+                    this.parent.getInstance(),
                     new NameKey(this.unInstancedNamespace.getNamespace(), this.unInstancedNamespace.getKey()),
                     display,
-                    AdvancementFlag.SHOW_TOAST);
+                    flag);
         }
 
         return instancedAdvancement;
@@ -178,13 +208,14 @@ public abstract class BaseAdvancement implements Identifiable {
 
     protected boolean isPlayerEligible(Player player) {
         try {
-            AdvanceablePlayer contextPlayer = GlobalResources.databaseManager.getEntityById(AdvanceablePlayer.class, player.getUniqueId());
-            org.vicky.vspe.utilities.DBTemplates.AdvancementManager advancementManager = GlobalResources.databaseManager
-                    .getEntityById(org.vicky.vspe.utilities.DBTemplates.AdvancementManager.class, 1);
-            Optional<Advancement> contextAdvancement = advancementManager.getAdvancements()
-                    .stream()
-                    .filter(advancement -> advancement.getId().equals(this.getIdentifier()))
-                    .findAny();
+            AdvanceablePlayerService service = AdvanceablePlayerService.getInstance();
+            Optional<AdvanceablePlayer> oAP = service.getPlayerById(player.getUniqueId());
+            if (oAP.isEmpty()) {
+                throw new NullAdvancementUser("Failed to get AdvancementPlayer from database", player);
+            }
+            AdvanceablePlayer contextPlayer = oAP.get();
+            AdvancementDAO advancementService = new AdvancementDAO();
+            Optional<Advancement> contextAdvancement = advancementService.findByName(this.title);
             if (contextAdvancement.isPresent()) {
                 return !contextPlayer.getAccomplishedAdvancements().contains(contextAdvancement.get());
             } else {
@@ -199,6 +230,10 @@ public abstract class BaseAdvancement implements Identifiable {
 
     public String getDescription() {
         return this.description;
+    }
+
+    public <T> void addOverride(String key, AllowedOverride<T> override) {
+        this.overrides.put(key, override);
     }
 
     public AdvancementType getAdvancementType() {
@@ -237,19 +272,43 @@ public abstract class BaseAdvancement implements Identifiable {
         logger.printBukkit("Enable advancement " + this.getTitle());
         advancementManager.UNLOADED_ADVANCEMENTS.remove(this);
         advancementManager.LOADED_ADVANCEMENTS.add(this);
-        advancementManager.ADVANCEMENT_MANAGER.addAdvancement(this.instance);
+        advancementManager.ADVANCEMENT_MANAGER.addAdvancement(this.getInstance());
     }
 
     public void disableAdvancement() {
         logger.printBukkit("Disable advancement " + this.getTitle());
         advancementManager.UNLOADED_ADVANCEMENTS.add(this);
         advancementManager.LOADED_ADVANCEMENTS.remove(this);
-        advancementManager.ADVANCEMENT_MANAGER.removeAdvancement(this.instance);
+        advancementManager.ADVANCEMENT_MANAGER.removeAdvancement(this.getInstance());
     }
 
     public void deleteAdvancement() {
         logger.printBukkit("Delete advancement " + this.getTitle());
         advancementManager.LOADED_ADVANCEMENTS.remove(this);
-        advancementManager.ADVANCEMENT_MANAGER.removeAdvancement(this.instance);
+        advancementManager.ADVANCEMENT_MANAGER.removeAdvancement(this.getInstance());
     }
+
+    public enum ArrangementType {
+        TREE,
+        CIRCULAR
+    }
+
+    public interface AllowedOverride<T> {
+        T getValue();
+    }
+    public record AllowedAdvancementFlag<E extends AdvancementFlag>(E value)
+            implements AllowedOverride<AdvancementFlag> {
+        @Override
+        public AdvancementFlag getValue() {
+            return value;
+        }
+    }
+    public record AllowedPath(String value)
+            implements AllowedOverride<String> {
+        @Override
+        public String getValue() {
+            return value;
+        }
+    }
+
 }

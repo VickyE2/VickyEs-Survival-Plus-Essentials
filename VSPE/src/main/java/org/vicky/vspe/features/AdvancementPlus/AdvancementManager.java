@@ -6,20 +6,19 @@ import eu.endercentral.crazy_advancements.packet.AdvancementsPacket;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.reflections.Reflections;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
+import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementProcessingFailureException;
 import org.vicky.vspe.systems.Dimension.BaseDimension;
+import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.Base;
+import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
 import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
-import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.utilities.Manager.IdentifiableManager;
 import org.vicky.vspe.utilities.Manager.ManagerRegistry;
-import org.vicky.vspe.utilities.UUIDGenerator;
-import org.vicky.vspe.utilities.api.AdvancementManagerService;
-import org.vicky.vspe.utilities.api.AdvancementService;
-import org.vicky.vspe.utilities.global.GlobalResources;
 
 import java.lang.reflect.Constructor;
 import java.util.*;
@@ -27,57 +26,57 @@ import java.util.*;
 import static org.vicky.vspe.utilities.global.GlobalResources.configManager;
 
 public class AdvancementManager implements IdentifiableManager {
-    public static Advancement[] SORTED_ADVANCEMENTS;
-    public final Set<BaseAdvancement> LOADED_ADVANCEMENTS = new TreeSet<>(Comparator.comparing(BaseAdvancement::isHasParent).reversed());
-    public final Set<BaseAdvancement> UNLOADED_ADVANCEMENTS = new TreeSet<>(Comparator.comparing(BaseAdvancement::isHasParent).reversed());
+    public static final ArrayList<Advancement> SORTED_ADVANCEMENTS = new ArrayList<>();
+    public final Set<BaseAdvancement> LOADED_ADVANCEMENTS = new TreeSet<>(
+            Comparator.comparing(BaseAdvancement::isHasParent)
+                    .reversed()
+                    .thenComparing(BaseAdvancement::getIdentifier)
+    );
+
+    public final Set<BaseAdvancement> UNLOADED_ADVANCEMENTS = new TreeSet<>(
+            Comparator.comparing(BaseAdvancement::isHasParent)
+                    .reversed()
+                    .thenComparing(BaseAdvancement::getIdentifier)
+    );
     public final eu.endercentral.crazy_advancements.manager.AdvancementManager ADVANCEMENT_MANAGER = new eu.endercentral.crazy_advancements.manager.AdvancementManager(
             new NameKey("vspe", "manager")
     );
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.FEATURE, "ADVANCEMENT");
+    final AdvancementDAO advancementService = new AdvancementDAO();
+    final JavaPlugin plugin;
 
-    public AdvancementManager() {
+    public AdvancementManager(JavaPlugin plugin) {
         ManagerRegistry.register(this);
+        this.plugin = plugin;
+    }
+
+    public JavaPlugin getPlugin() {
+        return plugin;
     }
 
     public void processAdvancements() throws AdvancementProcessingFailureException {
         try {
-            AdvancementManagerService managerService = AdvancementManagerService.getInstance();
-            AdvancementService advancementService = AdvancementService.getInstance();
-
-            org.vicky.vspe.utilities.DBTemplates.AdvancementManager databaseAM =
-                    managerService.getAdvancementManagerById(UUIDGenerator.generateUUIDFromString("vspe_advancement_manager").toString());
-
-            if (databaseAM == null) {
-                databaseAM = new org.vicky.vspe.utilities.DBTemplates.AdvancementManager();
-                databaseAM.setId(UUIDGenerator.generateUUIDFromString("vspe_advancement_manager").toString());
-                databaseAM = managerService.createAdvancementManager(databaseAM);
-            }
-
-            logger.print(ANSIColor.colorize("yellow[Starting advancement Processing...]"));
-            int index = 0;
+            logger.printBukkit("Starting advancement Processing...", ContextLogger.LogType.PENDING);
             Reflections reflections = new Reflections("org.vicky.vspe.features.AdvancementPlus.Advancements");
-
             for (Class<? extends BaseAdvancement> clazz : reflections.getSubTypesOf(BaseAdvancement.class)) {
                 try {
                     Constructor<? extends BaseAdvancement> constructor = clazz.getDeclaredConstructor();
                     constructor.setAccessible(true);
                     BaseAdvancement advancement = constructor.newInstance();
-                    logger.print(ANSIColor.colorize("purple[Loaded advancement: ]") + advancement.getTitle());
+                    logger.printBukkit(ANSIColor.colorize("purple[Loaded advancement: ]") + advancement.getTitle());
                 } catch (Exception var9) {
                     VSPE.getInstancedLogger().severe("Failed to load advancement: " + clazz.getName());
                     var9.printStackTrace();
                 }
             }
 
-            SORTED_ADVANCEMENTS = new Advancement[this.LOADED_ADVANCEMENTS.size()];
-
             for (BaseAdvancement advancement : this.LOADED_ADVANCEMENTS) {
                 if (configManager.getBooleanValue("Debug")) {
-                    logger.print(ANSIColor.colorize("Processing advancement: purple[" + advancement.getNamespace() + "]"));
-                    logger.print(ANSIColor.colorize("    Advancement Title: purple[" + advancement.getFormattedTitle() + "]"));
-                    logger.print(ANSIColor.colorize("    Advancement toast type: purple[" + advancement.getAdvancementTT() + "]"));
-                    logger.print(ANSIColor.colorize("    Advancement type: purple[" + advancement.getAdvancementType() + "]"));
-                    logger.print(ANSIColor.colorize("    Advancement description: purple[" + advancement.getDescription() + "]"));
+                    logger.printBukkit(ANSIColor.colorize("Processing advancement: purple[" + advancement.getNamespace() + "]"));
+                    logger.printBukkit(ANSIColor.colorize("    Advancement Title: purple[" + advancement.getFormattedTitle() + "]"));
+                    logger.printBukkit(ANSIColor.colorize("    Advancement toast type: purple[" + advancement.getAdvancementTT() + "]"));
+                    logger.printBukkit(ANSIColor.colorize("    Advancement type: purple[" + advancement.getAdvancementType() + "]"));
+                    logger.printBukkit(ANSIColor.colorize("    Advancement description: purple[" + advancement.getDescription() + "]"));
 
                     StringBuilder dimensions = new StringBuilder();
                     if (advancement.getEligibleDimensions() != null) {
@@ -86,31 +85,20 @@ public class AdvancementManager implements IdentifiableManager {
                         }
                     }
 
-                    logger.print(ANSIColor.colorize("    Advancement permitted dimensions: purple[-" + (dimensions.isEmpty() ? "null [basically all]" : dimensions) + "-]"));
+                    logger.printBukkit(ANSIColor.colorize("    Advancement permitted dimensions: purple[-" + (dimensions.isEmpty() ? "Basically all" : dimensions) + "-]"));
                 }
 
-                org.vicky.vspe.utilities.DBTemplates.Advancement databaseAdvancement =
-                        advancementService.getAdvancementById(advancement.getIdentifier());
-
-                if (databaseAdvancement == null) {
-                    databaseAdvancement = new org.vicky.vspe.utilities.DBTemplates.Advancement();
-                    databaseAdvancement.setId(advancement.getId());
+                Optional<org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement> optionalAdvancement =
+                        advancementService.findByName(advancement.getTitle());
+                if (optionalAdvancement.isEmpty()) {
+                    org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement databaseAdvancement = new org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement();
                     databaseAdvancement.setName(advancement.getTitle());
-                    if (databaseAM.getAdvancements().stream().noneMatch(a -> a.getId().equals(advancement.getId())))
-                        databaseAM.addAdvancement(databaseAdvancement);
-
-                    advancementService.createAdvancement(databaseAdvancement);
-                } else {
-                    databaseAdvancement.setName(advancement.getTitle());
-                    advancementService.updateAdvancement(databaseAdvancement);
+                    advancementService.create(databaseAdvancement);
                 }
-                SORTED_ADVANCEMENTS[index] = advancement.instance;
-                index++;
+                SORTED_ADVANCEMENTS.add(advancement.getInstance());
             }
 
-            managerService.updateAdvancementManager(databaseAM);
-
-            this.ADVANCEMENT_MANAGER.addAdvancement(SORTED_ADVANCEMENTS);
+            this.ADVANCEMENT_MANAGER.addAdvancement(SORTED_ADVANCEMENTS.toArray(Advancement[]::new));
         } catch (Exception e) {
             throw new AdvancementProcessingFailureException("Failure on advancement Processing", e);
         }
@@ -136,7 +124,7 @@ public class AdvancementManager implements IdentifiableManager {
         }
     }
 
-    public void grantAdvancemet(Class<? extends BaseAdvancement> advancementClass, Player player) {
+    public boolean grantAdvancemet(Class<? extends BaseAdvancement> advancementClass, Player player) {
         Optional<BaseAdvancement> contextAdvancementOptional = this.LOADED_ADVANCEMENTS
                 .stream()
                 .filter(advancement -> advancement.getClass().equals(advancementClass))
@@ -144,9 +132,11 @@ public class AdvancementManager implements IdentifiableManager {
         if (contextAdvancementOptional.isPresent()) {
             BaseAdvancement contextAdvancement = contextAdvancementOptional.get();
             contextAdvancement.grantAdvancement(player);
-            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.instance);
+            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
+            return true;
         } else {
-            logger.print("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
+            logger.printBukkit("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
+            return false;
         }
     }
 
@@ -157,14 +147,29 @@ public class AdvancementManager implements IdentifiableManager {
                 .findFirst();
         if (contextAdvancementOptional.isPresent()) {
             BaseAdvancement contextAdvancement = contextAdvancementOptional.get();
-            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.instance);
+            this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
         } else {
-            logger.print("Advancement of Id " + advancementId + " not found in LOADED_ADVANCEMENTS.", true);
+            logger.printBukkit("Advancement of Id " + advancementId + " not found in LOADED_ADVANCEMENTS.", true);
         }
     }
 
+    public void addAdvancement(BaseAdvancement advancement) {
+        LOADED_ADVANCEMENTS.add(advancement);
+        SORTED_ADVANCEMENTS.add(advancement.getInstance());
+        ADVANCEMENT_MANAGER.addAdvancement(advancement.getInstance());
+        Optional<org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement> optionalAdvancement =
+                advancementService.findByName(advancement.getTitle());
+        if (optionalAdvancement.isEmpty()) {
+            org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement databaseAdvancement = new org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement();
+            databaseAdvancement.setName(advancement.getTitle());
+            advancementService.create(databaseAdvancement);
+        }
+        logger.printBukkit(ANSIColor.colorize("purple[Added advancement: ]") + advancement.getTitle());
+        saveAndUnloadManagerProgress();
+    }
+
     public void sendAdvancementPackets(Player player) {
-        AdvancementsPacket packet = new AdvancementsPacket(player, false, Arrays.stream(SORTED_ADVANCEMENTS).toList(), new ArrayList<>());
+        AdvancementsPacket packet = new AdvancementsPacket(player, false, Arrays.stream(SORTED_ADVANCEMENTS.toArray(Advancement[]::new)).toList(), new ArrayList<>());
         packet.send();
     }
 
@@ -176,7 +181,7 @@ public class AdvancementManager implements IdentifiableManager {
         if (contextAdvancementOptional.isPresent()) {
             return contextAdvancementOptional.get();
         } else {
-            logger.print("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
+            logger.printBukkit("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
             return null;
         }
     }

@@ -1,9 +1,6 @@
 package org.vicky.vspe.utilities.Manager;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ManagerRegistry {
     public static List<IdentifiableManager> registeredManagers = new ArrayList<>();
@@ -12,8 +9,15 @@ public class ManagerRegistry {
         registeredManagers.add(manager);
     }
 
-    public static IdentifiableManager getManager(String id) {
-        return registeredManagers.stream().filter(m -> m.getManagerId().equals(id)).findAny().get();
+    public static Optional<IdentifiableManager> getManager(String id) {
+        return registeredManagers.stream().filter(m -> m.getManagerId().equals(id)).findAny();
+    }
+
+    public static <T extends IdentifiableManager> Optional<T> getManager(Class<T> clazz) {
+        return registeredManagers.stream()
+                .filter(clazz::isInstance)
+                .map(clazz::cast)
+                .findAny();
     }
 
     public static String[] getRegisteredManagers() {

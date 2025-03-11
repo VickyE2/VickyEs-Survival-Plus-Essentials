@@ -2,6 +2,7 @@ package org.vicky.vspe.systems.Dimension.Generator;
 
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
+import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.addon.util.BaseStructure;
 import org.vicky.vspe.systems.Dimension.Exceptions.MissingConfigrationException;
 import org.vicky.vspe.systems.Dimension.Generator.utils.*;
@@ -35,7 +36,6 @@ import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.BiomeVariant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.ClimateVariant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.Variant.Variant;
 import org.vicky.vspe.systems.Dimension.Generator.utils.progressbar.ProgressListener;
-import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.utilities.ZipUtils;
 
 import java.io.File;
@@ -43,6 +43,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.zip.ZipOutputStream;
@@ -137,7 +138,8 @@ public abstract class BaseGenerator implements Identifiable {
         this.BASEClass = BASEClass;
     }
 
-    public void generatePack(ProgressListener progressListener) throws IOException, MissingConfigrationException {
+    public int generatePack(ProgressListener progressListener) throws IOException, MissingConfigrationException {
+        Instant startTime = Instant.now();
         if (META == null)
             throw new MissingConfigrationException("The generator " + packID + " fails to provide a META configuration");
         if (BASEClass == null)
@@ -272,6 +274,7 @@ public abstract class BaseGenerator implements Identifiable {
         this.handleFinalFileOperations(temporaryZip);
         int var21 = 100;
         progressListener.onProgressUpdate(var21, "Pack generation complete.");
+        return startTime.compareTo(Instant.now());
     }
 
     public void writeMultipleYmlFiles(ZipUtils zipUtils, Map<String, StringBuilder> entries, String folder) {
