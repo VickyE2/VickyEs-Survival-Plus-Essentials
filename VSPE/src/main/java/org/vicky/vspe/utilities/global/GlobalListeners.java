@@ -20,12 +20,11 @@ import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.DatabaseManager.dao_s.DatabasePlayerDAO;
 import org.vicky.vspe.VSPE;
-import org.vicky.vspe.features.AdvancementPlus.Advancements.DimensionParentAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.Advancements.TestAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
-import org.vicky.vspe.systems.Dimension.BaseDimension;
+import org.vicky.vspe.systems.dimension.BaseDimension;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
 import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
@@ -43,7 +42,7 @@ public class GlobalListeners implements Listener {
         final Player player = event.getPlayer();
         if (new AdvanceablePlayerDAO().findById(player.getUniqueId()).isEmpty()) {
             new ContextLogger(ContextLogger.ContextType.FEATURE, "HIBERNATE-PLAYER")
-                    .printBukkit(
+                    .print(
                             ANSIColor.colorize(
                                     "cyan[Creating instanced advanceable player for new player: ]" + player.getName()));
             AdvanceablePlayer advanceablePlayer = new AdvanceablePlayer();
@@ -52,7 +51,7 @@ public class GlobalListeners implements Listener {
         }
         if (new CnTPlayerDAO().findById(player.getUniqueId()).isEmpty()) {
             new ContextLogger(ContextLogger.ContextType.FEATURE, "HIBERNATE-PLAYER")
-                    .printBukkit(
+                    .print(
                             ANSIColor.colorize(
                                     "cyan[Creating instanced trinket player for new player: ]" + player.getName()));
             CnTPlayer tPlayer = new CnTPlayer();

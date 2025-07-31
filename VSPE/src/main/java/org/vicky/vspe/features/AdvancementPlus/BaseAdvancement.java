@@ -14,14 +14,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.vicky.guiparent.GuiCreator;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.utilities.UUIDGenerator;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
 import org.vicky.vspe.systems.BroadcastSystem.ToastType;
-import org.vicky.vspe.systems.Dimension.BaseDimension;
+import org.vicky.vspe.systems.dimension.BaseDimension;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement;
 import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
@@ -269,21 +268,21 @@ public abstract class BaseAdvancement implements Identifiable {
     }
 
     public void enableAdvancement() {
-        logger.printBukkit("Enable advancement " + this.getTitle());
+        logger.print("Enable advancement " + this.getTitle());
         advancementManager.UNLOADED_ADVANCEMENTS.remove(this);
         advancementManager.LOADED_ADVANCEMENTS.add(this);
         advancementManager.ADVANCEMENT_MANAGER.addAdvancement(this.getInstance());
     }
 
     public void disableAdvancement() {
-        logger.printBukkit("Disable advancement " + this.getTitle());
+        logger.print("Disable advancement " + this.getTitle());
         advancementManager.UNLOADED_ADVANCEMENTS.add(this);
         advancementManager.LOADED_ADVANCEMENTS.remove(this);
         advancementManager.ADVANCEMENT_MANAGER.removeAdvancement(this.getInstance());
     }
 
     public void deleteAdvancement() {
-        logger.printBukkit("Delete advancement " + this.getTitle());
+        logger.print("Delete advancement " + this.getTitle());
         advancementManager.LOADED_ADVANCEMENTS.remove(this);
         advancementManager.ADVANCEMENT_MANAGER.removeAdvancement(this.getInstance());
     }

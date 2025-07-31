@@ -1,0 +1,163 @@
+﻿C:\Users\Java\Downloads\VickyEs-Survival-Plus-Essentials
+   ├──.gradle
+   │  ├──8.14.2
+   │  │  ├──checksums
+   │  │  ├──executionHistory
+   │  │  ├──expanded
+   │  │  ├──fileChanges
+   │  │  ├──fileHashes
+   │  │  ├──vcsMetadata
+   │  │  └──gc.properties
+   │  ├──8.2
+   │  │  ├──checksums
+   │  │  ├──dependencies-accessors
+   │  │  ├──executionHistory
+   │  │  ├──fileChanges
+   │  │  ├──fileHashes
+   │  │  ├──vcsMetadata
+   │  │  └──gc.properties
+   │  ├──buildOutputCleanup
+   │  │  ├──buildOutputCleanup.lock
+   │  │  ├──cache.properties
+   │  │  └──outputFiles.bin
+   │  ├──kotlin
+   │  │  └──errors
+   │  ├──noVersion
+   │  │  └──buildLogic.lock
+   │  ├──vcs-1
+   │  │  └──gc.properties
+   │  └──file-system.probe
+   ├──.idea
+   │  ├──codeStyles
+   │  │  ├──codeStyleConfig.xml
+   │  │  └──Project.xml
+   │  ├──modules
+   │  │  ├──V-NMS
+   │  │  ├──V-NMS.main.iml
+   │  │  └──V-NMS.test.iml
+   │  ├──.gitignore
+   │  ├──.name
+   │  ├──discord.xml
+   │  ├──encodings.xml
+   │  ├──git_toolbox_blame.xml
+   │  ├──git_toolbox_prj.xml
+   │  ├──gradle.xml
+   │  ├──jarRepositories.xml
+   │  ├──kotlinc.xml
+   │  ├──misc.xml
+   │  ├──modules.xml
+   │  ├──uiDesigner.xml
+   │  ├──vcs.xml
+   │  └──workspace.xml
+   ├──buildSrc
+   │  ├──.gradle
+   │  │  ├──8.14.2
+   │  │  ├──8.2
+   │  │  ├──buildOutputCleanup
+   │  │  ├──kotlin
+   │  │  ├──noVersion
+   │  │  └──file-system.probe
+   │  ├──build
+   │  │  ├──kotlin
+   │  │  ├──libs
+   │  │  ├──pluginDescriptors
+   │  │  └──tmp
+   │  └──build.gradle.kts
+   ├──gradle
+   │  └──wrapper
+   │     ├──gradle-wrapper.jar
+   │     └──gradle-wrapper.properties
+   ├──local-maven-repo
+   │  └──dev
+   │     └──jorel
+   ├──structure
+   │  ├──.mvn
+   │  │  ├──jvm.config
+   │  │  └──maven.config
+   │  ├──target
+   │  │  ├──maven-archiver
+   │  │  ├──original-structure-1.0.0-RELEASE.jar
+   │  │  ├──structure-1.0.0-RELEASE.jar
+   │  │  └──structure-1.0.0-RELEASE-shaded.jar
+   │  └──pom.xml
+   ├──structure_loader
+   │  ├──.mvn
+   │  │  ├──jvm.config
+   │  │  └──maven.config
+   │  ├──src
+   │  │  └──main
+   │  ├──target
+   │  │  ├──classes
+   │  │  ├──generated-sources
+   │  │  ├──maven-archiver
+   │  │  ├──maven-status
+   │  │  ├──original-structure_loader-1.0.0-ALPHA.jar
+   │  │  ├──structure_loader-1.0.0-ALPHA.jar
+   │  │  └──structure_loader-1.0.0-ALPHA-shaded.jar
+   │  ├──pom.xml
+   │  └──structure_loader.iml
+   ├──target
+   │  └──vickyes-survival-plus-essentials-0.0.1-ARI-shaded.pom
+   ├──V-NMS
+   │  ├──.gradle
+   │  │  ├──8.2
+   │  │  ├──buildOutputCleanup
+   │  │  ├──caches
+   │  │  ├──kotlin
+   │  │  ├──vcs-1
+   │  │  └──file-system.probe
+   │  ├──build
+   │  │  ├──classes
+   │  │  ├──generated
+   │  │  ├──kotlin
+   │  │  ├──libs
+   │  │  ├──publications
+   │  │  ├──snapshot
+   │  │  └──tmp
+   │  ├──gradle
+   │  │  └──wrapper
+   │  ├──src
+   │  │  └──main
+   │  ├──build.gradle.kts
+   │  ├──gradlew
+   │  ├──gradlew.bat
+   │  └──settings.gradle.kts
+   ├──VSPE
+   │  ├──.gradle
+   │  │  ├──8.14.2
+   │  │  ├──buildOutputCleanup
+   │  │  ├──configuration-cache
+   │  │  ├──vcs-1
+   │  │  └──file-system.probe
+   │  ├──.mvn
+   │  │  ├──jvm.config
+   │  │  ├──maven.config
+   │  │  ├──pom.xml
+   │  │  └──VSPE.iml
+   │  ├──gradle
+   │  │  ├──wrapper
+   │  │  └──libs.versions.toml
+   │  ├──libs
+   │  │  └──jnbt-1.1.jar
+   │  ├──src
+   │  │  └──main
+   │  ├──target
+   │  │  ├──classes
+   │  │  ├──generated-sources
+   │  │  ├──maven-archiver
+   │  │  ├──maven-status
+   │  │  ├──original-VSPE-0.0.1-ARI.jar
+   │  │  ├──VSPE-0.0.1-ARI.jar
+   │  │  └──VSPE-0.0.1-ARI-shaded.jar
+   │  ├──build.gradle.kts
+   │  ├──gradle.properties
+   │  ├──gradlew
+   │  ├──gradlew.bat
+   │  └──settings.gradle.kts
+   ├──.gitignore
+   ├──gradlew
+   ├──gradlew.bat
+   ├──MyOutputFile.txt
+   ├──settings.gradle.kts
+   └──trees.ps1
+

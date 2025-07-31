@@ -75,7 +75,7 @@ public class DimensionDAO {
     public void delete(Dimension dimension) {
         try (EntityManager em = HibernateUtil.getEntityManager()) {
             em.getTransaction().begin();
-            Dimension found = em.find(Dimension.class, dimension.getId());
+            Dimension found = em.find(Dimension.class, dimension.getId().toString());
             if (found != null) {
                 em.remove(found);
             }

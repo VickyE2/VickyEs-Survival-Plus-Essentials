@@ -105,7 +105,9 @@ public class RingOfAcceleration extends BaseTrinket {
             // Apply Jump Boost
             int jumpBoostLevel = (int) ((newSpeed - 0.2f) * 10); // Maps 0.2f speed -> 0 boost, 1.0f speed -> level 8 boost
             player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 20, jumpBoostLevel, true, false));
-            player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 80, 1, true, false));
+            Bukkit.getScheduler().scheduleSyncDelayedTask(VSPE.getPlugin(), () -> {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 20, 1, true, false));
+            }, 20);
 
             // Calculate color transition (Red -> #FF00AA)
             float progress = (newSpeed - 0.2f) / 0.8f; // Normalize speed between 0.2 and 1.0
@@ -115,11 +117,11 @@ public class RingOfAcceleration extends BaseTrinket {
             Location base = player.getLocation();
             World world = player.getWorld();
 
-            // Spawn particles from bottom to top with color transition
+            // Spawn particles from bottom to top with color transition         xHMYUuMYuS52
             for (double y = 0; y <= 2; y += 0.5) {
                 Location particleLoc = base.clone().add(0, y, 0);
                 if (y >= 0.5 && y <= 1.5)
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, particleLoc, 5, 0.1, 0.1, 0.1);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, particleLoc, 5, 0, 0, 0, 0);
                 else
                     world.spawnParticle(Particle.REDSTONE, particleLoc, 5, 0.1, 0.1, 0.1, 0, particleOptions);
             }

@@ -19,6 +19,13 @@ public class AdvanceablePlayer extends ExtendedPlayerBase implements DatabaseTem
     )
     @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private final List<Advancement> advancements = new ArrayList<>();
+    @JoinTable(
+            name = "visited_dimensions",
+            joinColumns = @JoinColumn(name = "player_id"),
+            inverseJoinColumns = @JoinColumn(name = "dimension_id")
+    )
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private final List<Dimension> visitedDimensions = new ArrayList<>();
 
     public List<Advancement> getAccomplishedAdvancements() {
         return advancements;
@@ -26,5 +33,13 @@ public class AdvanceablePlayer extends ExtendedPlayerBase implements DatabaseTem
 
     public void addAdvancement(Advancement advancement) {
         advancements.add(advancement);
+    }
+
+    public List<Dimension> getVisitedDimensions() {
+        return visitedDimensions;
+    }
+
+    public void addVisitedDimension(Dimension dimension) {
+        visitedDimensions.add(dimension);
     }
 }

@@ -44,13 +44,13 @@ public class PlayerEquippedTrinketScreenListener extends BaseGuiListener {
         });
         addInventoryClickHandler(event -> {
             if (!(event.getWhoClicked() instanceof Player player)) {
-                logger.printBukkit("Cancelled not player");
+                logger.print("Cancelled not player");
                 event.setCancelled(true);
                 return;
             }
 
             if (event.isShiftClick()) {
-                logger.printBukkit("Cancelled used shift");
+                logger.print("Cancelled used shift");
                 event.setCancelled(true);
                 return;
             }
@@ -62,7 +62,7 @@ public class PlayerEquippedTrinketScreenListener extends BaseGuiListener {
             if (isPlacing) {
                 // For drop operations, the cursor should not be air and must have NBT data.
                 if (event.getCursor().getType().isAir() || !GuiCreator.hasNBTData(event.getCursor(), "vspe_trinket_slot")) {
-                    logger.printBukkit("Cancelled drop: invalid cursor item or missing NBT");
+                    logger.print("Cancelled drop: invalid cursor item or missing NBT");
                     event.setCancelled(true);
                     return;
                 }
@@ -70,7 +70,7 @@ public class PlayerEquippedTrinketScreenListener extends BaseGuiListener {
                 // For pick-up operations, the current item must be non-null and have NBT data.
                 if (event.getCurrentItem() == null || event.getCurrentItem().getType().isAir() ||
                         !GuiCreator.hasNBTData(event.getCurrentItem(), "vspe_trinket_slot")) {
-                    logger.printBukkit("Cancelled pick-up: invalid clicked item or missing NBT");
+                    logger.print("Cancelled pick-up: invalid clicked item or missing NBT");
                     event.setCancelled(true);
                     return;
                 }
@@ -82,7 +82,7 @@ public class PlayerEquippedTrinketScreenListener extends BaseGuiListener {
             int accSlot = event.getSlot();
             accSlot += 1;
 
-            logger.printBukkit(
+            logger.print(
                     "TrinketSlot: " + slot +
                     " TrinketSlotNumber: " + Arrays.toString(slot.getSlots()) +
                     " SlotClicked: " + accSlot +
@@ -100,7 +100,7 @@ public class PlayerEquippedTrinketScreenListener extends BaseGuiListener {
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -125,7 +125,7 @@ public class PlayerEquippedTrinketScreenListener extends BaseGuiListener {
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
@@ -139,7 +139,7 @@ public class PlayerEquippedTrinketScreenListener extends BaseGuiListener {
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -164,7 +164,7 @@ event.setCancelled(false);
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
@@ -178,7 +178,7 @@ event.setCancelled(false);
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -203,7 +203,7 @@ event.setCancelled(false);
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
@@ -217,7 +217,7 @@ event.setCancelled(false);
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -242,7 +242,7 @@ event.setCancelled(false);
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
@@ -256,7 +256,7 @@ event.setCancelled(false);
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -281,7 +281,7 @@ event.setCancelled(false);
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
@@ -295,7 +295,7 @@ event.setCancelled(false);
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -320,7 +320,7 @@ event.setCancelled(false);
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
@@ -334,7 +334,7 @@ event.setCancelled(false);
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -359,7 +359,7 @@ event.setCancelled(false);
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
@@ -373,7 +373,7 @@ event.setCancelled(false);
                         }
                     }
                     if (!validSlot) {
-                        logger.printBukkit("Cancelled not valid slot");
+                        logger.print("Cancelled not valid slot");
                         event.setCancelled(true);
                         break;
                     }
@@ -398,13 +398,13 @@ event.setCancelled(false);
                                     .remove(equippedTrinket);
                         }
                         default -> {
-                             logger.printBukkit("Cancelled non allowed action type");
+                             logger.print("Cancelled non allowed action type");
                             event.setCancelled(true);
                         }
                     }
                 }
                 default -> {
-                    logger.printBukkit("Cancelled none slot type");
+                    logger.print("Cancelled none slot type");
                     event.setCancelled(true);
                 }
             }

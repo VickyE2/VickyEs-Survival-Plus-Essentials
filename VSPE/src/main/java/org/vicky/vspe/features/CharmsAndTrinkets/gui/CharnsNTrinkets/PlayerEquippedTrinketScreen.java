@@ -38,7 +38,7 @@ public class PlayerEquippedTrinketScreen extends BaseGui {
                     config.setSlotRange(String.valueOf(trinket.getSlot() + 1));
                     itemConfigs.add(config);
                 }
-                this.guiManager.openGUI(player, 6, 9, "", true, "vicky_themes:trinket_gui_" + databasePlayer.getUserTheme(), -8, itemConfigs.toArray(GuiCreator.ItemConfig[]::new));
+                this.guiManager.openGUI(player, 6, 9, "", true, "vicky_themes:trinket_gui_" + databasePlayer.getUserTheme(), -6, itemConfigs.toArray(GuiCreator.ItemConfig[]::new));
             } catch (NullManagerTrinket e) {
                 throw new RuntimeException(e);
             }

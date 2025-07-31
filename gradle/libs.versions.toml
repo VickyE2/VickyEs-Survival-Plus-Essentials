@@ -1,0 +1,56 @@
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+
+[versions]
+kotlin = "2.1.10"
+paper = "1.20.4-R0.1-SNAPSHOT"
+com-comphenix-protocol-protocollib = "5.1.0"
+com-dfsek-terra-api = "6.5.0-BETA+060cbfd0c"
+com-dfsek-terra-bukkit = "6.5.0-BETA+060cbfd0c"
+com-dfsek-terra-manifest-addon-loader = "1.0.0-BETA+fd6decc70"
+com-github-lonedev6-api-itemsadder = "3.6.1"
+com-github-zockeraxel-crazyadvancementsapi = "v2.1.17a"
+com-onarandombox-multiversecore-multiverse-core = "4.3.1"
+com-onarandombox-multiverseinventories-multiverse-inventories = "4.2.3"
+com-onarandombox-multiverseportals-multiverse-portals = "4.2.0"
+com-sk89q-worldedit-worldedit-bukkit = "7.2.9"
+com-sk89q-worldguard-worldguard-bukkit = "7.0.12"
+dev-jorel-commandapi-bukkit-core = "9.7.0"
+dev-lone-lonelibs = "1.0.58"
+io-lumine-mythic-dist = "5.6.1"
+me-clip-placeholderapi = "2.10.10"
+net-sf-trove4j-core = "3.1.0"
+org-betonquest-betonquest = "2.2.1"
+org-jetbrains-kotlin-kotlin-test = "2.1.10"
+org-jetbrains-kotlinx-kotlinx-serialization-json = "1.6.3"
+org-junit-jupiter-junit-jupiter-api = "5.11.0"
+org-junit-jupiter-junit-jupiter-params = "5.11.0"
+org-reflections-reflections = "0.10.2"
+org-vicky-vicky-utils-v-utls = "1.20.4-0.0.1-BETA"
+
+[libraries]
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib-jdk8", version.ref = "kotlin" }
+paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
+com-comphenix-protocol-protocollib = { module = "com.comphenix.protocol:ProtocolLib", version.ref = "com-comphenix-protocol-protocollib" }
+com-dfsek-terra-api = { module = "com.dfsek.terra:api", version.ref = "com-dfsek-terra-api" }
+com-dfsek-terra-bukkit = { module = "com.dfsek.terra:bukkit", version.ref = "com-dfsek-terra-bukkit" }
+com-dfsek-terra-manifest-addon-loader = { module = "com.dfsek.terra:manifest-addon-loader", version.ref = "com-dfsek-terra-manifest-addon-loader" }
+com-github-lonedev6-api-itemsadder = { module = "com.github.LoneDev6:api-itemsadder", version.ref = "com-github-lonedev6-api-itemsadder" }
+com-github-zockeraxel-crazyadvancementsapi = { module = "com.github.ZockerAxel:CrazyAdvancementsAPI", version.ref = "com-github-zockeraxel-crazyadvancementsapi" }
+com-onarandombox-multiversecore-multiverse-core = { module = "com.onarandombox.multiversecore:Multiverse-Core", version.ref = "com-onarandombox-multiversecore-multiverse-core" }
+com-onarandombox-multiverseinventories-multiverse-inventories = { module = "com.onarandombox.multiverseinventories:Multiverse-Inventories", version.ref = "com-onarandombox-multiverseinventories-multiverse-inventories" }
+com-onarandombox-multiverseportals-multiverse-portals = { module = "com.onarandombox.multiverseportals:Multiverse-Portals", version.ref = "com-onarandombox-multiverseportals-multiverse-portals" }
+com-sk89q-worldedit-worldedit-bukkit = { module = "com.sk89q.worldedit:worldedit-bukkit", version.ref = "com-sk89q-worldedit-worldedit-bukkit" }
+com-sk89q-worldguard-worldguard-bukkit = { module = "com.sk89q.worldguard:worldguard-bukkit", version.ref = "com-sk89q-worldguard-worldguard-bukkit" }
+dev-jorel-commandapi-bukkit-core = { module = "dev.jorel:commandapi-bukkit-core", version.ref = "dev-jorel-commandapi-bukkit-core" }
+dev-lone-lonelibs = { module = "dev.lone:LoneLibs", version.ref = "dev-lone-lonelibs" }
+io-lumine-mythic-dist = { module = "io.lumine:Mythic-Dist", version.ref = "io-lumine-mythic-dist" }
+me-clip-placeholderapi = { module = "me.clip:placeholderapi", version.ref = "me-clip-placeholderapi" }
+net-sf-trove4j-core = { module = "net.sf.trove4j:core", version.ref = "net-sf-trove4j-core" }
+org-betonquest-betonquest = { module = "org.betonquest:betonquest", version.ref = "org-betonquest-betonquest" }
+org-jetbrains-kotlin-kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "org-jetbrains-kotlin-kotlin-test" }
+org-jetbrains-kotlinx-kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "org-jetbrains-kotlinx-kotlinx-serialization-json" }
+org-junit-jupiter-junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "org-junit-jupiter-junit-jupiter-api" }
+org-junit-jupiter-junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "org-junit-jupiter-junit-jupiter-params" }
+org-reflections-reflections = { module = "org.reflections:reflections", version.ref = "org-reflections-reflections" }
+org-vicky-vicky-utils-v-utls = { module = "org.vicky.vicky_utils:vicky-utils-bukkit", version.ref = "org-vicky-vicky-utils-v-utls" }

@@ -112,7 +112,7 @@ public class CnTManager implements IdentifiableManager, Listener {
      * @throws TrinketProcessingFailureException if any error occurs during processing
      */
     public void processTrinkets() throws TrinketProcessingFailureException {
-        logger.printBukkit("Processing Trinket Jars and Classes...", ContextLogger.LogType.PENDING);
+        logger.print("Processing Trinket Jars and Classes...", ContextLogger.LogType.PENDING);
         for (String pkg : MY_TRINKET_PACKAGES) {
             Reflections reflections = new Reflections(pkg, new SubTypesScanner(false));
             Set<Class<? extends BaseTrinket>> trinketClasses = reflections.getSubTypesOf(BaseTrinket.class);
@@ -141,14 +141,14 @@ public class CnTManager implements IdentifiableManager, Listener {
         classLoader.getLoaders().addAll(scanner.getClassLoaders());
 
         if (trinkets.isEmpty()) {
-            logger.printBukkit("No custom trinkets were found D:", ContextLogger.LogType.AMBIENCE);
+            logger.print("No custom trinkets were found D:", ContextLogger.LogType.AMBIENCE);
         }
         for (Class<?> clazz : trinkets) {
             BaseTrinket trinket;
             try {
                 trinket = (BaseTrinket) clazz.getDeclaredConstructor().newInstance();
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                logger.printBukkit("An error occurred when creating trinket instance: ", ContextLogger.LogType.ERROR);
+                logger.print("An error occurred when creating trinket instance: ", ContextLogger.LogType.ERROR);
                 throw new RuntimeException(e);
             }
             LOADED_TRINKETS.add(trinket);
@@ -211,11 +211,11 @@ public class CnTManager implements IdentifiableManager, Listener {
         Player player = event.getPlayer();
         UUID playerUUID = player.getUniqueId();
         Bukkit.getScheduler().runTaskLater(CnTManager.getPlugin(), () -> {
-            logger.printBukkit("Checking equipped trinkets for " + player.getName());
+            logger.print("Checking equipped trinkets for " + player.getName());
 
             Optional<CnTPlayer> optionalCnTPlayer = new CnTPlayerDAO().findById(playerUUID);
             if (optionalCnTPlayer.isEmpty()) {
-                logger.printBukkit("Database entry missing for player " + player.getName(), ContextLogger.LogType.ERROR);
+                logger.print("Database entry missing for player " + player.getName(), ContextLogger.LogType.ERROR);
                 return;
             }
 

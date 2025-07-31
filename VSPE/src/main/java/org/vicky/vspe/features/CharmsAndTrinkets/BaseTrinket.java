@@ -12,6 +12,8 @@ import org.bukkit.inventory.ItemStack;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
+import org.vicky.utilities.PermittedObjects.AllowedEnum;
+import org.vicky.utilities.PermittedObjects.AllowedUUID;
 import org.vicky.utilities.SmallCapsConverter;
 import org.vicky.utilities.UUIDGenerator;
 import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullTrinketUser;
@@ -69,11 +71,11 @@ public abstract class BaseTrinket implements Identifiable {
                 .collect(Collectors.joining("\n"));
         icon.getLore().add("sʟᴏᴛ: " + ChatColor.WHITE + SymbolManager.getSymbol(trinketSlot.name().toLowerCase()) + ChatColor.RESET);
         icon.getLore().add(ChatColor.GOLD + "ʙᴜғғ ᴀᴄᴘᴇᴄᴛs: \n" + ChatColor.RESET + aspects);
-        icon.addNbtData("vspe_trinket_slot", new GuiCreator.AllowedEnum<>(trinketSlot));
-        icon.addNbtData("Unique_Nonstack_Identifier", new GuiCreator.AllowedUUID(UUID.randomUUID()));
+        icon.addNbtData("vspe_trinket_slot", new AllowedEnum<>(trinketSlot));
+        icon.addNbtData("Unique_Nonstack_Identifier", new AllowedUUID(UUID.randomUUID()));
         this.name = icon.getName();
         this.Id = UUIDGenerator.generateUUIDFromString(getFormattedName());
-        icon.addNbtData("vspe_trinket_id", new GuiCreator.AllowedUUID(this.Id));
+        icon.addNbtData("vspe_trinket_id", new AllowedUUID(this.Id));
         icon.setName(SmallCapsConverter.toSmallCaps(icon.getName()));
         this.icon = GuiCreator.createItem(icon, null, CnTManager.getPlugin());
         this.rawIcon = icon;
@@ -115,7 +117,7 @@ public abstract class BaseTrinket implements Identifiable {
      * @param player the player using the trinket.
      */
     public void addPlayer(Player player) {
-        logger.printBukkit("Added player " + player.name() + " to trinket " + this.name);
+        logger.print("Added player " + player.name() + " to trinket " + this.name);
         activePlayers.add(player.getUniqueId());
     }
 
@@ -125,7 +127,7 @@ public abstract class BaseTrinket implements Identifiable {
      * @param player the player to remove.
      */
     public void removePlayer(Player player) {
-        logger.printBukkit("Removed player " + player.name() + " to trinket " + this.name);
+        logger.print("Removed player " + player.name() + " to trinket " + this.name);
         activePlayers.remove(player.getUniqueId());
     }
 
@@ -185,15 +187,15 @@ public abstract class BaseTrinket implements Identifiable {
     }
 
     public final void enableTrinket() {
-        logger.printBukkit("Enabling trinket " + this.name, ContextLogger.LogType.PENDING);
+        logger.print("Enabling trinket " + this.name, ContextLogger.LogType.PENDING);
     }
 
     public final void disableTrinket() {
-        logger.printBukkit("Disabling trinket " + this.name, ContextLogger.LogType.PENDING);
+        logger.print("Disabling trinket " + this.name, ContextLogger.LogType.PENDING);
     }
 
     public final void deleteTrinket() {
-        logger.printBukkit("Deleting trinket " + this.name, ContextLogger.LogType.PENDING);
+        logger.print("Deleting trinket " + this.name, ContextLogger.LogType.PENDING);
     }
 
     /**

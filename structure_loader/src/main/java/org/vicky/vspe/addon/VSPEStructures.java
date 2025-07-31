@@ -4,6 +4,7 @@ import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.api.Platform;
 import com.dfsek.terra.api.addon.BaseAddon;
 import com.dfsek.terra.api.config.ConfigPack;
+import com.dfsek.terra.api.event.events.config.pack.ConfigPackLoadEvent;
 import com.dfsek.terra.api.event.events.config.pack.ConfigPackPreLoadEvent;
 import com.dfsek.terra.api.event.functional.FunctionalEventHandler;
 import com.dfsek.terra.api.inject.annotations.Inject;
@@ -35,8 +36,6 @@ public class VSPEStructures implements AddonInitializer {
    private Platform platform;
    @Inject
    private BaseAddon addon;
-   @Inject
-   private JavaPlugin plugin;
    private static final Map<String, List<Class<? extends BaseStructure>>> structures = new HashMap<>();
    private static final HandlerList handlers = new HandlerList();
 
@@ -46,7 +45,13 @@ public class VSPEStructures implements AddonInitializer {
    public void initialize() {
       String directory = this.platform.getDataFolder().getAbsolutePath();
       String fileName = "structureJars.yml";
-      String yamlContent = "Jars:\n  - name: \"VSPE-0.0.1-ARI\"\n    packages:\n      - \"org.vicky.vspe.systems.Dimension.Dimensions.Structures\"\n";
+      String yamlContent = """
+              Jars:
+                - name: "VSPE-0.0.1-ARI-dev-all"
+                  packages:
+                    - "org.vicky.vspe.systems.dimension.dimensions.Structures"
+                    - "org.vicky.vspe.systems.dimension.dimensions.ChromaticUnderWater.Structures"
+              """;
       StructureLoader loader = new StructureLoader(this.logger);
 
       try {
@@ -81,7 +86,6 @@ public class VSPEStructures implements AddonInitializer {
             ConfigPack pack = event.getPack();
             this.logger.info(ANSIColor.colorize("The VSPE structures addon for terra is purple[loading instanced structures]"));
             CheckedRegistry<Structure> structureRegistry = pack.getOrCreateRegistry(Structure.class);
-            StringBuilder structureBuilder = new StringBuilder(ANSIColor.colorize("yellow[Added Structures:]") + "[");
             for (Entry<String, List<Class<? extends BaseStructure>>> structures : VSPEStructures.structures.entrySet()) {
                for (Class<? extends BaseStructure> clazz : structures.getValue()) {
                   try {
@@ -89,7 +93,6 @@ public class VSPEStructures implements AddonInitializer {
                      constructor.setAccessible(true);
                      BaseStructure instance = constructor.newInstance();
                      instance.setPlatform(this.platform);
-                     structureBuilder.append(ANSIColor.colorize(" green[" + instance.getId() + "],"));
                      structureRegistry.register(instance);
                   } catch (NoSuchMethodException var10x) {
                      this.logger.error("No default constructor found for class: " + clazz.getName(), var10x);
@@ -109,8 +112,6 @@ public class VSPEStructures implements AddonInitializer {
                   }
                }
             }
-            structureBuilder.append("]");
-            this.logger.info(structureBuilder.toString());
          });
    }
 

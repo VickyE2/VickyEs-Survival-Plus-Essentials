@@ -13,8 +13,7 @@ import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementProcessingFailureException;
-import org.vicky.vspe.systems.Dimension.BaseDimension;
-import org.vicky.vspe.systems.Dimension.Generator.utils.Meta.Base;
+import org.vicky.vspe.systems.dimension.BaseDimension;
 import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
 import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.utilities.Manager.IdentifiableManager;
@@ -56,14 +55,14 @@ public class AdvancementManager implements IdentifiableManager {
 
     public void processAdvancements() throws AdvancementProcessingFailureException {
         try {
-            logger.printBukkit("Starting advancement Processing...", ContextLogger.LogType.PENDING);
+            logger.print("Starting advancement Processing...", ContextLogger.LogType.PENDING);
             Reflections reflections = new Reflections("org.vicky.vspe.features.AdvancementPlus.Advancements");
             for (Class<? extends BaseAdvancement> clazz : reflections.getSubTypesOf(BaseAdvancement.class)) {
                 try {
                     Constructor<? extends BaseAdvancement> constructor = clazz.getDeclaredConstructor();
                     constructor.setAccessible(true);
                     BaseAdvancement advancement = constructor.newInstance();
-                    logger.printBukkit(ANSIColor.colorize("purple[Loaded advancement: ]") + advancement.getTitle());
+                    logger.print(ANSIColor.colorize("purple[Loaded advancement: ]") + advancement.getTitle());
                 } catch (Exception var9) {
                     VSPE.getInstancedLogger().severe("Failed to load advancement: " + clazz.getName());
                     var9.printStackTrace();
@@ -72,11 +71,11 @@ public class AdvancementManager implements IdentifiableManager {
 
             for (BaseAdvancement advancement : this.LOADED_ADVANCEMENTS) {
                 if (configManager.getBooleanValue("Debug")) {
-                    logger.printBukkit(ANSIColor.colorize("Processing advancement: purple[" + advancement.getNamespace() + "]"));
-                    logger.printBukkit(ANSIColor.colorize("    Advancement Title: purple[" + advancement.getFormattedTitle() + "]"));
-                    logger.printBukkit(ANSIColor.colorize("    Advancement toast type: purple[" + advancement.getAdvancementTT() + "]"));
-                    logger.printBukkit(ANSIColor.colorize("    Advancement type: purple[" + advancement.getAdvancementType() + "]"));
-                    logger.printBukkit(ANSIColor.colorize("    Advancement description: purple[" + advancement.getDescription() + "]"));
+                    logger.print(ANSIColor.colorize("Processing advancement: purple[" + advancement.getNamespace() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement Title: purple[" + advancement.getFormattedTitle() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement toast type: purple[" + advancement.getAdvancementTT() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement type: purple[" + advancement.getAdvancementType() + "]"));
+                    logger.print(ANSIColor.colorize("    Advancement description: purple[" + advancement.getDescription() + "]"));
 
                     StringBuilder dimensions = new StringBuilder();
                     if (advancement.getEligibleDimensions() != null) {
@@ -85,7 +84,7 @@ public class AdvancementManager implements IdentifiableManager {
                         }
                     }
 
-                    logger.printBukkit(ANSIColor.colorize("    Advancement permitted dimensions: purple[-" + (dimensions.isEmpty() ? "Basically all" : dimensions) + "-]"));
+                    logger.print(ANSIColor.colorize("    Advancement permitted dimensions: purple[-" + (dimensions.isEmpty() ? "Basically all" : dimensions) + "-]"));
                 }
 
                 Optional<org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement> optionalAdvancement =
@@ -135,7 +134,7 @@ public class AdvancementManager implements IdentifiableManager {
             this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
             return true;
         } else {
-            logger.printBukkit("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
+            logger.print("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
             return false;
         }
     }
@@ -149,7 +148,7 @@ public class AdvancementManager implements IdentifiableManager {
             BaseAdvancement contextAdvancement = contextAdvancementOptional.get();
             this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
         } else {
-            logger.printBukkit("Advancement of Id " + advancementId + " not found in LOADED_ADVANCEMENTS.", true);
+            logger.print("Advancement of Id " + advancementId + " not found in LOADED_ADVANCEMENTS.", true);
         }
     }
 
@@ -164,7 +163,7 @@ public class AdvancementManager implements IdentifiableManager {
             databaseAdvancement.setName(advancement.getTitle());
             advancementService.create(databaseAdvancement);
         }
-        logger.printBukkit(ANSIColor.colorize("purple[Added advancement: ]") + advancement.getTitle());
+        logger.print(ANSIColor.colorize("purple[Added advancement: ]") + advancement.getTitle());
         saveAndUnloadManagerProgress();
     }
 
@@ -181,7 +180,7 @@ public class AdvancementManager implements IdentifiableManager {
         if (contextAdvancementOptional.isPresent()) {
             return contextAdvancementOptional.get();
         } else {
-            logger.printBukkit("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
+            logger.print("Advancement of type " + advancementClass.getSimpleName() + " not found in LOADED_ADVANCEMENTS.", true);
             return null;
         }
     }

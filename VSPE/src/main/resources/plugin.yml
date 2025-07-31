@@ -1,6 +1,7 @@
 name: VickyEs_Survival_Plus_Essentials
-version: '0.0.1-AKARI'
+loader: org.vicky.vspe.VSPEPluginLoader
 main: org.vicky.vspe.VSPE
+version: '0.0.1-AKARI'
 load: POSTWORLD
 api-version: '1.20'
 prefix: VSPE
@@ -9,6 +10,7 @@ description: An addon for 'BALLISTIC' additions to Minecraft World
 depend:
   - ItemsAdder
   - Vicky-s_Utilities
+  - BetonQuest
   - VickyEs-Party_and_Friends
   - VickyE-EP
   - CommandAPI
