@@ -1,9 +1,9 @@
 package org.vicky.vspe.structure_gen
 
-import org.bukkit.plugin.java.JavaPlugin
 import org.vicky.utilities.ConfigManager
 import org.vicky.utilities.ContextLogger.ContextLogger
-import org.vicky.utilities.Theme.ThemeUnzipper
+import org.vicky.vspe.getAllZipFiles
+import org.vicky.vspe.platform.VSPEPlatformPlugin
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Paths
@@ -24,15 +24,15 @@ inline fun <reified T : Any> ConfigManager.readDataClass(path: String = ""): T? 
 }
 
 class KraterosGenerationEngine (
-    private val javaPlugin: JavaPlugin
+    private val plugin: VSPEPlatformPlugin
 ) {
     val logger = ContextLogger(ContextLogger.ContextType.SYSTEM, "STRUCTURE_ENGINE")
     private val _loadedStructures = mutableListOf<StructurePack>()
     val loadedStructures: List<StructurePack> get() = _loadedStructures
 
     fun generateStructurePacks() {
-        val themesPath = Paths.get(javaPlugin.dataFolder.absolutePath, "structure_packs")
-        val zipFiles = ThemeUnzipper.getAllZipFiles(themesPath.toString())
+        val themesPath = Paths.get(plugin.platformDataFolder.absolutePath, "structure_packs")
+        val zipFiles = getAllZipFiles(themesPath.toString())
         if (zipFiles.isNotEmpty()) {
             zip@for (zipPath in zipFiles) {
                 val config = ConfigManager(false)
@@ -61,7 +61,7 @@ class KraterosGenerationEngine (
                     logger.print("Loaded structure pack: ${pack.name}")
                     logger.print("Proceeding to datapack generation", ContextLogger.LogType.PENDING)
 
-                    val outputZipFile = File(javaPlugin.dataFolder,"datapacks/${pack.name}_generated.zip")
+                    val outputZipFile = File(plugin.platformDataFolder,"datapacks/${pack.name}_generated.zip")
 
                     ZipOutputStream(FileOutputStream(outputZipFile)).use { zipStream ->
                         val packZip = ZipFile(zipPath.toFile())

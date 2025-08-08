@@ -1,16 +1,15 @@
 package org.vicky.vspe.systems.dimension
 
-import org.bukkit.World
-import org.bukkit.entity.Player
-import org.bukkit.scheduler.BukkitRunnable
-import org.vicky.vspe.utilities.global.GlobalResources.dimensionManager
+import org.vicky.platform.PlatformPlayer
+import org.vicky.platform.world.PlatformWorld
+import org.vicky.vspe.platform.VSPEPlatformPlugin
 
-interface DimensionTickHandler {
-    fun tick(players: List<Player>, world: World)
+interface PlatformDimensionTickHandler {
+    fun tick(players: List<PlatformPlayer>, world: PlatformWorld<*, *>)
 }
 
-object DimensionTickLoop : BukkitRunnable() {
+object DimensionTickLoop : Runnable {
     override fun run() {
-        dimensionManager.LOADED_DIMENSIONS.forEach { it.tick() }
+        VSPEPlatformPlugin.dimensionManager().getLoadedDimensions().forEach { it.tick() }
     }
 }

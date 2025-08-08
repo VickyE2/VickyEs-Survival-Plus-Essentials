@@ -1,14 +1,14 @@
 package org.vicky.vspe.structure_gen
 
-import net.minecraft.world.level.block.Rotation
-import org.bukkit.Location
-import org.bukkit.Material
-import org.bukkit.World
-import org.bukkit.block.Block
-import org.bukkit.block.BlockFace
-import org.bukkit.block.data.BlockData
-import org.bukkit.block.data.Directional
+import org.vicky.platform.utils.Rotation
+import org.vicky.platform.utils.Vec3
+import org.vicky.platform.world.Directional
+import org.vicky.platform.world.PlatformBlockState
+import org.vicky.platform.world.PlatformLocation
+import org.vicky.platform.world.PlatformWorld
 import org.vicky.vspe.Direction
+import org.vicky.platform.utils.Direction as VDirection
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState
 import kotlin.math.*
 import kotlin.random.Random
 
@@ -741,10 +741,10 @@ class ModularRoadPlacer5000 {
     )
 
     val DefaultRoadPalette = RoadPalette(
-        roadBlock = Material.BLACK_CONCRETE.createBlockData(),
-        altRoadBlock = Material.GRAY_CONCRETE.createBlockData(),
-        sidewalkBlock = Material.YELLOW_CONCRETE.createBlockData(),
-        stair = Material.STONE_SLAB.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:black_concrete") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:gray_concrete") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:yellow_concrete") { it },
+        stair = SimpleBlockState.from("minecraft:stone_slab") { it },
         sidewalkThickness = 2
     )
 
@@ -755,18 +755,18 @@ class ModularRoadPlacer5000 {
         '|' to { ctx, pos -> ctx.placeSidewalk(pos, ctx.rotation) }
     )
 
-    fun placeRoad(world: World, pos: Vec3, roadType: RoadType, palette: RoadPalette, rotation: Rotation) {
+    fun placeRoad(world: PlatformWorld<*, *>, pos: Vec3, roadType: RoadType, palette: RoadPalette, rotation: Rotation) {
         val template = roadTemplates[roadType] ?: return
         val context = PlacementContext(world, palette, rotation)
         template.apply(context, pos, symbolMap)
     }
 
     data class PlacementContext(
-        val world: World,
+        val world: PlatformWorld<*, *>,
         val palette: RoadPalette,
         val rotation: Rotation
     ) {
-        fun placeBlock(pos: Vec3, block: BlockData) {
+        fun placeBlock(pos: Vec3, block: PlatformBlockState<*>) {
             world.setBlock(pos, block)
         }
 
@@ -774,9 +774,9 @@ class ModularRoadPlacer5000 {
             val stairFacing = facing.opposite()
             world.setBlock(pos, palette.stair.withFacing(stairFacing))
             for (i in 1..palette.sidewalkThickness) {
-                world.setBlock(pos.addY(i), palette.sidewalkBlock)
+                world.setBlock(pos.add(0, i, 0), palette.sidewalkBlock)
             }
-            world.setBlock(pos.addY(palette.sidewalkThickness + 1), palette.stair.withFacing(facing))
+            world.setBlock(pos.add(0, palette.sidewalkThickness + 1, 0), palette.stair.withFacing(facing))
         }
     }
 
@@ -797,28 +797,19 @@ class ModularRoadPlacer5000 {
     }
 }
 
-private fun BlockData.withFacing(stairFacing: Rotation): BlockData {
+private fun PlatformBlockState<*>.withFacing(stairFacing: Rotation): PlatformBlockState<*> {
     if (this is Directional) {
-        this.facing = stairFacing.toBlockFace()
+        this.setFacing(stairFacing.toBlockFace())
     }
     return this
 }
 
-fun Block.withFacing(facing: Rotation): Block {
-    if (this.blockData is Directional) {
-        val directional: Directional = this.blockData as Directional
-        directional.facing = facing.toBlockFace()
-        this.blockData = directional
-    }
-    return this
-}
-
-fun Rotation.toBlockFace(base: BlockFace = BlockFace.NORTH): BlockFace {
+fun Rotation.toBlockFace(base: VDirection = VDirection.NORTH): VDirection {
     val horizontalFaces = listOf(
-        BlockFace.NORTH,
-        BlockFace.EAST,
-        BlockFace.SOUTH,
-        BlockFace.WEST
+        VDirection.NORTH,
+        VDirection.EAST,
+        VDirection.SOUTH,
+        VDirection.WEST
     )
 
     val index = horizontalFaces.indexOf(base)
@@ -845,14 +836,9 @@ private fun Rotation.opposite(): Rotation {
     }
 }
 
-fun World.setBlock(pos: Vec3, block: Block) {
-    val loc = Location(this, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
-    loc.block.blockData = block.blockData
-}
-
-fun World.setBlock(pos: Vec3, blockData: BlockData) {
-    val loc = Location(this, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
-    loc.block.blockData = blockData
+fun PlatformWorld<*, *>.setBlock(pos: Vec3, block: PlatformBlockState<*>) {
+    val loc = PlatformLocation(this, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
+    loc.world.setPlatformBlockState(pos, block)
 }
 
 
@@ -881,96 +867,96 @@ fun Rotation.rotateRelative(add: Vec3): Vec3 {
     }
 }
 
-data class RoadPalette(val roadBlock: BlockData, val altRoadBlock: BlockData, val sidewalkBlock: BlockData, val stair: BlockData, val sidewalkThickness: Int)
+data class RoadPalette(val roadBlock: PlatformBlockState<*>, val altRoadBlock: PlatformBlockState<*>, val sidewalkBlock: PlatformBlockState<*>, val stair: PlatformBlockState<*>, val sidewalkThickness: Int)
 val defaultRoadPalettes = listOf(
 
     // 1. Medieval Village
     RoadPalette(
-        roadBlock = Material.GRAVEL.createBlockData(),
-        altRoadBlock = Material.COARSE_DIRT.createBlockData(),
-        sidewalkBlock = Material.COBBLESTONE.createBlockData(),
-        stair = Material.COBBLESTONE_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:gravel") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:coarse_dirt") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:cobblestone") { it },
+        stair = SimpleBlockState.from("minecraft:cobblestone_stairs") { it },
         sidewalkThickness = 1
     ),
 
     // 2. Modern City
     RoadPalette(
-        roadBlock = Material.BLACK_CONCRETE.createBlockData(),
-        altRoadBlock = Material.GRAY_CONCRETE.createBlockData(),
-        sidewalkBlock = Material.STONE.createBlockData(),
-        stair = Material.STONE_BRICK_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:black_concrete") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:gray_concrete") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:stone") { it },
+        stair = SimpleBlockState.from("minecraft:stone_brick_stairs") { it },
         sidewalkThickness = 2
     ),
 
     // 3. Japanese Street (clean, peaceful)
     RoadPalette(
-        roadBlock = Material.GRAY_CONCRETE_POWDER.createBlockData(),
-        altRoadBlock = Material.LIGHT_GRAY_CONCRETE.createBlockData(),
-        sidewalkBlock = Material.SMOOTH_STONE.createBlockData(),
-        stair = Material.STONE_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:gray_concrete_powder") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:light_gray_concrete") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:smooth_stone") { it },
+        stair = SimpleBlockState.from("minecraft:stone_stairs") { it },
         sidewalkThickness = 1
     ),
 
     // 4. Cyberpunk/Futuristic
     RoadPalette(
-        roadBlock = Material.BLACK_CONCRETE.createBlockData(),
-        altRoadBlock = Material.LIGHT_BLUE_CONCRETE.createBlockData(),
-        sidewalkBlock = Material.IRON_BLOCK.createBlockData(),
-        stair = Material.POLISHED_ANDESITE_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:black_concrete") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:light_blue_concrete") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:iron_block") { it },
+        stair = SimpleBlockState.from("minecraft:polished_andesite_stairs") { it },
         sidewalkThickness = 3
     ),
 
     // 5. Tropical Resort
     RoadPalette(
-        roadBlock = Material.SAND.createBlockData(),
-        altRoadBlock = Material.RED_SAND.createBlockData(),
-        sidewalkBlock = Material.SMOOTH_SANDSTONE.createBlockData(),
-        stair = Material.SANDSTONE_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:sand") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:red_sand") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:smooth_sandstone") { it },
+        stair = SimpleBlockState.from("minecraft:sandstone_stairs") { it },
         sidewalkThickness = 1
     ),
 
     // 6. Post-Apocalyptic/Deserted
     RoadPalette(
-        roadBlock = Material.MYCELIUM.createBlockData(),
-        altRoadBlock = Material.PODZOL.createBlockData(),
-        sidewalkBlock = Material.CRACKED_STONE_BRICKS.createBlockData(),
-        stair = Material.STONE_BRICK_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:mycelium") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:podzol") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:cracked_stone_bricks") { it },
+        stair = SimpleBlockState.from("minecraft:stone_brick_stairs") { it },
         sidewalkThickness = 2
     ),
 
     // 7. Steampunk Industrial
     RoadPalette(
-        roadBlock = Material.ANDESITE.createBlockData(),
-        altRoadBlock = Material.POLISHED_ANDESITE.createBlockData(),
-        sidewalkBlock = Material.BRICKS.createBlockData(),
-        stair = Material.BRICK_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:andesite") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:polished_andesite") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:bricks") { it },
+        stair = SimpleBlockState.from("minecraft:brick_stairs") { it },
         sidewalkThickness = 2
     ),
 
     // 8. Snowy/Tundra Town
     RoadPalette(
-        roadBlock = Material.SNOW_BLOCK.createBlockData(),
-        altRoadBlock = Material.WHITE_CONCRETE_POWDER.createBlockData(),
-        sidewalkBlock = Material.QUARTZ_BLOCK.createBlockData(),
-        stair = Material.QUARTZ_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:snow_block") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:white_concrete_powder") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:quartz_block") { it },
+        stair = SimpleBlockState.from("minecraft:quartz_stairs") { it },
         sidewalkThickness = 1
     ),
 
     // 9. Forest/Gnome Village
     RoadPalette(
-        roadBlock = Material.DIRT_PATH.createBlockData(),
-        altRoadBlock = Material.MOSS_BLOCK.createBlockData(),
-        sidewalkBlock = Material.MOSSY_COBBLESTONE.createBlockData(),
-        stair = Material.MOSSY_COBBLESTONE_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:dirt_path") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:moss_block") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:mossy_cobblestone") { it },
+        stair = SimpleBlockState.from("minecraft:mossy_cobblestone_stairs") { it },
         sidewalkThickness = 1
     ),
 
     // 10. Worn-Down Rural Road
     RoadPalette(
-        roadBlock = Material.DIRT.createBlockData(),
-        altRoadBlock = Material.MUD.createBlockData(),
-        sidewalkBlock = Material.OAK_PLANKS.createBlockData(),
-        stair = Material.OAK_STAIRS.createBlockData(),
+        roadBlock = SimpleBlockState.from("minecraft:dirt") { it },
+        altRoadBlock = SimpleBlockState.from("minecraft:mud") { it },
+        sidewalkBlock = SimpleBlockState.from("minecraft:oak_planks") { it },
+        stair = SimpleBlockState.from("minecraft:oak_stairs") { it },
         sidewalkThickness = 1
     )
 )
@@ -978,7 +964,7 @@ val defaultRoadPalettes = listOf(
 // === You will need to provide or define: ===
 // - enum class RoadType
 // - class Vec3(x: Int, y: Int, z: Int)
-// - interface World { fun setBlock(pos: Vec3, block: Block) }
+// - interface PlatformWorld<*, *> { fun setBlock(pos: Vec3, block: Block) }
 // - class Block
 // - class RoadPalette(val roadBlock: Block, val altRoadBlock: Block, val sidewalkBlock: Block, val stair: Block, val sidewalkThickness: Int)
 // - enum class Rotation { NORTH, EAST, SOUTH, WEST; fun opposite(): Rotation; fun rotateRelative(pos: Vec3): Vec3 }

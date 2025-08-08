@@ -4,25 +4,20 @@ import com.dfsek.terra.addons.manifest.api.AddonInitializer;
 import com.dfsek.terra.api.Platform;
 import com.dfsek.terra.api.addon.BaseAddon;
 import com.dfsek.terra.api.config.ConfigPack;
-import com.dfsek.terra.api.event.events.config.pack.ConfigPackLoadEvent;
 import com.dfsek.terra.api.event.events.config.pack.ConfigPackPreLoadEvent;
 import com.dfsek.terra.api.event.functional.FunctionalEventHandler;
 import com.dfsek.terra.api.inject.annotations.Inject;
 import com.dfsek.terra.api.registry.CheckedRegistry;
 import com.dfsek.terra.api.structure.Structure;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+
+import java.io.*;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.event.HandlerList;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.yaml.snakeyaml.Yaml;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.vicky.utilities.ANSIColor;
@@ -36,12 +31,10 @@ public class VSPEStructures implements AddonInitializer {
    private Platform platform;
    @Inject
    private BaseAddon addon;
+
    private static final Map<String, List<Class<? extends BaseStructure>>> structures = new HashMap<>();
-   private static final HandlerList handlers = new HandlerList();
 
-   public static void addStructures(List<Class<? extends BaseStructure>> structures) {
-   }
-
+   @SuppressWarnings("unchecked")
    public void initialize() {
       String directory = this.platform.getDataFolder().getAbsolutePath();
       String fileName = "structureJars.yml";
@@ -60,10 +53,15 @@ public class VSPEStructures implements AddonInitializer {
          throw new RuntimeException(var11);
       }
 
-      FileConfiguration configuration = this.getYamlFile(directory, fileName);
-      if (configuration != null) {
+      Map<String, Object> configuration = null;
+       try {
+           configuration = this.getYamlFile(directory, fileName);
+       } catch (FileNotFoundException e) {
+           throw new RuntimeException(e);
+       }
+       if (configuration != null) {
          this.logger.info(ANSIColor.colorize("purple[Processing structures...]"));
-         List<Map<?, ?>> jarsList = configuration.getMapList("Jars");
+         List<Map<?, ?>> jarsList = (List<Map<?, ?>>) configuration.get("Jars");
          Map<String, List<String>> includedJars = getIncludedJars(jarsList);
 
          for (Entry<String, List<String>> jar : includedJars.entrySet()) {
@@ -72,7 +70,7 @@ public class VSPEStructures implements AddonInitializer {
             if (jarFile != null) {
                loader.scanPackagesInJar(jarFile, jar.getValue());
             } else {
-               this.logger.warn("Null jar file for file in yml: " + jar.getKey());
+                this.logger.warn("Null jar file for file in yml: {}", jar.getKey());
             }
          }
       } else {
@@ -93,6 +91,7 @@ public class VSPEStructures implements AddonInitializer {
                      constructor.setAccessible(true);
                      BaseStructure instance = constructor.newInstance();
                      instance.setPlatform(this.platform);
+                     // structureRegistry.register(addon.key(instance.getID()), instance);
                      structureRegistry.register(instance);
                   } catch (NoSuchMethodException var10x) {
                      this.logger.error("No default constructor found for class: " + clazz.getName(), var10x);
@@ -116,12 +115,13 @@ public class VSPEStructures implements AddonInitializer {
    }
 
    @NotNull
+   @SuppressWarnings("unchecked")
    private static Map<String, List<String>> getIncludedJars(List<Map<?, ?>> jarsList) {
       Map<String, List<String>> includedJars = new HashMap<>();
 
       for (Map<?, ?> jarEntry : jarsList) {
          String jarName = (String)jarEntry.get("name");
-         List<String> jarPaths = (List<String>)jarEntry.get("packages");
+         List<String> jarPaths = (List<String>) jarEntry.get("packages");
          if (jarName != null && jarPaths != null) {
             includedJars.put(jarName, jarPaths);
          }
@@ -169,7 +169,8 @@ public class VSPEStructures implements AddonInitializer {
       }
    }
 
-   public FileConfiguration getYamlFile(String directoryPath, String fileName) {
+   public Map<String, Object> getYamlFile(String directoryPath, String fileName) throws FileNotFoundException {
+      Yaml yaml = new Yaml();
       File yamlFile = new File(directoryPath, fileName);
       if (!yamlFile.exists()) {
          this.logger.warn("YAML file not found: " + yamlFile.getPath());
@@ -184,7 +185,7 @@ public class VSPEStructures implements AddonInitializer {
             throw new RuntimeException(var8);
          }
       } else {
-         return YamlConfiguration.loadConfiguration(yamlFile);
+         return yaml.load(new FileInputStream(yamlFile));
       }
    }
 }

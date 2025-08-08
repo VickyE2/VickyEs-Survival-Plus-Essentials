@@ -1,177 +1,178 @@
 package org.vicky.vspe.structure_gen
 
-import org.bukkit.Material
-import org.vicky.nms.PaletteFunction
+import org.vicky.platform.world.PlatformBlockState
+import org.vicky.vspe.PaletteFunction
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState
 
 object ReplacementPalettes {
-    val medievalReplacementPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, height, _, random ->
-            if (height > 5) Material.COBBLESTONE
-            else if (random.nextFloat() < 0.3f) Material.MOSSY_COBBLESTONE
-            else Material.ANDESITE
+    val medievalReplacementPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, height, _, random ->
+            if (height > 5) SimpleBlockState.from("minecraft:cobblestone") { it }
+            else if (random.nextFloat() < 0.3f) SimpleBlockState.from("minecraft:mossy_cobblestone") { it }
+            else SimpleBlockState.from("minecraft:andesite") { it }
         },
-        Material.GRAY_WOOL to { _, _, _, random ->
-            if (random.nextBoolean()) Material.DEEPSLATE_BRICKS else Material.POLISHED_ANDESITE
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, random ->
+            if (random.nextBoolean()) SimpleBlockState.from("minecraft:deepslate_bricks") { it } else SimpleBlockState.from("minecraft:polished_andesite") { it }
         },
-        Material.RED_WOOL to { _, height, _, _ ->
-            if (height > 3) Material.SPRUCE_PLANKS else Material.STRIPPED_SPRUCE_LOG
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, height, _, _ ->
+            if (height > 3) SimpleBlockState.from("minecraft:spruce_planks") { it } else SimpleBlockState.from("minecraft:stripped_spruce_log") { it }
         },
-        Material.STRIPPED_OAK_WOOD to { _, height, _, _ ->
-            if (height > 6) Material.STRIPPED_DARK_OAK_LOG else Material.DARK_OAK_LOG
+        SimpleBlockState.from("minecraft:stripped_oak_wood") { it } to { _, height, _, _ ->
+            if (height > 6) SimpleBlockState.from("minecraft:stripped_dark_oak_log") { it } else SimpleBlockState.from("minecraft:dark_oak_log") { it }
         },
-        Material.OAK_STAIRS to { _, height, _, random ->
-            if (height % 2 == 0) Material.SPRUCE_STAIRS
-            else if (random.nextFloat() < 0.2f) Material.DARK_OAK_STAIRS
-            else Material.MANGROVE_STAIRS
+        SimpleBlockState.from("minecraft:oak_stairs") { it } to { _, height, _, random ->
+            if (height % 2 == 0) SimpleBlockState.from("minecraft:spruce_stairs") { it }
+            else if (random.nextFloat() < 0.2f) SimpleBlockState.from("minecraft:dark_oak_stairs") { it }
+            else SimpleBlockState.from("minecraft:mangrove_stairs") { it }
         },
-        Material.RED_SANDSTONE_SLAB to { _, _, _, random ->
-            if (random.nextBoolean()) Material.MUD_BRICK_SLAB else Material.SPRUCE_SLAB
+        SimpleBlockState.from("minecraft:red_sandstone_slab") { it } to { _, _, _, random ->
+            if (random.nextBoolean()) SimpleBlockState.from("minecraft:mud_brick_slab") { it } else SimpleBlockState.from("minecraft:spruce_slab") { it }
         },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.GLASS_PANE },
-        Material.OAK_DOOR to { _, _, _, _ -> Material.SPRUCE_DOOR },
-        Material.GREEN_WOOL to { _, height, dist, random ->
-            if (height < 2 && dist < 3) Material.MOSS_BLOCK
-            else if (random.nextFloat() < 0.5f) Material.OAK_LEAVES
-            else Material.AZALEA_LEAVES
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:glass_pane") { it } },
+        SimpleBlockState.from("minecraft:oak_door") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:spruce_door") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, height, dist, random ->
+            if (height < 2 && dist < 3) SimpleBlockState.from("minecraft:moss_block") { it }
+            else if (random.nextFloat() < 0.5f) SimpleBlockState.from("minecraft:oak_leaves") { it }
+            else SimpleBlockState.from("minecraft:azalea_leaves") { it }
         },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.LANTERN },
-        Material.BLUE_WOOL to { _, _, _, _ -> Material.CRAFTING_TABLE },
-        Material.MAGENTA_WOOL to { _, _, _, random ->
-            if (random.nextBoolean()) Material.SPRUCE_FENCE else Material.DARK_OAK_FENCE
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:lantern") { it } },
+        SimpleBlockState.from("minecraft:blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:crafting_table") { it } },
+        SimpleBlockState.from("minecraft:magenta_wool") { it } to { _, _, _, random ->
+            if (random.nextBoolean()) SimpleBlockState.from("minecraft:spruce_fence") { it } else SimpleBlockState.from("minecraft:dark_oak_fence") { it }
         },
-        Material.ORANGE_WOOL to { _, height, _, _ ->
-            if (height > 4) Material.MUD_BRICKS else Material.PACKED_MUD
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, height, _, _ ->
+            if (height > 4) SimpleBlockState.from("minecraft:mud_bricks") { it } else SimpleBlockState.from("minecraft:packed_mud") { it }
         },
-        Material.PURPLE_WOOL to { _, _, _, random ->
-            if (random.nextFloat() < 0.3f) Material.SMOKER
-            else Material.BARREL
+        SimpleBlockState.from("minecraft:purple_wool") { it } to { _, _, _, random ->
+            if (random.nextFloat() < 0.3f) SimpleBlockState.from("minecraft:smoker") { it }
+            else SimpleBlockState.from("minecraft:barrel") { it }
         },
-        Material.LIME_WOOL to { _, _, _, _ -> Material.AIR },
-        Material.PINK_WOOL to { _, height, _, random ->
-            if (height > 4) Material.CHISELED_DEEPSLATE
-            else if (random.nextFloat() < 0.5f) Material.SMOOTH_STONE
-            else Material.POLISHED_ANDESITE
+        SimpleBlockState.from("minecraft:lime_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:air") { it } },
+        SimpleBlockState.from("minecraft:pink_wool") { it } to { _, height, _, random ->
+            if (height > 4) SimpleBlockState.from("minecraft:chiseled_deepslate") { it }
+            else if (random.nextFloat() < 0.5f) SimpleBlockState.from("minecraft:smooth_stone") { it }
+            else SimpleBlockState.from("minecraft:polished_andesite") { it }
         }
     )
-    val modernUrbanReplacementPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.QUARTZ_BLOCK },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.STONE },
-        Material.RED_WOOL to { _, _, _, _ -> Material.RED_CONCRETE },
-        Material.BLUE_WOOL to { _, _, _, _ -> Material.LIGHT_BLUE_CONCRETE },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.YELLOW_CONCRETE },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.BLACK_CONCRETE },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.GLASS },
-        Material.LIME_WOOL to { _, _, _, _ -> Material.SEA_LANTERN },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.GRASS_BLOCK },
-        Material.PINK_WOOL to { _, _, _, _ -> Material.MAGENTA_CONCRETE }
+    val modernUrbanReplacementPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:quartz_block") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:stone") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:red_concrete") { it } },
+        SimpleBlockState.from("minecraft:blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:light_blue_concrete") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:yellow_concrete") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:black_concrete") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:glass") { it } },
+        SimpleBlockState.from("minecraft:lime_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:sea_lantern") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:grass_block") { it } },
+        SimpleBlockState.from("minecraft:pink_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:magenta_concrete") { it } }
     )
-    val japaneseTraditionalPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.SMOOTH_QUARTZ },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.POLISHED_ANDESITE },
-        Material.RED_WOOL to { _, _, _, _ -> Material.CHERRY_PLANKS },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.DEEPSLATE_TILES },
-        Material.BROWN_WOOL to { _, _, _, _ -> Material.DARK_OAK_PLANKS },
-        Material.STRIPPED_OAK_WOOD to { _, _, _, _ -> Material.STRIPPED_DARK_OAK_LOG },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.PAPER },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.LANTERN },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.BAMBOO },
-        Material.ORANGE_WOOL to { _, _, _, _ -> Material.SMOOTH_RED_SANDSTONE }
+    val japaneseTraditionalPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:smooth_quartz") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:polished_andesite") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:cherry_planks") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:deepslate_tiles") { it } },
+        SimpleBlockState.from("minecraft:brown_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:dark_oak_planks") { it } },
+        SimpleBlockState.from("minecraft:stripped_oak_wood") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:stripped_dark_oak_log") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:paper") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:lantern") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:bamboo") { it } },
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:smooth_red_sandstone") { it } }
     )
-    val futuristicPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.END_ROD },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.SEA_LANTERN },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.IRON_BLOCK },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.OBSIDIAN },
-        Material.BLUE_WOOL to { _, _, _, _ -> Material.PRISMARINE_BRICKS },
-        Material.RED_WOOL to { _, _, _, _ -> Material.REDSTONE_BLOCK },
-        Material.PINK_WOOL to { _, _, _, _ -> Material.PURPUR_BLOCK },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.BEACON },
-        Material.LIME_WOOL to { _, _, _, _ -> Material.LIGHT_WEIGHTED_PRESSURE_PLATE },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.SHROOMLIGHT }
+    val futuristicPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:end_rod") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:sea_lantern") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:iron_block") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:obsidian") { it } },
+        SimpleBlockState.from("minecraft:blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:prismarine_bricks") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:redstone_block") { it } },
+        SimpleBlockState.from("minecraft:pink_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:purpur_block") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:beacon") { it } },
+        SimpleBlockState.from("minecraft:lime_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:light_weighted_pressure_plate") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:shroomlight") { it } }
     )
-    val japaneseUrbanPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.WHITE_CONCRETE },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.LIGHT_GRAY_CONCRETE },
-        Material.RED_WOOL to { _, _, _, _ -> Material.RED_TERRACOTTA },
-        Material.BLUE_WOOL to { _, _, _, _ -> Material.BLUE_CONCRETE },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.GLASS_PANE },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.GLOWSTONE },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.OAK_LEAVES },
-        Material.LIME_WOOL to { _, _, _, _ -> Material.GREEN_CONCRETE_POWDER },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.COAL_BLOCK },
-        Material.ORANGE_WOOL to { _, _, _, _ -> Material.ORANGE_TERRACOTTA }
+    val japaneseUrbanPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:white_concrete") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:light_gray_concrete") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:red_terracotta") { it } },
+        SimpleBlockState.from("minecraft:blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:blue_concrete") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:glass_pane") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:glowstone") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:oak_leaves") { it } },
+        SimpleBlockState.from("minecraft:lime_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:green_concrete_powder") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:coal_block") { it } },
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:orange_terracotta") { it } }
     )
-    val industrialPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.POLISHED_ANDESITE },
-        Material.RED_WOOL to { _, _, _, _ -> Material.REDSTONE_BLOCK },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.COAL_BLOCK },
-        Material.ORANGE_WOOL to { _, _, _, _ -> Material.COPPER_BLOCK },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.LIGHTNING_ROD },
-        Material.BLUE_WOOL to { _, _, _, _ -> Material.LODESTONE },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.SLIME_BLOCK },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.IRON_BARS },
-        Material.BROWN_WOOL to { _, _, _, _ -> Material.OXIDIZED_COPPER }, // If using a custom mod
-        Material.PURPLE_WOOL to { _, _, _, _ -> Material.BLAST_FURNACE }
+    val industrialPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:polished_andesite") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:redstone_block") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:coal_block") { it } },
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:copper_block") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:lightning_rod") { it } },
+        SimpleBlockState.from("minecraft:blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:lodestone") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:slime_block") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:iron_bars") { it } },
+        SimpleBlockState.from("minecraft:brown_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:oxidized_copper") { it } }, // If using a custom mod
+        SimpleBlockState.from("minecraft:purple_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:blast_furnace") { it } }
     )
-    val desertCityPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.SANDSTONE },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.SMOOTH_SANDSTONE },
-        Material.ORANGE_WOOL to { _, _, _, _ -> Material.RED_SANDSTONE },
-        Material.RED_WOOL to { _, _, _, _ -> Material.TERRACOTTA },
-        Material.BROWN_WOOL to { _, _, _, _ -> Material.PACKED_MUD },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.CYAN_STAINED_GLASS },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.CHISELED_SANDSTONE },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.DEAD_BUSH },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.CHISELED_RED_SANDSTONE },
-        Material.PINK_WOOL to { _, _, _, _ -> Material.BRICKS }
+    val desertCityPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:sandstone") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:smooth_sandstone") { it } },
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:red_sandstone") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:terracotta") { it } },
+        SimpleBlockState.from("minecraft:brown_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:packed_mud") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:cyan_stained_glass") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:chiseled_sandstone") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:dead_bush") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:chiseled_red_sandstone") { it } },
+        SimpleBlockState.from("minecraft:pink_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:bricks") { it } }
     )
-    val villageRusticPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.OAK_PLANKS },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.HAY_BLOCK },
-        Material.RED_WOOL to { _, _, _, _ -> Material.BRICKS },
-        Material.BROWN_WOOL to { _, _, _, _ -> Material.DIRT },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.OAK_LEAVES },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.GLASS },
-        Material.ORANGE_WOOL to { _, _, _, _ -> Material.PUMPKIN },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.GRAVEL },
-        Material.PINK_WOOL to { _, _, _, _ -> Material.CAULDRON },
-        Material.MAGENTA_WOOL to { _, _, _, _ -> Material.COMPOSTER }
+    val villageRusticPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:oak_planks") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:hay_block") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:bricks") { it } },
+        SimpleBlockState.from("minecraft:brown_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:dirt") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:oak_leaves") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:glass") { it } },
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:pumpkin") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:gravel") { it } },
+        SimpleBlockState.from("minecraft:pink_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:cauldron") { it } },
+        SimpleBlockState.from("minecraft:magenta_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:composter") { it } }
     )
-    val overgrownPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.MOSS_BLOCK },
-        Material.LIME_WOOL to { _, _, _, _ -> Material.MOSS_CARPET },
-        Material.BROWN_WOOL to { _, _, _, _ -> Material.MUD },
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.SPORE_BLOSSOM },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.DEEPSLATE },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.VINE },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.FLOWERING_AZALEA_LEAVES },
-        Material.ORANGE_WOOL to { _, _, _, _ -> Material.ROOTED_DIRT },
-        Material.PURPLE_WOOL to { _, _, _, _ -> Material.SHROOMLIGHT },
-        Material.PINK_WOOL to { _, _, _, _ -> Material.LARGE_FERN }
+    val overgrownPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:moss_block") { it } },
+        SimpleBlockState.from("minecraft:lime_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:moss_carpet") { it } },
+        SimpleBlockState.from("minecraft:brown_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:mud") { it } },
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:spore_blossom") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:deepslate") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:vine") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:flowering_azalea_leaves") { it } },
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:rooted_dirt") { it } },
+        SimpleBlockState.from("minecraft:purple_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:shroomlight") { it } },
+        SimpleBlockState.from("minecraft:pink_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:large_fern") { it } }
     )
-    val nordicPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.SNOW_BLOCK },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.ICE },
-        Material.BLUE_WOOL to { _, _, _, _ -> Material.PACKED_ICE },
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.STONE_BRICKS },
-        Material.RED_WOOL to { _, _, _, _ -> Material.SPRUCE_PLANKS },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.SPRUCE_LEAVES },
-        Material.BROWN_WOOL to { _, _, _, _ -> Material.STRIPPED_SPRUCE_LOG },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.LANTERN },
-        Material.PURPLE_WOOL to { _, _, _, _ -> Material.SOUL_LANTERN },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.BLACKSTONE }
+    val nordicPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:snow_block") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:ice") { it } },
+        SimpleBlockState.from("minecraft:blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:packed_ice") { it } },
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:stone_bricks") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:spruce_planks") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:spruce_leaves") { it } },
+        SimpleBlockState.from("minecraft:brown_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:stripped_spruce_log") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:lantern") { it } },
+        SimpleBlockState.from("minecraft:purple_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:soul_lantern") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:blackstone") { it } }
     )
-    val steampunkPalette: Map<Material, PaletteFunction> = mapOf(
-        Material.BROWN_WOOL to { _, _, _, _ -> Material.COPPER_BLOCK },
-        Material.ORANGE_WOOL to { _, _, _, _ -> Material.EXPOSED_COPPER },
-        Material.YELLOW_WOOL to { _, _, _, _ -> Material.WAXED_COPPER_BLOCK }, // If using modded material
-        Material.GRAY_WOOL to { _, _, _, _ -> Material.STONE_BRICKS },
-        Material.RED_WOOL to { _, _, _, _ -> Material.RED_NETHER_BRICKS },
-        Material.LIGHT_BLUE_WOOL to { _, _, _, _ -> Material.IRON_BARS },
-        Material.PURPLE_WOOL to { _, _, _, _ -> Material.PISTON },
-        Material.GREEN_WOOL to { _, _, _, _ -> Material.MOSSY_COBBLESTONE },
-        Material.BLACK_WOOL to { _, _, _, _ -> Material.COAL_BLOCK },
-        Material.WHITE_WOOL to { _, _, _, _ -> Material.CHISELED_QUARTZ_BLOCK }
+    val steampunkPalette: Map<PlatformBlockState<*>, PaletteFunction> = mapOf(
+        SimpleBlockState.from("minecraft:brown_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:copper_block") { it } },
+        SimpleBlockState.from("minecraft:orange_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:exposed_copper") { it } },
+        SimpleBlockState.from("minecraft:yellow_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:waxed_copper_block") { it } }, // If using modded material
+        SimpleBlockState.from("minecraft:gray_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:stone_bricks") { it } },
+        SimpleBlockState.from("minecraft:red_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:red_nether_bricks") { it } },
+        SimpleBlockState.from("minecraft:light_blue_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:iron_bars") { it } },
+        SimpleBlockState.from("minecraft:purple_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:piston") { it } },
+        SimpleBlockState.from("minecraft:green_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:mossy_cobblestone") { it } },
+        SimpleBlockState.from("minecraft:black_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:coal_block") { it } },
+        SimpleBlockState.from("minecraft:white_wool") { it } to { _, _, _, _ -> SimpleBlockState.from("minecraft:chiseled_quartz_block") { it } }
     )
 
 }

@@ -1,0 +1,9 @@
+package org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Variant;
+
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Rarity;
+
+public interface BiomeVariant {
+    String getVariantName();
+
+    Rarity getSelfRarity();
+}

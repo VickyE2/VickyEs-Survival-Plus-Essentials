@@ -1,14 +1,8 @@
 package org.vicky.vspe.structure_gen
 
-import com.sk89q.worldedit.WorldEdit
-import com.sk89q.worldedit.world.World
-import org.bukkit.Bukkit
-import org.bukkit.Rotation
-import org.bukkit.block.Block
-import org.bukkit.block.structure.Mirror
-import org.bukkit.block.structure.StructureRotation
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
-import org.vicky.nms.NMS
+import org.vicky.platform.utils.Rotation
+import org.vicky.platform.world.PlatformBlock
 import java.io.File
 
 @ConfigSerializable
@@ -24,9 +18,10 @@ data class RoadFile(
     @Transient var namespace: String = ""
 ){
     fun placeRoadPiece(
-        location: Block,
-        rotation: StructureRotation = StructureRotation.NONE
+        location: PlatformBlock<*>,
+        rotation: Rotation = Rotation.NONE
     ) {
+        /*
         NMS.handler
             .placeStructure(
                 location = location.location,
@@ -35,6 +30,7 @@ data class RoadFile(
                 rotation = rotation,
                 replacementPalette = emptyMap()
             )
+         */
     }
 }
 
@@ -92,10 +88,11 @@ data class StructurePiece(
     @Transient var namespace: String = ""
 ) {
     fun placeStructurePiece(
-        location: Block,
-        rotation: StructureRotation = StructureRotation.NONE,
+        location: PlatformBlock<*>,
+        rotation: Rotation = Rotation.NONE,
         replacementPalette: StructurePalette = emptyMap()
     ) {
+        /*
         NMS.handler
             .placeStructure(
                 location = location.location,
@@ -105,6 +102,7 @@ data class StructurePiece(
                 rotation = rotation,
                 replacementPalette = replacementPalette
             )
+         */
     }
 }
 

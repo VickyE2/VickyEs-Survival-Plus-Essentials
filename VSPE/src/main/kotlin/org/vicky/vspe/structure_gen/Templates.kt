@@ -1,7 +1,6 @@
 package org.vicky.vspe.structure_gen
 
 import kotlinx.serialization.json.*
-import java.io.File
 
 fun generatePoolTemplate(
     namespace: String,

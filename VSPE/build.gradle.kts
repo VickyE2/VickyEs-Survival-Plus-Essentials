@@ -1,6 +1,6 @@
 plugins {
     id("org.jetbrains.kotlin.jvm")
-    id("io.papermc.paperweight.userdev") apply true
+    // id("io.papermc.paperweight.userdev") apply true
 }
 
 repositories {
@@ -33,38 +33,23 @@ dependencies {
     api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     api("org.reflections:reflections:0.10.2")
     api("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
+    implementation("net.sandrohc:schematic4j:1.1.0")
+    implementation(files("libs/jNBT-1.6.0.jar"))
+    implementation("com.google.guava:guava:33.1.0-jre")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.10")
 
-    compileOnly("io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT")
     compileOnly("org.hibernate.orm:hibernate-core:6.4.1.Final")
-    compileOnly("io.github.vickye2:vicky-utils-bukkit:1.20.4-0.0.1-BETA")
-    compileOnly("org.betonquest:betonquest:2.2.1")
-    compileOnly("me.clip:placeholderapi:2.10.10")
-    compileOnly("io.lumine:Mythic-Dist:5.6.1")
-    compileOnly("com.comphenix.protocol:ProtocolLib:5.1.0")
-    compileOnly("com.github.LoneDev6:api-itemsadder:3.6.1")
-    compileOnly("dev.lone:LoneLibs:1.0.58")
-    compileOnly("com.onarandombox.multiversecore:Multiverse-Core:4.3.1")
-    compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.12")
-    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.2.9")
-    compileOnly("com.onarandombox.multiverseinventories:Multiverse-Inventories:4.2.3")
-    compileOnly("com.onarandombox.multiverseportals:Multiverse-Portals:4.2.0")
-    compileOnly("com.dfsek.terra:api:6.5.0-BETA+060cbfd0c")
-    compileOnly("com.dfsek.terra:bukkit:6.5.0-BETA+060cbfd0c")
-    compileOnly("com.dfsek.terra:manifest-addon-loader:1.0.0-BETA+fd6decc70")
-    compileOnly("com.github.ZockerAxel:CrazyAdvancementsAPI:v2.1.17a")
-    compileOnly("dev.jorel:commandapi-bukkit-core:9.7.0")
+    implementation("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
+    // compileOnly("com.dfsek.terra:api:6.5.0-BETA+060cbfd0c")
+    // compileOnly("com.dfsek.terra:manifest-addon-loader:1.0.0-BETA+fd6decc70")
 
-    implementation(project(":V-NMS"))
     api(project(":structure_loader"))
-
-    paperweight.paperDevBundle("1.20.4-R0.1-SNAPSHOT")
 }
 
-group = "org.vicky.vicky.vickyes-survival-plus-essentials"
+group = "org.vicky.vicky.vickyes-survival-plus-essentials-core"
 version = "0.0.1-ARI"
 description = "VSPE"
 

@@ -1,13 +1,13 @@
 package org.vicky.vspe.structure_gen
 
-import net.minecraft.world.level.block.Block
-import net.minecraft.world.level.block.Rotation
-import org.bukkit.Location
-import org.bukkit.Material
-import org.bukkit.World
-import org.bukkit.block.structure.StructureRotation
-import org.vicky.nms.PaletteFunction
+import org.vicky.platform.utils.Rotation
+import org.vicky.platform.utils.Vec3
+import org.vicky.platform.world.PlatformBlockState
+import org.vicky.platform.world.PlatformLocation
+import org.vicky.platform.world.PlatformWorld
 import org.vicky.utilities.ContextLogger.ContextLogger
+import org.vicky.vspe.PaletteFunction
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState
 import org.vicky.vspe.weightedRandomOrNull
 import kotlin.math.*
 import kotlin.properties.Delegates
@@ -122,25 +122,10 @@ enum class RoadType {
     CROSS_DIAG
 }
 
-
-data class Vec3(var x: Int, var z: Int, var y: Int) {
-    fun addY(i: Int): Vec3 {
-        this.y += i
-        return this
-    }
-
-    fun add(x: Int, i: Int, z: Int): Vec3 {
-        this.x += x
-        this.y += y
-        this.z += z
-        return this
-    }
-}
-
 data class Vec2(val x: Int, val z: Int)
 typealias PositionalData = Triple<BuildingType, Rotation, Map<String, Any>>
 typealias CityLayoutMap = Map<Vec3, PositionalData>
-typealias StructurePalette = Map<Material, PaletteFunction>
+typealias StructurePalette = Map<PlatformBlockState<*>, PaletteFunction>
 
 
 abstract class CityLayoutBuilder(
@@ -187,7 +172,7 @@ abstract class CityLayoutBuilder(
         // Additional logic like parks, decorations etc.
     }
 
-    protected open fun getCenterPosition(): Vec3 = Vec3(0, 0, 0)
+    protected open fun getCenterPosition(): Vec3 = Vec3(0.0, 0.0, 0.0)
 
     protected open fun generateCityLayoutMap(
         cityRadius: Int,
@@ -201,7 +186,7 @@ abstract class CityLayoutBuilder(
         val centerZ = getCenterPosition().z
         val shape = config.cityShape
 
-        val rawRoadMap = roadLayoutEngine.generateRoadAndBuildingMap(config, buildingSizes, specialBuildings, decorators, getMapHeightRange(), config.arrangement, centerX, centerZ, cityRadius, roadThickness, roadLength, shape)
+        val rawRoadMap = roadLayoutEngine.generateRoadAndBuildingMap(config, buildingSizes, specialBuildings, decorators, getMapHeightRange(), config.arrangement, centerX.toInt(), centerZ.toInt(), cityRadius, roadThickness, roadLength, shape)
         val layoutMap = mutableMapOf<Vec3, Triple<BuildingType, Rotation, Map<String, Any>>>()
 
         val roadPlacements = rawRoadMap.first
@@ -215,9 +200,9 @@ abstract class CityLayoutBuilder(
         decoratorPlacements.putAll(decoratorPlacement.toTypeMap { Vec2(it.x, it.z) })
 
         for ((x, z) in getMapHeightRange().keys) {
-            val pos = Vec3(x, getCenterPosition().y, z)
+            val pos = Vec3(x.toDouble(), getCenterPosition().y, z.toDouble())
 
-            if (!shape.isInside(x, z, centerX, centerZ, cityRadius)) {
+            if (!shape.isInside(x, z, centerX.toInt(), centerZ.toInt(), cityRadius)) {
                 layoutMap[pos] = Triple(BuildingType.EMPTY, Rotation.NONE, mapOf())
                 continue
             }
@@ -278,9 +263,9 @@ fun Vec3.offset(dx: Int, dy: Int, dz: Int): Vec3 {
 
 class KraterBukkitCityGenerator @JvmOverloads constructor(
     config: CityConfig,
-    val world: World,
+    val world: PlatformWorld<*, *>,
     private val structurePack: StructurePack,
-    private val location: Location,
+    private val location: PlatformLocation,
     roadLayoutEngine: RoadLayoutEngine,
     private val useAlphaRoad: Boolean = false,
     private val useBetaReplacementLogic: Boolean = false,
@@ -325,7 +310,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
     }
 
     override fun getCenterPosition(): Vec3 {
-        return Vec3(location.x.toInt(), location.y.toInt(), location.z.toInt())
+        return Vec3(location.x, location.y, location.z)
     }
 
     override fun getMapHeightRange(): Map<Pair<Int, Int>, Int> {
@@ -347,8 +332,8 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 ?: throw IllegalArgumentException("Decorator piece not found: ${dp.type}")
 
             piece.resolve(structurePack.pieces).placeStructurePiece(
-                location = world.getBlockAt(pos.x, mapHeightRange.values.min() + piece.offset[1], pos.z),
-                rotation = dp.rotation.toStructureRot() // or tileData.second.toStructureRot() if you want
+                location = world.getBlockAt(pos.x.toDouble(), mapHeightRange.values.min() + piece.offset[1].toDouble(), pos.z.toDouble()),
+                rotation = dp.rotation
             )
         }
     }
@@ -365,7 +350,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 ?: throw IllegalArgumentException("Townhall building specified does not exist")
 
             townhallPiece.placeStructurePiece(
-                location = world.getBlockAt(pos.x, mapHeightRange.values.min(), pos.z)
+                location = world.getBlockAt(pos.x, mapHeightRange.values.min().toDouble(), pos.z)
             )
         }
     }
@@ -377,8 +362,8 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 ?: throw IllegalArgumentException("Road file specified does not exist : ${tileData.third["roadType"]}")
 
             roadFile.placeRoadPiece(
-                location = world.getBlockAt(pos.x, mapHeightRange.values.min(), pos.z),
-                tileData.second.toStructureRot()
+                location = world.getBlockAt(pos.x, mapHeightRange.values.min().toDouble(), pos.z),
+                tileData.second
             )
         }
         else {
@@ -405,7 +390,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
             val accPos = pos.offset(0, -piece.size[1], 0)
             piece.placeStructurePiece(
                 world.getBlockAt(accPos.x, accPos.y, accPos.z),
-                tileData.second.toStructureRot()
+                tileData.second
             )
         }
         else {
@@ -415,7 +400,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 val accPos = pos.offset(0, currentY - piece.size[1], 0)
                 piece.placeStructurePiece(
                     world.getBlockAt(accPos.x, accPos.y, accPos.z),
-                    tileData.second.toStructureRot(),
+                    tileData.second,
                     if (useBetaReplacementLogic) palette else emptyMap()
                 )
             }
@@ -428,7 +413,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 currentY += yOffset
                 piece.placeStructurePiece(
                     world.getBlockAt(accPos.x, accPos.y, accPos.z),
-                    tileData.second.toStructureRot(),
+                    tileData.second,
                     if (useBetaReplacementLogic) palette else emptyMap()
                 )
             }
@@ -439,7 +424,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 currentY += yOffset
                 piece.placeStructurePiece(
                     world.getBlockAt(accPos.x, accPos.y, accPos.z),
-                    tileData.second.toStructureRot(),
+                    tileData.second,
                     if (useBetaReplacementLogic) palette else emptyMap()
                 )
             }
@@ -452,7 +437,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                         currentY += yOffset
                         piece.placeStructurePiece(
                             world.getBlockAt(accPos.x, accPos.y, accPos.z),
-                            tileData.second.toStructureRot(),
+                            tileData.second,
                             if (useBetaReplacementLogic) palette else emptyMap()
                         )
                     }
@@ -464,7 +449,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                     currentY += yOffset
                     piece.placeStructurePiece(
                         world.getBlockAt(accPos.x, accPos.y, accPos.z),
-                        tileData.second.toStructureRot(),
+                        tileData.second,
                         if (useBetaReplacementLogic) palette else emptyMap()
                     )
                 }
@@ -476,7 +461,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 currentY += yOffset
                 piece.placeStructurePiece(
                     world.getBlockAt(accPos.x, accPos.y, accPos.z),
-                    tileData.second.toStructureRot(),
+                    tileData.second,
                     if (useBetaReplacementLogic) palette else emptyMap()
                 )
             }
@@ -501,50 +486,48 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
         }
     }
 
-    fun World.flattenCityArea(
+    fun <T> PlatformWorld<T, *>.flattenCityArea(
         center: Vec3,
         radius: Int,
         baseY: Int,
         shape: Shape,
         fillDepth: Int = 5, // how deep to fill below with stone/dirt
-        surface: Material = Material.GRASS_BLOCK,
-        underFill: Material = Material.STONE
+        surface: PlatformBlockState<T> = this.TOP_LAYER_BLOCK(),
+        underFill: PlatformBlockState<T> = this.STONE_LAYER_BLOCK()
     ) {
         val centerX = center.x
         val centerZ = center.z
 
-        for (x in (centerX - radius)..(centerX + radius)) {
-            for (z in (centerZ - radius)..(centerZ + radius)) {
-                if (!shape.isInside(x, z, centerX, centerZ, radius)) continue
+        for (x in (centerX - radius).toInt()..(centerX + radius).toInt()) {
+            for (z in (centerZ - radius).toInt()..(centerZ + radius).toInt()) {
+                if (!shape.isInside(x, z, centerX.toInt(), centerZ.toInt(), radius)) continue
 
-                val highest = this.getHighestBlockYAt(x, z)
+                val highest = this.getHighestBlockYAt(x.toDouble(), z.toDouble())
 
                 // Clear blocks above target level
                 for (y in baseY..highest) {
-                    val block = this.getBlockAt(x, y, z)
-                    if (block.type != Material.AIR) {
-                        block.type = Material.AIR
+                    val block = this.getBlockAt(x.toDouble(), y.toDouble(), z.toDouble())
+                    if (block.blockState != this.AIR()) {
+                        block.blockState = this.AIR()
                     }
                 }
 
                 // Fill under target level to solid ground
                 for (y in (baseY - fillDepth) until baseY - 1) {
-                    this.getBlockAt(x, y, z).type = underFill
+                    this.getBlockAt(x.toDouble(), y.toDouble(), z.toDouble()).blockState = underFill
                 }
 
                 // Place surface block
-                this.getBlockAt(x, baseY - 1, z).type = surface
+                this.getBlockAt(x.toDouble(), (baseY - 1).toDouble(), z.toDouble()).blockState = surface
             }
         }
     }
 
-    private fun World.extractHeightMapFast(xRange: IntRange, zRange: IntRange): Map<Pair<Int, Int>, Int> {
+    private fun PlatformWorld<*, *>.extractHeightMapFast(xRange: IntRange, zRange: IntRange): Map<Pair<Int, Int>, Int> {
         val heightMap = mutableMapOf<Pair<Int, Int>, Int>()
         for (x in xRange) {
             for (z in zRange) {
-                val chunk = this.getChunkAt(x shr 4, z shr 4)
-                if (!chunk.isLoaded) chunk.load()
-
+                this.loadChunkIfNeeded(x shr 4, z shr 4)
                 val y = this.getTrueGroundY(x, z)
                 if (y >= 0) {
                     heightMap[x to z] = y
@@ -553,50 +536,49 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
         }
         return heightMap
     }
-    private fun World.clearAboveHeights(
+    private fun <T> PlatformWorld<T, *>.clearAboveHeights(
         heightMap: Map<Pair<Int, Int>, Int>,
         shape: Shape,
-        center: Location,
+        center: PlatformLocation,
         size: Int,
-        maxY: Int = this.maxHeight
+        maxY: Int = this.maxWorldHeight
     ) {
-        val centerX = center.blockX
-        val centerZ = center.blockZ
+        val centerX = center.x
+        val centerZ = center.z
 
         for ((pos, groundY) in heightMap) {
             val (x, z) = pos
-            if (!shape.isInside(x, z, centerX, centerZ, size)) continue
+            if (!shape.isInside(x, z, centerX.toInt(), centerZ.toInt(), size)) continue
 
             for (y in (groundY + 1)..maxY) {
-                val block = this.getBlockAt(x, y, z)
-                if (block.type != Material.AIR) {
-                    block.type = Material.AIR
+                val block = this.getBlockAt(x.toDouble(), y.toDouble(), z.toDouble())
+                if (block.blockState != this.AIR()) {
+                    block.blockState = this.AIR()
                 }
             }
         }
     }
-    private fun World.getTrueGroundY(x: Int, z: Int): Int {
+    private fun PlatformWorld<*, *>.getTrueGroundY(x: Int, z: Int): Int {
         val groundBlocks = setOf(
-            Material.GRASS_BLOCK,
-            Material.DIRT,
-            Material.COARSE_DIRT,
-            Material.STONE,
-            Material.ANDESITE,
-            Material.GRAVEL,
-            Material.SAND,
-            Material.SANDSTONE,
-            Material.PODZOL,
-            Material.MYCELIUM,
-            Material.SNOW_BLOCK,
-            Material.CLAY,
-            Material.TERRACOTTA
+            SimpleBlockState.from("minecraft:grass_block") { it },
+            SimpleBlockState.from("minecraft:dirt") { it },
+            SimpleBlockState.from("minecraft:coarse_dirt") { it },
+            SimpleBlockState.from("minecraft:stone") { it },
+            SimpleBlockState.from("minecraft:andesite") { it },
+            SimpleBlockState.from("minecraft:gravel") { it },
+            SimpleBlockState.from("minecraft:sand") { it },
+            SimpleBlockState.from("minecraft:sandstone") { it },
+            SimpleBlockState.from("minecraft:podzol") { it },
+            SimpleBlockState.from("minecraft:mycelium") { it },
+            SimpleBlockState.from("minecraft:snow_block") { it },
+            SimpleBlockState.from("minecraft:clay") { it },
+            SimpleBlockState.from("minecraft:terracotta") { it }
         )
-        val chunk = this.getChunkAt(x shr 4, z shr 4)
-        if (!chunk.isLoaded) return -1
+        if (!this.isChunkLoaded(x shr 4, z shr 4)) return -1
 
-        for (y in this.maxHeight - 1 downTo 0) {
-            val type = this.getBlockAt(x, y, z).type
-            if (type in groundBlocks) {
+        for (y in this.maxWorldHeight - 1 downTo 0) {
+            val type = this.getBlockAt(x.toDouble(), y.toDouble(), z.toDouble()).blockState
+            if (type != this.AIR()) {
                 return y
             }
         }
@@ -618,15 +600,6 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
 
         // Fallback: pick any of that type randomly
         return buildings.filter { it.type == type }.randomOrNull()
-    }
-}
-
-private fun Rotation.toStructureRot(): StructureRotation {
-    return when (this) {
-        Rotation.NONE -> StructureRotation.NONE
-        Rotation.CLOCKWISE_90 -> StructureRotation.CLOCKWISE_90
-        Rotation.CLOCKWISE_180 -> StructureRotation.CLOCKWISE_180
-        Rotation.COUNTERCLOCKWISE_90 -> StructureRotation.COUNTERCLOCKWISE_90
     }
 }
 
