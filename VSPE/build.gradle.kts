@@ -52,7 +52,7 @@ dependencies {
     api(project(":structure_loader"))
 }
 
-group = "org.vicky.vicky.vickyes-survival-plus-essentials-core"
+group = "org.vicky.vspe-core"
 version = "0.0.1-ARI"
 description = "VSPE"
 
