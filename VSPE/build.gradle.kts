@@ -24,7 +24,9 @@ repositories {
     maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
         credentials {
             username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME")).toString()
-            password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN")).toString()
+            val passwordValue = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+            ?: throw GradleException("Publishing password not set in 'gpr.key' property or 'TOKEN' environment variable")
+            password = passwordValue.toString()
         }
     }
     maven("https://nexus.betonquest.org/repository/betonquest/")
