@@ -23,8 +23,8 @@ repositories {
     maven("https://repo.codemc.io/repository/maven-snapshots/")
     maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
         credentials {
-            username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME_GITHUB")).toString()
-            password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN_GITHUB")).toString()
+            username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME")).toString()
+            password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN")).toString()
         }
     }
     maven("https://nexus.betonquest.org/repository/betonquest/")
