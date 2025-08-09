@@ -38,11 +38,9 @@ dependencies {
     api("org.reflections:reflections:0.10.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
-    // compileOnly("io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT")
     implementation("org.yaml:snakeyaml:2.4")
     compileOnly("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
     api("com.dfsek.terra:api:6.5.0-BETA+060cbfd0c")
-    compileOnly("com.dfsek.terra:bukkit:6.5.0-BETA+060cbfd0c")
     compileOnly("com.dfsek.terra:manifest-addon-loader:1.0.0-BETA+fd6decc70")
 }
 

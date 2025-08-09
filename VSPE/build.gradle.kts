@@ -40,6 +40,8 @@ dependencies {
     api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     api("org.reflections:reflections:0.10.2")
     api("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
+    api("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
+    api(project(":structure_loader"))
     implementation("net.sandrohc:schematic4j:1.1.0")
     implementation(files("libs/jNBT-1.6.0.jar"))
     implementation("com.google.guava:guava:33.1.0-jre")
@@ -49,14 +51,9 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.10")
 
     compileOnly("org.hibernate.orm:hibernate-core:6.4.1.Final")
-    implementation("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
-    // compileOnly("com.dfsek.terra:api:6.5.0-BETA+060cbfd0c")
-    // compileOnly("com.dfsek.terra:manifest-addon-loader:1.0.0-BETA+fd6decc70")
-
-    api(project(":structure_loader"))
 }
 
-group = "org.vicky.vspe-core"
+group = "org.vicky.vspe"
 version = "0.0.1-ARI"
 description = "VSPE"
 
