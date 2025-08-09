@@ -156,9 +156,9 @@ publishing {
 
 signing {
     useInMemoryPgpKeys(
-        System.getProperty("SIGNING_KEY_ID") as String,
-        System.getProperty("SIGNING_KEY"),
-        System.getProperty("SIGNING_PASSWORD") as String
+        System.getenv("SIGNING_KEY_ID") as String,
+        System.getenv("SIGNING_KEY"),
+        System.getenv("SIGNING_PASSWORD") as String
     )
     sign(the<PublishingExtension>().publications["maven"])
 }
