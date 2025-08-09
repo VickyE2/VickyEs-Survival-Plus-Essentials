@@ -155,12 +155,10 @@ publishing {
 }
 
 signing {
-    val signingKey = Paths.get((findProperty("signing.secretKeyRingFile") as String)).toFile().readText()
-    // println(signingKey)
     useInMemoryPgpKeys(
-        findProperty("signing.keyId") as String,
-        signingKey,
-        findProperty("signing.password") as String
+        System.getProperty("SIGNING_KEY_ID") as String,
+        System.getProperty("SIGNING_KEY"),
+        System.getProperty("SIGNING_PASSWORD") as String
     )
     sign(the<PublishingExtension>().publications["maven"])
 }
