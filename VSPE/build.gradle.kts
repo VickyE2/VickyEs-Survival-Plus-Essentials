@@ -1,6 +1,9 @@
+import java.nio.file.Paths
+
 plugins {
     id("org.jetbrains.kotlin.jvm")
-    // id("io.papermc.paperweight.userdev") apply true
+    `maven-publish` apply true
+    signing apply true
 }
 
 repositories {
@@ -59,4 +62,101 @@ tasks.withType<JavaCompile> {
 
 tasks.withType<Javadoc> {
     options.encoding = "UTF-8"
+}
+
+tasks.register<Jar>("sourcesJar") {
+    archiveClassifier.set("sources")
+    from(sourceSets.main.get().allSource)
+}
+
+tasks.register<Jar>("javadocJar") {
+    archiveClassifier.set("javadoc")
+    from(tasks.javadoc)
+}
+
+tasks.named<Jar>("jar") {
+    enabled = false
+}
+
+publishing {
+    publications {
+        withType<MavenPublication>().configureEach {
+            artifactId = "vspe-core"
+        }
+        create<MavenPublication>("maven") {
+            if (tasks.findByName("shadowJar") != null) {
+                artifact(tasks.named("shadowJar").get()) {
+                    classifier = null
+                }
+            } else {
+                from(components["java"])
+            }
+            artifact(tasks.named("javadocJar"))
+            artifact(tasks.named("sourcesJar"))
+
+            groupId = project.group as String
+
+            artifactId = "vspe-core"
+            version = project.version.toString()
+
+            pom {
+                name.set("Vicky's Survival Plus Essentials")
+                description.set(
+                    "A must need..."
+                )
+                inceptionYear.set("2024")
+                url.set("https://github.com/VickyE2/VickyEs-Survival-Plus-Essentials")
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("vickye")
+                        name.set("VickyE2")
+                        url.set("https://github.com/VickyE2/")
+                        email.set("f.b.cgamingco@gmail.com")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:git://github.com/VickyE2/VickyEs-Survival-Plus-Essentials.git")
+                    developerConnection.set("scm:git:ssh://github.com/VickyE2/VickyEs-Survival-Plus-Essentials.git")
+                    url.set("https://github.com/VickyE2/VickyEs-Survival-Plus-Essentials")
+                }
+            }
+        }
+    }
+
+    repositories {
+        mavenLocal()
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/VickyE2/VickyEs-Survival-Plus-Essentials")
+            credentials {
+                username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+                password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
+        /*maven {
+            name = "OSSRH"
+            url = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            credentials {
+                username = findProperty("ossrhUsername") as String? ?: System.getenv("ossrhUsername")
+                password = findProperty("ossrhPassword") as String? ?: System.getenv("ossrhPassword")
+            }
+        }*/
+    }
+}
+
+signing {
+    val signingKey = Paths.get((findProperty("signing.secretKeyRingFile") as String)).toFile().readText()
+    // println(signingKey)
+    useInMemoryPgpKeys(
+        findProperty("signing.keyId") as String,
+        signingKey,
+        findProperty("signing.password") as String
+    )
+    sign(the<PublishingExtension>().publications["maven"])
 }
