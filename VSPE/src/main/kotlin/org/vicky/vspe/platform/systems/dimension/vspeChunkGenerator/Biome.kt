@@ -209,9 +209,9 @@ data class BiomeParameters @JvmOverloads constructor(
     val rainfall: Double,
     val category: BiomeCategory,
     val precipitation: PrecipitationType = PrecipitationType.RAIN,
+    val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
     val features: List<BiomeFeature<*, *>> = emptyList(),
     val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
-    val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
     val biomeStructureData: BiomeStructureData = BiomeStructureData.EMPTY
 )
 
