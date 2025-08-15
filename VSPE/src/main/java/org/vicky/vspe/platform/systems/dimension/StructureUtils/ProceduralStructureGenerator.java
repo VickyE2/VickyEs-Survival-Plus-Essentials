@@ -19,7 +19,7 @@ import java.util.function.BiConsumer;
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 
-public abstract class ProceduralStructureGenerator<N> {
+public abstract class ProceduralStructureGenerator<T, N> {
     protected static final int DEFAULT_BATCH = 100_000;
     protected static final int BIT_SIZE = 21;
     protected static final int BIAS     = 1 << (BIT_SIZE - 1);
@@ -28,26 +28,26 @@ public abstract class ProceduralStructureGenerator<N> {
     protected final long[] posKeys = new long[DEFAULT_BATCH * 3];
 
     @SuppressWarnings("unchecked")
-    protected final PlatformBlockState<String>[] states = (PlatformBlockState<String>[]) new PlatformBlockState[DEFAULT_BATCH * 3];
+    protected final PlatformBlockState<T>[] states = (PlatformBlockState<T>[]) new PlatformBlockState[DEFAULT_BATCH * 3];
 
     @SuppressWarnings("unchecked")
-    protected final BiConsumer<PlatformWorld<String, N>, Vec3>[] actions = (BiConsumer<PlatformWorld<String, N>, Vec3>[]) new BiConsumer[DEFAULT_BATCH * 3];
+    protected final BiConsumer<PlatformWorld<T, N>, Vec3>[] actions = (BiConsumer<PlatformWorld<T, N>, Vec3>[]) new BiConsumer[DEFAULT_BATCH * 3];
 
     protected final TLongHashSet cache = new TLongHashSet(DEFAULT_BATCH * 3);
     protected final AtomicInteger ptr = new AtomicInteger();
     protected Runnable flush;
     protected RandomSource rnd;
-    protected final PlatformWorld<String, N> world;
+    protected final PlatformWorld<T, N> world;
 
-    public ProceduralStructureGenerator(PlatformWorld<String, N> world) {
+    public ProceduralStructureGenerator(PlatformWorld<T, N> world) {
         this.world = world;
     }
 
     public abstract BlockVec3i getApproximateSize();
 
-    public abstract static class BaseBuilder<N, G extends ProceduralStructureGenerator<N>> {
+    public abstract static class BaseBuilder<T, N, G extends ProceduralStructureGenerator<T, N>> {
         public abstract void validate();
-        public abstract G build(PlatformWorld<String, N> world);
+        public abstract G build(PlatformWorld<T, N> world);
     }
 
     protected static long encode(int x,int y,int z){
@@ -62,13 +62,13 @@ public abstract class ProceduralStructureGenerator<N> {
     public abstract void generate(RandomSource rnd, Vec3 origin);
 
     // — Helpers —
-    protected boolean guardAndStore(int x, int y, int z, int r, PlatformBlockState<String> st, boolean useSphere) {
+    protected boolean guardAndStore(int x, int y, int z, int r, PlatformBlockState<T> st, boolean useSphere) {
         return guardAndStore(x, y, z, st, useSphere, r);
     }
 
     // Overload so we can call guardAndStore(x,y,z,st,cap,useSphere,0) for normals:
     protected boolean guardAndStore(int x, int y, int z,
-                                  PlatformBlockState<String> st,
+                                  PlatformBlockState<T> st,
                                   boolean useSphere) {
         return guardAndStore(x, y, z, st, useSphere, 1);
     }
@@ -77,7 +77,7 @@ public abstract class ProceduralStructureGenerator<N> {
      * Attempt to queue a block (or sphere) at cx,cy,cz.
      * @return true if a new block was queued (i.e. cache.add was true), false otherwise.
      */
-    protected boolean guardAndStore(int cx, int cy, int cz, PlatformBlockState<String> st, boolean useSphere, int fixedR) {
+    protected boolean guardAndStore(int cx, int cy, int cz, PlatformBlockState<T> st, boolean useSphere, int fixedR) {
         if(ptr.get() >= DEFAULT_BATCH) {
             flush.run();
         }
@@ -127,7 +127,7 @@ public abstract class ProceduralStructureGenerator<N> {
         }
     }
 
-    protected PlatformBlockState<String> getQueuedState(int x, int y, int z) {
+    protected PlatformBlockState<T> getQueuedState(int x, int y, int z) {
         long key = encode(x, y, z);
         // scan backwards for speed: most recent writes come last
         int p = ptr.get();
@@ -144,7 +144,7 @@ public abstract class ProceduralStructureGenerator<N> {
     }
 
     protected void guardAndAction(int x, int y, int z,
-                                BiConsumer<PlatformWorld<String, N>, Vec3> act) {
+                                BiConsumer<PlatformWorld<T, N>, Vec3> act) {
         if (ptr.get() >= DEFAULT_BATCH) flush.run();
         if (ptr.get() >= DEFAULT_BATCH) return;
 

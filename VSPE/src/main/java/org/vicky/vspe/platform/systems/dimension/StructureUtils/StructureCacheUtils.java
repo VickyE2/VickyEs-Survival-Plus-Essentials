@@ -50,7 +50,7 @@ public class StructureCacheUtils {
     }
 
     /**
-     * 2D square (all points with |dx|,|dz| <= r)
+     * 2D square (all points with |dx|,|dz| less_than= r)
      */
     public static short[] getSquareScanlineWidths(int r) {
         return SQUARE_SCANLINES.computeIfAbsent(r, StructureCacheUtils::buildSquareScanlineWidths);

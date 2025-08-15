@@ -56,7 +56,16 @@ typealias PaletteFunction = (
 ) -> PlatformBlockState<*>
 
 enum class BiomeCategory {
-    WARM_OCEAN, COLD_OCEAN, SNOWY_BEACH, LUSH_CAVES, PLAINS, FOREST, DESERT, MOUNTAIN, OCEAN, RIVER, SWAMP, TAIGA, SAVANNA, TUNDRA, NETHER, END, MESA, ICY, JUNGLE, RAINFOREST, WETLAND;
+    COAST, WARM_OCEAN, WARM_DEEP_OCEAN, COLD_OCEAN, COLD_DEEP_OCEAN, SNOWY_BEACH, LUSH_CAVES, PLAINS, FOREST, DESERT, MOUNTAIN, OCEAN, DEEP_OCEAN, RIVER, SWAMP, TAIGA, SAVANNA, TUNDRA, NETHER, END, MESA, ICY, JUNGLE, RAINFOREST, WETLAND;
+}
+
+fun <T> List<T>.contains(transform: (T) -> Boolean) : Boolean {
+    for (e in this) {
+        if (transform(e)) {
+            return true
+        }
+    }
+    return false
 }
 
 enum class PrecipitationType {

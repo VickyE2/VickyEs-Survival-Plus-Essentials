@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public enum DimensionType {
-
     DISTANT_WORLD(new ArrayList<>(), "8A2BE2"),
     CLOSE_WORLD(new ArrayList<>(), "FF4500"),
     HOLLOW_WORLD(new ArrayList<>(), "808080"),

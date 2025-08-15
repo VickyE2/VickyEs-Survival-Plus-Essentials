@@ -42,14 +42,14 @@ dependencies {
     api("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
     api("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
     api(project(":structure_loader"))
-    implementation("net.sandrohc:schematic4j:1.1.0")
-    implementation(files("libs/jNBT-1.6.0.jar"))
-    implementation("com.google.guava:guava:33.1.0-jre")
-
+    api("net.sandrohc:schematic4j:1.1.0")
+    api(files("libs/jNBT-1.6.0.jar"))
+    api("com.google.guava:guava:33.1.0-jre")
+    api("de.articdive:jnoise:3.0.2")
+    api("de.articdive:jnoise-pipeline:4.1.0")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.10")
-
     compileOnly("org.hibernate.orm:hibernate-core:6.4.1.Final")
 }
 
@@ -153,9 +153,9 @@ publishing {
 
 signing {
     useInMemoryPgpKeys(
-        System.getenv("SIGNING_KEY_ID") as String,
-        System.getenv("SIGNING_KEY"),
-        System.getenv("SIGNING_PASSWORD") as String
+        project.findProperty("signing.SIGNING_KEY_ID") as String? ?:System.getenv("SIGNING_KEY_ID") as String,
+        project.findProperty("signing.SIGNING_KEY") as String? ?:System.getenv("SIGNING_KEY"),
+        project.findProperty("signing.SIGNING_PASSWORD") as String? ?:System.getenv("SIGNING_PASSWORD") as String
     )
     sign(the<PublishingExtension>().publications["maven"])
 }

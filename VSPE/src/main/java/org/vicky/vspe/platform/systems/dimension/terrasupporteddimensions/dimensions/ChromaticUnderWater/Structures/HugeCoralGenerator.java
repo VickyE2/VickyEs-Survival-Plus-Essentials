@@ -49,7 +49,7 @@ public class HugeCoralGenerator extends BaseStructure {
     // --- TREE-LIKE CORAL ---
     private static void generateTreeCoral(Random random, TerraPlatformWorld world, Vector3Int origin, int heighto, int span, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan, Platform platform) {
         final var origin2 = origin.mutable().add(0, -10, 0);
-        new ProceduralCrystalShardGenerator.Builder<WritableWorld>()
+        new ProceduralCrystalShardGenerator.Builder<String, WritableWorld>()
             .palette(List.of(
                     SimpleBlockState.Companion.from("minecraft:green_stained_glass", (it) -> it),
                     SimpleBlockState.Companion.from("minecraft:yellow_stained_glass", (it) -> it),

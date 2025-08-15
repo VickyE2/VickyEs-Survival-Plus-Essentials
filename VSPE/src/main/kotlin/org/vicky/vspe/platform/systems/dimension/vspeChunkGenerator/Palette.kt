@@ -4,7 +4,6 @@ import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
 import org.vicky.vspe.distance
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoSuitableBiomeException
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NoiseLayer
 
 open class Palette<T> {
     internal val map: MutableMap<Pair<Double, Double>, T> = mutableMapOf()
@@ -23,10 +22,29 @@ open class Palette<T> {
     }
 }
 
+fun <T> Palette<T>.split(toTake: (T) -> Boolean): Palette<T> {
+    val derivative: PaletteBuilder<T> = PaletteBuilder()
+
+    for (e in this.map.values) {
+        if (toTake(e)) {
+            derivative.add(this.map.getKey(e), e)
+        }
+    }
+
+    return derivative.build()
+}
+
+fun <K, T> MutableMap<K, T>.getKey(t: T): K {
+    for (e in this.keys) {
+        if (t == this[e]) return e
+    }
+    return error("Map dosent contain value $t")
+}
+
 class NoiseBiomeDistributionPalette<B: PlatformBiome>(
-    val temperatureNoiseSampler: NoiseLayer,
-    val humidityNoiseSampler: NoiseLayer,
-    val elevationNoiseSampler: NoiseLayer
+    val temperatureNoiseSampler: NoiseSampler,
+    val humidityNoiseSampler: NoiseSampler,
+    val elevationNoiseSampler: NoiseSampler
 ): Palette<B>() {
 
     override fun get(x: Double, @NotNull z: Double?): B {
@@ -68,9 +86,9 @@ class NoiseBiomeDistributionPalette<B: PlatformBiome>(
 }
 
 class NoiseBiomeDistributionPaletteBuilder<T: PlatformBiome>(
-    val temperatureNoiseSampler: NoiseLayer,
-    val humidityNoiseSampler: NoiseLayer,
-    val elevationNoiseSampler: NoiseLayer
+    val temperatureNoiseSampler: NoiseSampler,
+    val humidityNoiseSampler: NoiseSampler,
+    val elevationNoiseSampler: NoiseSampler
 ) {
     val map: MutableMap<Pair<Double, Double>, T> = mutableMapOf()
 
@@ -95,20 +113,35 @@ class NoiseBiomeDistributionPaletteBuilder<T: PlatformBiome>(
     }
 }
 
-class PaletteBuilder<T> {
+open class PaletteBuilder<T> {
+    companion object {
+        fun <B> EMPTY() : PaletteBuilder<B> = object : PaletteBuilder<B>() {
+            override fun add(key: Pair<Double, Double>, value: B): PaletteBuilder<B> {
+                throw UnsupportedOperationException("Cannot add to EMPTY PaletteBuilder")
+            }
+
+            override fun add(min: Double, max: Double, value: B): PaletteBuilder<B> {
+                throw UnsupportedOperationException("Cannot add to EMPTY PaletteBuilder")
+            }
+
+            override fun build(): Palette<B> {
+                return Palette<B>() // Assuming Palette can be empty
+            }
+        }
+    }
     val map: MutableMap<Pair<Double, Double>, T> = mutableMapOf()
 
-    fun add(key: Pair<Double, Double>, value: T) : PaletteBuilder<T> {
+    open fun add(key: Pair<Double, Double>, value: T) : PaletteBuilder<T> {
         map[key] = value
         return this;
     }
 
-    fun add(min: Double, max: Double, value: T) : PaletteBuilder<T> {
+    open fun add(min: Double, max: Double, value: T) : PaletteBuilder<T> {
         map[min to max] = value
         return this;
     }
 
-    fun build(): Palette<T> {
+    open fun build(): Palette<T> {
         return Palette<T>().apply {
             map.putAll(this@PaletteBuilder.map)
         }

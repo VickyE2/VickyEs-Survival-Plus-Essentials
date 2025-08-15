@@ -162,7 +162,7 @@ class SchematicStructure<BST>(
         BlockVec3i(schematic.length(), schematic.width(), schematic.height())
 }
 
-class ProceduralStructure<T : ProceduralStructureGenerator<*>, BST>(
+class ProceduralStructure<T : ProceduralStructureGenerator<BST, *>, BST>(
     private val generator: T
 ) : PlatformStructure<BST>
 {
@@ -326,7 +326,7 @@ class WeightedStructurePlacer<T>(
         rule@for (rule in getAllStructureRules()) {
             // Check biome if needed
             val biome = context.dimension.biomeResolver.resolveBiome(chunkX * 16, 64, chunkZ * 16, context.dimension.random.getSeed())
-            if (biome.biomeStructureData.structureKeys.contains(rule.resource)) continue
+            if (biome.biomeStructureData.structureKeys.contains { it.structureKey == rule.resource }) continue
 
             // Respect spacing
             if ((chunkX % rule.spacing != 0) || (chunkZ % rule.spacing != 0)) continue

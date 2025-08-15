@@ -16,11 +16,11 @@ import static java.lang.Math.clamp;
 /**
  * Procedural mushroom generator with configurable cap equations, hollow interior, spots and ridges.
  */
-public class ProceduralMushroomGenerator<N> extends 
-        ProceduralStructureGenerator<N> {
+public class ProceduralMushroomGenerator<T, N> extends
+        ProceduralStructureGenerator<T, N> {
     private final int stemRadius, capRadiusMin, capRadiusMax, capHeightMin, capHeightMax, stemHeightMin, stemHeightMax;
     private final boolean hasSpots, hollowCap;
-    private final PlatformBlockState<String> stemMaterial, capMaterial, spotMaterial, ridgeMaterial;
+    private final PlatformBlockState<T> stemMaterial, capMaterial, spotMaterial, ridgeMaterial;
     private final CapEquation capEquation;
     private final float stemTaperMinPct, spotFrequency;
     private final float stemTiltChance;
@@ -29,7 +29,7 @@ public class ProceduralMushroomGenerator<N> extends
     // caching & batching
     private int stemHeight;
 
-    public ProceduralMushroomGenerator(PlatformWorld<String, N> world, Builder<N> b) {
+    public ProceduralMushroomGenerator(PlatformWorld<T, N> world, Builder<T, N> b) {
         super(world);
         b.validate();
         this.stemRadius = b.stemRadius;
@@ -292,7 +292,7 @@ public class ProceduralMushroomGenerator<N> extends
                     }
 
                     // 6️⃣ Spot logic as before…
-                    PlatformBlockState<String> mat = capMaterial;
+                    PlatformBlockState<T> mat = capMaterial;
                     if (hasSpots) {
                         for (SpotShape spot : spotShapes) {
                             int dxRel = dx - spot.dx,
@@ -338,34 +338,34 @@ public class ProceduralMushroomGenerator<N> extends
     }
     record SpotShape(int dx, int dy, int dz, int r, int h) {}
 
-    public static class Builder<N> extends BaseBuilder<N, ProceduralMushroomGenerator<N>> {
+    public static class Builder<T, N> extends BaseBuilder<T, N, ProceduralMushroomGenerator<T, N>> {
         int stemRadius=2, capRadiusMin = 4, capRadiusMax = 10, capHeightMin = 3, capHeightMax = 7, stemHeightMin = 10, stemHeightMax = 16;
         boolean hasSpots=false, hollowCap=false;
-        PlatformBlockState<String> stemMaterial, capMaterial, spotMaterial, ridgeMaterial;
+        PlatformBlockState<T> stemMaterial, capMaterial, spotMaterial, ridgeMaterial;
         CapEquation capEquation;
         private float stemTaperMinPct = 0.2f, spotFrequency = 0.3f;
         private float stemTiltChance  = 0.1f;
         private double stemMaxTiltDeg = 5;
 
         /** how much of the original radius remains at the top of the stem (0…1) */
-        public Builder<N> stemTaperPct(float p) {
+        public Builder<T, N> stemTaperPct(float p) {
             this.stemTaperMinPct = clamp(p, 0, 1);
             return this;
         }
         /** chance each block that the stem will kink by up to ±maxTiltDeg */
-        public Builder<N> stemTilt(float chance, double maxTiltDeg) {
+        public Builder<T, N> stemTilt(float chance, double maxTiltDeg) {
             this.stemTiltChance   = clamp(chance, 0, 1);
             this.stemMaxTiltDeg   = maxTiltDeg;
             return this;
         }
-        public Builder<N> capRadiusRange(int min,int max){capRadiusMin=min;capRadiusMax=max;return this;}
-        public Builder<N> capHeightRange(int min,int max){capHeightMin = min; capHeightMax = max;return this;}
-        public Builder<N> stemHeightRange(int min,int max, int r){stemRadius = r;stemHeightMin = min; stemHeightMax = max;return this;}
-        public Builder<N> materials(PlatformBlockState<String> stem, PlatformBlockState<String> cap){this.stemMaterial=stem;this.capMaterial=cap;return this;}
-        public Builder<N> spots(PlatformBlockState<String> spot, float frequency){this.hasSpots=true;this.spotMaterial=spot;this.spotFrequency=frequency;return this;}
-        public Builder<N> hollowCap(){this.hollowCap=true;return this;}
-        public Builder<N> ridgeMat(PlatformBlockState<String> m){this.ridgeMaterial=m;return this;}
-        public Builder<N> capEq(CapEquation eq){this.capEquation=eq;return this;}
+        public Builder<T, N> capRadiusRange(int min,int max){capRadiusMin=min;capRadiusMax=max;return this;}
+        public Builder<T, N> capHeightRange(int min,int max){capHeightMin = min; capHeightMax = max;return this;}
+        public Builder<T, N> stemHeightRange(int min,int max, int r){stemRadius = r;stemHeightMin = min; stemHeightMax = max;return this;}
+        public Builder<T, N> materials(PlatformBlockState<T> stem, PlatformBlockState<T> cap){this.stemMaterial=stem;this.capMaterial=cap;return this;}
+        public Builder<T, N> spots(PlatformBlockState<T> spot, float frequency){this.hasSpots=true;this.spotMaterial=spot;this.spotFrequency=frequency;return this;}
+        public Builder<T, N> hollowCap(){this.hollowCap=true;return this;}
+        public Builder<T, N> ridgeMat(PlatformBlockState<T> m){this.ridgeMaterial=m;return this;}
+        public Builder<T, N> capEq(CapEquation eq){this.capEquation=eq;return this;}
 
         public void validate() {
             // Stem
@@ -409,7 +409,7 @@ public class ProceduralMushroomGenerator<N> extends
         }
 
         @Override
-        public ProceduralMushroomGenerator<N> build(PlatformWorld<String, N> world) {
+        public ProceduralMushroomGenerator<T, N> build(PlatformWorld<T, N> world) {
             return new ProceduralMushroomGenerator<>(world, this);
         }
     }

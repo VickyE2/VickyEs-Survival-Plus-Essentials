@@ -26,9 +26,8 @@ import org.vicky.vspe.systems.dimension.PortalContext;
 
 import java.util.*;
 
-public interface PlatformBaseDimension extends Identifiable {
+public interface PlatformBaseDimension<T, N> extends Identifiable {
     String getName();
-    String getMainName();
     List<DimensionType> getDimensionTypes();
     PlatformEnvironment getEnvironmentType();
     String getSeed();
@@ -43,18 +42,18 @@ public interface PlatformBaseDimension extends Identifiable {
     List<PlatformItem> dimensionAdvancementGainItems();
     void dimensionAdvancementGainProcedures(PlatformPlayer player);
 
-    PlatformWorld checkWorld() throws WorldNotExistsException, NoGeneratorException;
+    PlatformWorld<T, N> checkWorld() throws WorldNotExistsException, NoGeneratorException;
 
-    PlatformWorld createWorld(String name) throws NoGeneratorException;
+    PlatformWorld<T, N> createWorld(String name) throws NoGeneratorException;
 
     PlatformDimensionWarpEvent createWarpEvent(PlatformPlayer player);
 
-    @Nullable PlatformWorld getWorld();
+    @Nullable PlatformWorld<T, N> getWorld();
 
     boolean isPlayerInDimension(PlatformPlayer player);
 
-    @NotNull DimensionSpawnStrategy getStrategy();
-    @Nullable PortalContext getPortalContext();
+    @NotNull DimensionSpawnStrategy<T, N> getStrategy();
+    @Nullable PortalContext<T, N> createPortalContext(PlatformPlayer player);
 
     /**
      * This should fire an even that can be cancelled and implements {@link PlatformDimensionWarpEvent}
@@ -72,7 +71,7 @@ public interface PlatformBaseDimension extends Identifiable {
         }
 
         if (dimensionExists()) {
-            var loc = getStrategy().resolveSpawn(player, this, getPortalContext());
+            var loc = getStrategy().resolveSpawn(player, this, createPortalContext(player));
             if (loc == null) {
                 player.sendMessage(Component.text("[err: NSS] There was an issue trying to get you to that world").color(TextColor.fromHexString("#440000")).append(Component.text("[err: NSS]").decorate(TextDecoration.ITALIC, TextDecoration.BOLD)));
                 return false;
@@ -107,7 +106,7 @@ public interface PlatformBaseDimension extends Identifiable {
 
     boolean dimensionJoinCondition(PlatformPlayer player);
 
-    @Nullable PlatformLocation locationAt(double d, double d1, double d2);
-    @Nullable Double findGroundYAt(int i, int i1);
+    @Nullable PlatformLocation locationAt(double x, double y, double z);
+    @Nullable Double findGroundYAt(int x, int z);
     boolean isSafeSpawnLocation(@Nullable PlatformLocation location);
 }

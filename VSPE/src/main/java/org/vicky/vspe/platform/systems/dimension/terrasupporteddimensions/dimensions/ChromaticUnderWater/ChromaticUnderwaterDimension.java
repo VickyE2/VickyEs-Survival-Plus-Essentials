@@ -2,6 +2,7 @@ package org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.dimen
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
 import org.vicky.platform.world.PlatformWorld;
 import org.vicky.vspe.platform.PlatformEnvironment;
@@ -14,22 +15,16 @@ import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException
 import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.BaseGenerator;
 import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
-import org.vicky.vspe.platform.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.systems.dimension.DimensionSpawnStrategy;
 import org.vicky.vspe.systems.dimension.PlatformDimensionTickHandler;
 import org.vicky.vspe.systems.dimension.PortalContext;
 
 import java.util.List;
 
-public class ChromaticUnderwaterDimension implements PlatformBaseDimension {
+public class ChromaticUnderwaterDimension<T> implements PlatformBaseDimension<String, T> {
 
     @Override
     public String getName() {
-        return "";
-    }
-
-    @Override
-    public String getMainName() {
         return "";
     }
 
@@ -94,12 +89,12 @@ public class ChromaticUnderwaterDimension implements PlatformBaseDimension {
     }
 
     @Override
-    public PlatformWorld checkWorld() throws WorldNotExistsException, NoGeneratorException {
+    public PlatformWorld<String, T> checkWorld() throws WorldNotExistsException, NoGeneratorException {
         return null;
     }
 
     @Override
-    public PlatformWorld createWorld(String name) throws NoGeneratorException {
+    public PlatformWorld<String, T> createWorld(String name) throws NoGeneratorException {
         return null;
     }
 
@@ -109,7 +104,7 @@ public class ChromaticUnderwaterDimension implements PlatformBaseDimension {
     }
 
     @Override
-    public @Nullable PlatformWorld getWorld() {
+    public @Nullable PlatformWorld<String, T> getWorld() {
         return null;
     }
 
@@ -119,12 +114,12 @@ public class ChromaticUnderwaterDimension implements PlatformBaseDimension {
     }
 
     @Override
-    public @NotNull DimensionSpawnStrategy getStrategy() {
+    public @NotNull DimensionSpawnStrategy<String, T> getStrategy() {
         return null;
     }
 
     @Override
-    public @Nullable PortalContext getPortalContext() {
+    public @Nullable PortalContext<String, T> createPortalContext(PlatformPlayer player) {
         return null;
     }
 

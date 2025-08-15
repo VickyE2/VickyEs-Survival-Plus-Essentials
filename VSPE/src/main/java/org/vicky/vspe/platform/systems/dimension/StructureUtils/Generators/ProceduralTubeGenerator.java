@@ -14,8 +14,8 @@ import java.util.*;
  * Generates a single hollow tube coral structure with an optional one-block-thick spherical reservoir beneath.
  * Supports configurable height range, wall thickness, quadratic flare, rim cap, flare start percentage, and cached scanlines.
  */
-public class ProceduralTubeGenerator<N>
-        extends ProceduralStructureGenerator<N>{
+public class ProceduralTubeGenerator<T, N>
+        extends ProceduralStructureGenerator<T, N>{
     // Configuration fields
     private final int heightMin, heightMax;
     private final int tubeRadius;
@@ -25,9 +25,9 @@ public class ProceduralTubeGenerator<N>
     private final boolean includeSphereReservoir;
     private final int reservoirRadius;
     private final boolean includeRimCap;
-    private final PlatformBlockState<String> coralMaterial, waterMaterial;
+    private final PlatformBlockState<T> coralMaterial, waterMaterial;
 
-    public ProceduralTubeGenerator(PlatformWorld<String, N> platform, Builder<N> b) {
+    public ProceduralTubeGenerator(PlatformWorld<T, N> platform, Builder<T, N> b) {
         super(platform);
         this.heightMin = b.heightMin;
         this.heightMax = b.heightMax;
@@ -140,7 +140,7 @@ public class ProceduralTubeGenerator<N>
     /**
      * Builder with parameter validation.
      */
-    public static class Builder<N> extends BaseBuilder<N, ProceduralTubeGenerator<N>> {
+    public static class Builder<T, N> extends BaseBuilder<T, N, ProceduralTubeGenerator<T, N>> {
         private int heightMin = 6, heightMax = 12;
         private int tubeRadius = 2;
         private int wallThickness = 1;
@@ -149,17 +149,17 @@ public class ProceduralTubeGenerator<N>
         private boolean includeReservoir = true;
         private int reservoirRadius = 3;
         private boolean includeRimCap = true;
-        private PlatformBlockState<String> coralMaterial;
-        private PlatformBlockState<String> waterMaterial;
+        private PlatformBlockState<T> coralMaterial;
+        private PlatformBlockState<T> waterMaterial;
 
-        public Builder<N> heightRange(int min, int max) { heightMin = min; heightMax = max; return this; }
-        public Builder<N> tubeRadius(int r) { tubeRadius = r; return this; }
-        public Builder<N> wallThickness(int t) { wallThickness = t; return this; }
-        public Builder<N> slope(double coef) { slopeCoef = coef; return this; }
-        public Builder<N> flareStart(double percent) { flareStartPercentage = percent; return this; }
-        public Builder<N> rimCap(boolean inc) { includeRimCap = inc; return this; }
-        public Builder<N> reservoir(boolean inc, int radius) { includeReservoir = inc; reservoirRadius = radius; return this; }
-        public Builder<N> materials(PlatformBlockState<String> coral, PlatformBlockState<String> water) { coralMaterial = coral; waterMaterial = water; return this; }
+        public Builder<T, N> heightRange(int min, int max) { heightMin = min; heightMax = max; return this; }
+        public Builder<T, N> tubeRadius(int r) { tubeRadius = r; return this; }
+        public Builder<T, N> wallThickness(int t) { wallThickness = t; return this; }
+        public Builder<T, N> slope(double coef) { slopeCoef = coef; return this; }
+        public Builder<T, N> flareStart(double percent) { flareStartPercentage = percent; return this; }
+        public Builder<T, N> rimCap(boolean inc) { includeRimCap = inc; return this; }
+        public Builder<T, N> reservoir(boolean inc, int radius) { includeReservoir = inc; reservoirRadius = radius; return this; }
+        public Builder<T, N> materials(PlatformBlockState<T> coral, PlatformBlockState<T> water) { coralMaterial = coral; waterMaterial = water; return this; }
 
         // TODO : Config to change these vales for more "wachiness"
         public void validate() {
@@ -171,7 +171,7 @@ public class ProceduralTubeGenerator<N>
         }
 
         @Override
-        public ProceduralTubeGenerator<N> build(PlatformWorld<String, N> world) {
+        public ProceduralTubeGenerator<T, N> build(PlatformWorld<T, N> world) {
             return new ProceduralTubeGenerator<>(world, this);
         }
     }

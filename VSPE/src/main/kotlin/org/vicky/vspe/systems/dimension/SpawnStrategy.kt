@@ -7,11 +7,11 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-interface DimensionSpawnStrategy {
+interface DimensionSpawnStrategy<T, N> {
     fun resolveSpawn(
         player: PlatformPlayer,
-        dimension: PlatformBaseDimension,
-        portalContext: PortalContext? = null
+        dimension: PlatformBaseDimension<T, N>,
+        portalContext: PortalContext<T, N>? = null
     ): PlatformLocation?
 }
 
@@ -22,27 +22,27 @@ interface DimensionSpawnStrategy {
  * @param player
  * @param beforeSpawning Things the context should do like placing portal frame...etc
  */
-data class PortalContext(
+data class PortalContext<T, N>(
     val sourceLocation: PlatformLocation,
-    val sourceDimension: PlatformBaseDimension,
-    val targetDimension: PlatformBaseDimension,
+    val sourceDimension: PlatformBaseDimension<T, N>,
+    val targetDimension: PlatformBaseDimension<T, N>,
     val player: PlatformPlayer,
     val beforeSpawning: (() -> Unit)?
 )
 
 
 
-class SafeRandomLandSpawnStrategy(
+class SafeRandomLandSpawnStrategy<T, N>(
     private val maxAttempts: Int = 20,
     private val xzRadius: Int = 256,
     private val minY: Int = 64,
     private val maxY: Int = 128
-) : DimensionSpawnStrategy {
+) : DimensionSpawnStrategy<T, N> {
 
     override fun resolveSpawn(
         player: PlatformPlayer,
-        dimension: PlatformBaseDimension,
-        portalContext: PortalContext?
+        dimension: PlatformBaseDimension<T, N>,
+        portalContext: PortalContext<T, N>?
     ): PlatformLocation? {
         val random = Random(player.uniqueId().mostSignificantBits xor System.currentTimeMillis())
 
@@ -70,16 +70,16 @@ private fun PlatformLocation?.offset(
 }
 
 
-class FixedRingSpawnStrategy(
+class FixedRingSpawnStrategy<T, N>(
     private val center: PlatformLocation,
     private val radius: Double,
     private val playerIndexProvider: (PlatformPlayer) -> Int
-) : DimensionSpawnStrategy {
+) : DimensionSpawnStrategy<T, N> {
 
     override fun resolveSpawn(
         player: PlatformPlayer,
-        dimension: PlatformBaseDimension,
-        portalContext: PortalContext?
+        dimension: PlatformBaseDimension<T, N>,
+        portalContext: PortalContext<T, N>?
     ): PlatformLocation? {
         val index = playerIndexProvider(player)
         val angle = (index * 137.5) % 360.0 // golden angle spacing
@@ -97,14 +97,14 @@ class FixedRingSpawnStrategy(
 
 
 
-class PortalLinkedStrategy(
+class PortalLinkedStrategy<T, N>(
     private val scaleFactor: Double = 8.0 // nether-style mapping
-) : DimensionSpawnStrategy {
+) : DimensionSpawnStrategy<T, N> {
 
     override fun resolveSpawn(
         player: PlatformPlayer,
-        dimension: PlatformBaseDimension,
-        portalContext: PortalContext?
+        dimension: PlatformBaseDimension<T, N>,
+        portalContext: PortalContext<T, N>?
     ): PlatformLocation? {
         if (portalContext == null) return null
 

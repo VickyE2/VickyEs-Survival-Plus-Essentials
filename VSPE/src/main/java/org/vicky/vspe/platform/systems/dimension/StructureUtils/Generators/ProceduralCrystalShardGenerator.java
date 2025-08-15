@@ -18,8 +18,8 @@ import static java.lang.Math.*;
  * Generates crystal shards in different states (NORMAL, SLIGHTLY_BROKEN, CRACKED, CLUSTERED),
  * with full control over palette distribution (including spirals) and realistic break simulation.
  */
-public class ProceduralCrystalShardGenerator<N> extends 
-        ProceduralStructureGenerator<N> {
+public class ProceduralCrystalShardGenerator<T, N> extends
+        ProceduralStructureGenerator<T, N> {
 
     public enum State { NORMAL, SLIGHTLY_BROKEN, CRACKED, CLUSTERED }
 
@@ -33,8 +33,8 @@ public class ProceduralCrystalShardGenerator<N> extends
     private final double yaw, pitch, tipFrac;
     private final int maxChildren;
     private final double minShrink, maxShrink;
-    private final List<PlatformBlockState<String>> palette;
-    private final DistributionFunction<String> distributionFunction;
+    private final List<PlatformBlockState<T>> palette;
+    private final DistributionFunction<T> distributionFunction;
     private final Random rnd = new Random();
 
     // Slightly_broken parameters
@@ -44,7 +44,7 @@ public class ProceduralCrystalShardGenerator<N> extends
     private final double breakDistanceMin, breakDistanceMax;
     private final double crackFrac, crackThickness, crackChance;
 
-    public ProceduralCrystalShardGenerator(PlatformWorld<String, N> world, Builder<N> b) {
+    public ProceduralCrystalShardGenerator(PlatformWorld<T, N> world, Builder<T, N> b) {
         super(world);
         this.state = b.state;
         this.height = b.height;
@@ -176,7 +176,7 @@ public class ProceduralCrystalShardGenerator<N> extends
 
                 // place the shard block
                 double theta = Math.atan2(dz, dx);
-                PlatformBlockState<String> block = distributionFunction.pick(palette, t, theta, rnd);
+                PlatformBlockState<T> block = distributionFunction.pick(palette, t, theta, rnd);
                 guardAndStore(x, yy, z, block, false);
                 outPlaced.add(new Vec3(x, yy, z));
 
@@ -197,7 +197,7 @@ public class ProceduralCrystalShardGenerator<N> extends
                         int gy = origin.getY() + (int)Math.round(glowLocal.getY());
                         int gz = origin.getZ() + (int)Math.round(glowLocal.getZ());
 
-                        PlatformBlockState<String> glowState = world
+                        PlatformBlockState<T> glowState = world
                                 .createPlatformBlockState("minecraft:light", "[level=" + (int)(glowLightLevel*15)
                                                                 + ",waterlogged=" + glowUw + "]");
                         guardAndStore(gx, gy, gz, glowState, false);
@@ -238,14 +238,14 @@ public class ProceduralCrystalShardGenerator<N> extends
 
         // Prepare lists for chunk above the break
         List<Vec3> removedPos   = new ArrayList<>();
-        List<PlatformBlockState<String>> removedState = new ArrayList<>();
+        List<PlatformBlockState<T>> removedState = new ArrayList<>();
 
         // 3) split your placed blocks into “base” vs. “to move”
         for (Vec3 pos : new ArrayList<>(placed)) {
             int relY = pos.getY() - origin.getY();
             if (relY >= breakY) {
                 // capture its state (fall back to air if null)
-                PlatformBlockState<String> bs = getQueuedState(pos.getX(), pos.getY(), pos.getZ());
+                PlatformBlockState<T> bs = getQueuedState(pos.getX(), pos.getY(), pos.getZ());
                 removedPos.add(pos);
                 removedState.add(bs);
                 removeAt(pos.getX(), pos.getY(), pos.getZ());
@@ -256,7 +256,7 @@ public class ProceduralCrystalShardGenerator<N> extends
         // 4) re-place the moving chunk, rotated & translated
         for (int i = 0; i < removedPos.size(); i++) {
             Vec3 old    = removedPos .get(i);
-            PlatformBlockState<String> state  = removedState.get(i);
+            PlatformBlockState<T> state  = removedState.get(i);
 
             // a) local vector from the break plane
             Vector3 rel = Vector3.at(
@@ -321,12 +321,12 @@ public class ProceduralCrystalShardGenerator<N> extends
      * Functional interface for distributing blocks.  Allows spirals by inspecting theta.
      */
     @FunctionalInterface
-    public interface DistributionFunction<String> {
-        PlatformBlockState<String> pick(List<PlatformBlockState<String>> palette, double yNorm, double theta, RandomSource rnd);
+    public interface DistributionFunction<T> {
+        PlatformBlockState<T> pick(List<PlatformBlockState<T>> palette, double yNorm, double theta, RandomSource rnd);
     }
 
-    public static class Builder<N> extends 
-            BaseBuilder<N, ProceduralCrystalShardGenerator<N>> {
+    public static class Builder<T, N> extends 
+            BaseBuilder<T, N, ProceduralCrystalShardGenerator<T, N>> {
         private State state = State.NORMAL;
         private int height=8, width=2;
         private boolean hollow=false, glow=false, underwater=false;
@@ -334,8 +334,8 @@ public class ProceduralCrystalShardGenerator<N> extends
         private double yaw=0, pitch=0;
         private int maxChildren=3;
         private double minShrink=0.5, maxShrink=0.8;
-        private List<PlatformBlockState<String>> palette = new ArrayList<>();
-        private DistributionFunction<String> distributionFunction;
+        private List<PlatformBlockState<T>> palette = new ArrayList<>();
+        private DistributionFunction<T> distributionFunction;
         // break params
         private float breakHeightMin=0.4f, breakHeightMax=0.6f;
         private double breakYawMin=0, breakYawMax=180;
@@ -343,24 +343,24 @@ public class ProceduralCrystalShardGenerator<N> extends
         private double breakDistanceMin=1, breakDistanceMax=3;
         private double crackFrac = 0.5, crackThickness = 0.1, crackChance = 0.3;
 
-        public Builder<N> state(State s){ this.state=s;return this; }
-        public Builder<N> size(int h,int w){ this.height=h;this.width=w;return this; }
-        public Builder<N> tipPercentage(double tipFraq) { this.tipFrac = tipFraq; return this; }
-        public Builder<N> hollow(boolean b){ this.hollow=b;return this; }
-        public Builder<N> glow(boolean b,boolean uw,double lvl){ this.glow=b;this.underwater=uw;this.glowLightLevel=lvl;return this; }
-        public Builder<N> rotation(double y,double p){ this.yaw=y;this.pitch=p;return this; }
-        public Builder<N> cluster(int max,double min,double max2){ this.maxChildren=max;this.minShrink=min;this.maxShrink=max2;return this; }
-        public Builder<N> palette(List<PlatformBlockState<String>> pal){ this.palette=pal;return this; }
-        public Builder<N> distribution(DistributionFunction<String> f){ this.distributionFunction=f;return this; }
-        public Builder<N> breakHeightRange(float min,float max){ this.breakHeightMin=min;this.breakHeightMax=max;return this; }
-        public Builder<N> breakAngles(double yawMin,double yawMax,double pitchMin,double pitchMax){ this.breakYawMin=yawMin;this.breakYawMax=yawMax;this.breakPitchMin=pitchMin;this.breakPitchMax=pitchMax;return this; }
-        public Builder<N> crackValues(double crackChance,double crackFrac,double crackThickness){ this.crackChance = crackChance; this.crackFrac = crackFrac; this.crackThickness = crackThickness; return this; }
-        public Builder<N> breakDistance(double min,double max){ this.breakDistanceMin=min;this.breakDistanceMax=max;return this; }
+        public Builder<T, N> state(State s){ this.state=s;return this; }
+        public Builder<T, N> size(int h,int w){ this.height=h;this.width=w;return this; }
+        public Builder<T, N> tipPercentage(double tipFraq) { this.tipFrac = tipFraq; return this; }
+        public Builder<T, N> hollow(boolean b){ this.hollow=b;return this; }
+        public Builder<T, N> glow(boolean b,boolean uw,double lvl){ this.glow=b;this.underwater=uw;this.glowLightLevel=lvl;return this; }
+        public Builder<T, N> rotation(double y,double p){ this.yaw=y;this.pitch=p;return this; }
+        public Builder<T, N> cluster(int max,double min,double max2){ this.maxChildren=max;this.minShrink=min;this.maxShrink=max2;return this; }
+        public Builder<T, N> palette(List<PlatformBlockState<T>> pal){ this.palette=pal;return this; }
+        public Builder<T, N> distribution(DistributionFunction<T> f){ this.distributionFunction=f;return this; }
+        public Builder<T, N> breakHeightRange(float min,float max){ this.breakHeightMin=min;this.breakHeightMax=max;return this; }
+        public Builder<T, N> breakAngles(double yawMin,double yawMax,double pitchMin,double pitchMax){ this.breakYawMin=yawMin;this.breakYawMax=yawMax;this.breakPitchMin=pitchMin;this.breakPitchMax=pitchMax;return this; }
+        public Builder<T, N> crackValues(double crackChance,double crackFrac,double crackThickness){ this.crackChance = crackChance; this.crackFrac = crackFrac; this.crackThickness = crackThickness; return this; }
+        public Builder<T, N> breakDistance(double min,double max){ this.breakDistanceMin=min;this.breakDistanceMax=max;return this; }
         public void validate(){
             Objects.requireNonNull(palette,"Palette required");
             Objects.requireNonNull(distributionFunction,"DistributionFunction required");
         }
-        public ProceduralCrystalShardGenerator<N> build(PlatformWorld<String, N> world){
+        public ProceduralCrystalShardGenerator<T, N> build(PlatformWorld<T, N> world){
             return new ProceduralCrystalShardGenerator<>(world, this);
         }
     }

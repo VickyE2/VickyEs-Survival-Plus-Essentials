@@ -16,19 +16,19 @@ import static java.lang.Math.TAU;
 /**
  * Procedural tree generator (trunk + branches + roots, with cheapMode).
  */
-public class ProceduralBranchedTreeGenerator<N> extends 
-        ProceduralStructureGenerator<N> {
+public class ProceduralBranchedTreeGenerator<T, N> extends 
+        ProceduralStructureGenerator<T, N> {
     private final int maxTrunkThickness, maxHeight, maxWidth, branchThreshold, maxBranchThickness;
     private final boolean roots, addLeaves, hollow;
     private final float randomness, twistiness, branchLengthRatioToHeight, branchStart, minPitch, maxPitch, maxBranchShrink, branchShrinkPerLevel;
-    private final PlatformBlockState<String> wood, leaves;
-    private final List<Builder.DecoratorEntry<N>> decorators;
+    private final PlatformBlockState<T> wood, leaves;
+    private final List<Builder.DecoratorEntry<T, N>> decorators;
     private final boolean cheapMode;
     private final float qualityFactor;
     private final LeafType type;
-    private final Map<String, Object> params;
+    private final Map<T, Object> params;
 
-    public ProceduralBranchedTreeGenerator(PlatformWorld<String, N> world, Builder<N> b) {
+    public ProceduralBranchedTreeGenerator(PlatformWorld<T, N> world, Builder<T, N> b) {
         super(world);
         b.validate();
         this.maxTrunkThickness = b.maxTrunkThickness;
@@ -62,7 +62,7 @@ public class ProceduralBranchedTreeGenerator<N> extends
     }
 
     /**
-     * Synchronous generate (fires off async & returns immediately).
+     * Synchronous generate (fires off async and returns immediately).
      */
     public void generate(RandomSource rnd, Vec3 origin) {
         generateAsync(rnd, origin);
@@ -364,24 +364,24 @@ public class ProceduralBranchedTreeGenerator<N> extends
         }
     }
 
-    public static class Builder<N> extends
-            BaseBuilder<N, ProceduralBranchedTreeGenerator<N>> {
+    public static class Builder<T, N> extends
+            BaseBuilder<T, N, ProceduralBranchedTreeGenerator<T, N>> {
         int maxTrunkThickness = 6, maxHeight = 20, maxWidth = 10, branchThreshold = 3, maxBranchThickness = 5;
         boolean roots = false, addLeaves = false, hollow = false, cheapMode = false;
         float randomness = 0.5f, twistiness = 0.2f, qualityFactor = 0.4f, branchStart=0.4f, branchLengthRatioTOHeight=0.3f, maxBranchShrink = 0.2f, minPitch = 0.1f, maxPitch = 0.3f, branchShrinkPerLevel = 0.7f;
-        PlatformBlockState<String> woodMaterial, leavesMaterial;
+        PlatformBlockState<T> woodMaterial, leavesMaterial;
         LeafType leafType;
-        Map<String, Object> params;
-        final List<DecoratorEntry<N>> decoratorEntries = new ArrayList<>();
+        Map<T, Object> params;
+        final List<DecoratorEntry<T, N>> decoratorEntries = new ArrayList<>();
 
         /**
-         * @param leafState The PlatformBlockState<V> to use for leaves.
+         * @param leafState The {@code PlatformBlockState<V>} to use for leaves.
          * @param leafType      The type of leaf cluster (NORMAL, DANGLING, BUSHY).
          * @param params    Parameter map:
          *                  - "thickness": integer radius for NORMAL/BUSHY, thickness for DANGLING
          *                  - "length":    integer length for DANGLING only
          */
-        public Builder<N> setLeaf(PlatformBlockState<String> leafState, LeafType leafType, Map<String, Object> params) {
+        public Builder<T, N> setLeaf(PlatformBlockState<T> leafState, LeafType leafType, Map<T, Object> params) {
             this.leavesMaterial = leafState;
             this.leafType = leafType;
             this.params = params;
@@ -389,103 +389,103 @@ public class ProceduralBranchedTreeGenerator<N> extends
             return this;
         }
 
-        public Builder<N> cheapMode(boolean c) {
+        public Builder<T, N> cheapMode(boolean c) {
             cheapMode = c;
             return this;
         }
 
-        public Builder<N> qualityFactor(float q) {
+        public Builder<T, N> qualityFactor(float q) {
             qualityFactor = q;
             return this;
         }
 
-        public Builder<N> branchShrinkPerLevel(float q) {
+        public Builder<T, N> branchShrinkPerLevel(float q) {
             branchShrinkPerLevel = q;
             return this;
         }
 
-        public Builder<N> trunkThickness(int t) {
+        public Builder<T, N> trunkThickness(int t) {
             maxTrunkThickness = t;
             return this;
         }
 
-        public Builder<N> height(int h) {
+        public Builder<T, N> height(int h) {
             maxHeight = h;
             return this;
         }
 
-        public Builder<N> width(int w) {
+        public Builder<T, N> width(int w) {
             maxWidth = w;
             return this;
         }
 
-        public Builder<N> branchDepth(int d) {
+        public Builder<T, N> branchDepth(int d) {
             branchThreshold = d;
             return this;
         }
 
-        public Builder<N> roots() {
+        public Builder<T, N> roots() {
             roots = true;
             return this;
         }
 
-        public Builder<N> noLeaves() {
+        public Builder<T, N> noLeaves() {
             addLeaves = false;
             return this;
         }
 
-        public Builder<N> hollow() {
+        public Builder<T, N> hollow() {
             hollow = true;
             return this;
         }
 
-        public Builder<N> randomness(float r) {
+        public Builder<T, N> randomness(float r) {
             randomness = r;
             return this;
         }
 
-        public Builder<N> twistiness(float t) {
+        public Builder<T, N> twistiness(float t) {
             twistiness = t;
             return this;
         }
 
-        public Builder<N> woodMaterial(PlatformBlockState<String> m) {
+        public Builder<T, N> woodMaterial(PlatformBlockState<T> m) {
             woodMaterial = m;
             return this;
         }
         // Percentage of trunk height for branches to start spawning
-        public Builder<N> branchStart(float p) {
+        public Builder<T, N> branchStart(float p) {
             branchStart = p;
             return this;
         }
         // Reduction in branch length with spawn height on tree
-        public Builder<N> branchLengthReduction(float p) {
+        public Builder<T, N> branchLengthReduction(float p) {
             this.branchLengthRatioTOHeight= p;
             return this;
         }
-        public Builder<N> maxBranchShrink(float p) {
+        public Builder<T, N> maxBranchShrink(float p) {
             this.maxBranchShrink = p;
             return this;
         }
-        public Builder<N> branchPitchRange(float min, float max) {
+        public Builder<T, N> branchPitchRange(float min, float max) {
             this.minPitch = min;
             this.maxPitch = max;
             return this;
         }
 
-        public Builder<N> branchThickness(int i) {
+        public Builder<T, N> branchThickness(int i) {
             this.maxBranchThickness = i;
             return this;
         }
         /*
-        public Builder<N> branchLengthReduction(float p) {
+        public Builder<T, N> branchLengthReduction(float p) {
             branchLengthRatioTOHeight = p;
             return this;
         }
          */
 
-        public Builder<N> addDecoration(float c,
-                                     BiConsumer<PlatformWorld<String, N>, Vec3> a,
+        public Builder<T, N> addDecoration(float c,
+                                     BiConsumer<PlatformWorld<T, N>, Vec3> a,
                                      Orientation... o) {
             decoratorEntries.add(new DecoratorEntry<>(a, c,
                     EnumSet.copyOf(Arrays.asList(o))));
@@ -494,7 +494,7 @@ public class ProceduralBranchedTreeGenerator<N> extends
 
         @Override
         public void validate() {
-            // === PlatformBlockState<String> Checks ===
+            // === PlatformBlockState<T> Checks ===
             Objects.requireNonNull(woodMaterial, "Wood material must be set");
 
             if (addLeaves) {
@@ -553,7 +553,7 @@ public class ProceduralBranchedTreeGenerator<N> extends
                 throw new IllegalArgumentException("Invalid pitch range: min=" + minPitch + ", max=" + maxPitch);
 
                         // === Decorations Check (optional) ===
-            for (DecoratorEntry<N> entry : decoratorEntries) {
+            for (DecoratorEntry<T, N> entry : decoratorEntries) {
                 if (entry == null || entry.action == null || entry.orientations == null || entry.orientations.isEmpty()) {
                     throw new IllegalArgumentException("Invalid decorator entry found");
                 }
@@ -561,17 +561,17 @@ public class ProceduralBranchedTreeGenerator<N> extends
         }
 
         @Override
-        public ProceduralBranchedTreeGenerator<N> build(PlatformWorld<String, N> world) {
+        public ProceduralBranchedTreeGenerator<T, N> build(PlatformWorld<T, N> world) {
             return new ProceduralBranchedTreeGenerator<>(world, this);
         }
 
 
-        static class DecoratorEntry<N> {
-            final BiConsumer<PlatformWorld<String, N>, Vec3> action;
+        static class DecoratorEntry<T, N> {
+            final BiConsumer<PlatformWorld<T, N>, Vec3> action;
             final float chance;
             final Set<Orientation> orientations;
 
-            DecoratorEntry(BiConsumer<PlatformWorld<String, N>, Vec3> a,
+            DecoratorEntry(BiConsumer<PlatformWorld<T, N>, Vec3> a,
                            float c, Set<Orientation> o) {
                 action = a;
                 chance = c;
