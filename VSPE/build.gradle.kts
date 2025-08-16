@@ -95,8 +95,7 @@ publishing {
             artifact(tasks.named("javadocJar"))
             artifact(tasks.named("sourcesJar"))
 
-            groupId = project.group as String
-
+            groupId = "io.github.vickye2"
             artifactId = "vspe-core"
             version = project.version.toString()
 

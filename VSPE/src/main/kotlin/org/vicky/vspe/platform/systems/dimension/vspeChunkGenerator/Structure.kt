@@ -100,7 +100,8 @@ class NBTBasedStructure<T>(
     val id: ResourceLocation
 ) : PlatformStructure<T>
 {
-    val structure : NbtStructure<T>? = VSPEPlatformPlugin.structureManager().getStructure(id);
+    @Suppress("UNCHECKED_CAST")
+    val structure : NbtStructure<T>? = VSPEPlatformPlugin.structureManager().getStructure(id) as NbtStructure<T>?
 
     @Suppress("unchecked")
     override fun place(world: PlatformWorld<T, *>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {

@@ -69,7 +69,7 @@ subprojects {
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
-            groupId = "org.vicky" // or whatever you want
+            groupId = "io.vicky" // or whatever you want
             artifactId = "nms"
             version = "1.0.0"
 

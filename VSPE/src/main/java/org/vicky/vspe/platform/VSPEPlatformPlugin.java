@@ -3,8 +3,10 @@ package org.vicky.vspe.platform;
 import org.vicky.platform.*;
 import org.vicky.platform.events.PlatformEventFactory;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
+import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformBiome;
+import org.vicky.vspe.platform.systems.platformquestingintegration.QuestProductionFactory;
 
 import java.io.File;
 
@@ -44,33 +46,41 @@ public interface VSPEPlatformPlugin {
     static PlatformEventFactory eventFactory() {
         return get().getEventFactory();
     }
-    static PlatformDimensionManager dimensionManager() {
+    static PlatformDimensionManager<?, ?> dimensionManager() {
         return get().getDimensionManager();
     }
     static PlatformTrinketManager<?> trinketManager() {
         return get().getPlatformTrinketManager();
     }
-    static PlatformStructureManager structureManager() {
+    static PlatformStructureManager<?> structureManager() {
         return get().getPlatformStructureManager();
     }
     static PlatformItemFactory itemFactory() {
         return get().getPlatformItemFactory();
+    }
+    static QuestProductionFactory questFactory() {
+        return get().getQuestProductionFactory();
+    }
+    static PlatformAdvancementManager<?> advancementManager() {
+        return get().getPlatformAdvancementManager();
     }
     static <B extends PlatformBiome> PlatformBiomeFactory<B> biomeFactory() {
         return get().getPlatformBiomeFactory();
     }
 
     PlatformScheduler getPlatformScheduler();
-    PlatformStructureManager getPlatformStructureManager();
+    PlatformStructureManager<?> getPlatformStructureManager();
     PlatformParticleProvider getParticleProvider();
     PlatformConfig getPlatformConfig();
     PlatformEntityFactory getPlatformEntityFactory();
     File getPlatformDataFolder();
     PlatformLogger getPlatformLogger();
     PlatformEventFactory getEventFactory();
-    PlatformDimensionManager getDimensionManager();
+    PlatformDimensionManager<?, ?> getDimensionManager();
     PlatformTrinketManager<?> getPlatformTrinketManager();
     PlatformItemFactory getPlatformItemFactory();
+    QuestProductionFactory getQuestProductionFactory();
+    PlatformAdvancementManager<?> getPlatformAdvancementManager();
     <B extends PlatformBiome> PlatformBiomeFactory<B> getPlatformBiomeFactory();
 
     class Holder {

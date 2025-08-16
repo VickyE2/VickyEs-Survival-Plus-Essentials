@@ -1,13 +1,17 @@
 package org.vicky.vspe.platform.systems.dimension;
 
 import org.vicky.platform.PlatformPlayer;
+import org.vicky.platform.world.PlatformWorld;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Version;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.ExceptionContext;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.utilities.ExceptionDerivator;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.IdentifiableManager;
+import org.vicky.vspe.systems.dimension.PlatformDimensionTickHandler;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -18,13 +22,92 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-public interface PlatformDimensionManager extends IdentifiableManager {
+public interface PlatformDimensionManager<T, N> extends IdentifiableManager {
     ContextLogger logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSIONS");
     String YAML_FILE = "pack.yml";
 
-    List<PlatformBaseDimension> getLoadedDimensions();
-    List<PlatformBaseDimension> getUnLoadedDimensions();
+    default void loadDimensions() {
+        logger.print("Starting dimension load sequence...", false);
 
+        // 1) Prepare / process generator packs (clean=false is conservative; change if you want)
+        try {
+            processDimensionGenerators(false);
+        } catch (Exception e) {
+            handleException(e, "processDimensionGenerators", ExceptionContext.GENERATOR);
+            // Continue — we still attempt to process any already-available dimension definitions
+        }
+
+        // 2) Process dimension definitions (register metadata, etc.)
+        try {
+            processDimensions();
+        } catch (Exception e) {
+            handleException(e, "processDimensions", ExceptionContext.DIMENSION);
+        }
+
+        // 3) Attempt to create any unloaded dimensions (world creation)
+        List<PlatformBaseDimension<T, N>> toLoad = getUnLoadedDimensions();
+        if (toLoad == null || toLoad.isEmpty()) {
+            logger.print("No unloaded dimensions found.", false);
+        } else {
+            for (PlatformBaseDimension<T, N> dim : toLoad) {
+                try {
+                    String name = dim.getName();
+                    logger.print("Preparing dimension: " + name, false);
+
+                    // Skip if already exists (double-check)
+                    if (dim.dimensionExists()) {
+                        logger.print("Dimension already exists, enabling: " + name, false);
+                        try {
+                            dim.enableDimension();
+                        } catch (Exception e) {
+                            handleException(e, name, ExceptionContext.DIMENSION);
+                        }
+                        continue;
+                    }
+
+                    // Create world. Implementations of createWorld may require main-thread context
+                    try {
+                        PlatformWorld<T, N> created = dim.createWorld(name);
+                        if (created == null) {
+                            handleException("createWorld returned null for " + name);
+                            continue;
+                        }
+
+                        // Optionally enable mechanics immediately after creation
+                        try {
+                            dim.enableDimension();
+                        } catch (Exception e) {
+                            handleException(e, name, ExceptionContext.ENABLE_DIMENSION);
+                        }
+
+                        // Set up tick handler if available
+                        try {
+                            PlatformDimensionTickHandler handler = dim.getTickHandler();
+                            if (handler != null) {
+                                dim.setTickHandler(handler);
+                            }
+                        } catch (Exception e) {
+                            // Not fatal — just log
+                            handleException(e, name, ExceptionContext.DIMENSION);
+                        }
+
+                        logger.print("Successfully created & enabled dimension: " + name, false);
+
+                    } catch (Exception e) {
+                        handleException(e, name, ExceptionContext.CREATE_DIMENSION_WORLD);
+                    }
+
+                } catch (Exception e) {
+                    // Defensive: log any unexpected failure for this dimension but continue
+                    handleException(e, "unknown-dimension", ExceptionContext.DIMENSION);
+                }
+            }
+        }
+
+        logger.print("Dimension load sequence finished.", false);
+    }
+    List<PlatformBaseDimension<T, N>> getLoadedDimensions();
+    List<PlatformBaseDimension<T, N>> getUnLoadedDimensions();
 
     private static boolean shouldOverwrite(Path currentPack, Version newVersion) throws IOException {
         String nullable = extractVersionFromYaml(currentPack);
@@ -40,7 +123,7 @@ public interface PlatformDimensionManager extends IdentifiableManager {
     /**
      * Extracts the version from the YAML file inside the ZIP.
      */
-    private static String extractVersionFromYaml(Path pack) throws IOException {
+    private static String extractVersionFromYaml(Path pack) {
         if (!Files.exists(pack)) {
             return null;
         }
@@ -64,9 +147,9 @@ public interface PlatformDimensionManager extends IdentifiableManager {
     void processDimensionGenerators(boolean clean);
     void processDimensions();
 
-    public PlatformBaseDimension getPlayerDimension(PlatformPlayer player);
+    PlatformBaseDimension<T, N> getPlayerDimension(PlatformPlayer player);
 
-    public Optional<PlatformBaseDimension> getDimension(String dimensionId);
+    Optional<PlatformBaseDimension<T, N>> getDimension(String dimensionId);
 
     private void handleException(Exception e, String generatorName, ExceptionContext c) {
         String error = ExceptionDerivator.parseException(e);
@@ -87,9 +170,9 @@ public interface PlatformDimensionManager extends IdentifiableManager {
 
     @Override
     default void disableEntity(String namespace) throws EntityNotFoundException {
-        Optional<PlatformBaseDimension> optional = getLoadedDimensions().stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<PlatformBaseDimension<T, N>> optional = getLoadedDimensions().stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            PlatformBaseDimension context = optional.get();
+            PlatformBaseDimension<T, N> context = optional.get();
             context.disableDimension();
         } else {
             throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
@@ -98,14 +181,14 @@ public interface PlatformDimensionManager extends IdentifiableManager {
 
     @Override
     default void enableEntity(String namespace) throws EntityNotFoundException {
-        Optional<PlatformBaseDimension> optional = getLoadedDimensions().stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<PlatformBaseDimension<T, N>> optional = getLoadedDimensions().stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            PlatformBaseDimension context = optional.get();
+            PlatformBaseDimension<T, N> context = optional.get();
             context.enableDimension();
         } else {
             throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
         }
     }
 
-    void openDimensionsGUI();
+    void openDimensionsGUI(PlatformPlayer player);
 }

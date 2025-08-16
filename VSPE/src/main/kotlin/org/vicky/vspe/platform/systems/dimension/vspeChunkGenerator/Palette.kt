@@ -1,7 +1,12 @@
 package org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator
 
 import org.jetbrains.annotations.NotNull
+import kotlin.random.Random
+import kotlin.math.max
+import kotlin.math.min
 import org.jetbrains.annotations.Nullable
+import org.vicky.platform.world.PlatformBlockState
+import org.vicky.utilities.ANSIColor
 import org.vicky.vspe.distance
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoSuitableBiomeException
 
@@ -41,11 +46,114 @@ fun <K, T> MutableMap<K, T>.getKey(t: T): K {
     return error("Map dosent contain value $t")
 }
 
+/**
+ * BiomeBlockDistributionPalette
+ *
+ * A 1D palette where entries are axis-aligned columns in (y) parameter space.
+ * When multiple regions match a query, a weighted-random choice is made.
+ */
+class BiomeBlockDistributionPalette<T : PlatformBlockState<*>> internal constructor() : Palette<T>() {
+    private data class Entry<T>(
+        val y0: Int, val y1: Int,           // absolute Y range (inclusive)
+        val value: T,
+        val weight: Double = 1.0
+    ) {
+        fun matches(y: Int): Boolean {
+            val minY = min(y0, y1)
+            val maxY = max(y0, y1)
+            return (y in minY..maxY)
+        }
+    }
+
+    private val entries = mutableListOf<Entry<T>>()
+    private val rng = Random.Default
+
+    /**
+     * Add palette entry that applies for y in {y0..y1} and depth in {depth0..depth1}
+     * Depth 0 = the surface block (columnTopY).
+     */
+    fun addAbsolute(y0: Int, y1: Int, value: T, weight: Double = 1.0) {
+        require(weight >= 0.0)
+        entries += Entry(y0, y1, value, weight)
+    }
+
+    /**
+     * Convenience: add by normalized height (0.0..1.0) and depth range
+     */
+    fun addNormalized(norm0: Double, norm1: Double, value: T, weight: Double = 1.0,
+                      minY: Int = -64, maxY: Int = 319) {
+        val y0 = (norm0.coerceIn(0.0,1.0) * (maxY - minY) + minY).toInt()
+        val y1 = (norm1.coerceIn(0.0,1.0) * (maxY - minY) + minY).toInt()
+        addAbsolute(y0, y1, value, weight)
+    }
+
+    /**
+     * Query by column top Y and world y. Internally computes depth = columnTopY - y.
+     * Selects a matching entry, using weights if multiple match.
+     */
+    fun getFor(y: Int): T {
+        val matches = entries.filter { it.matches(y) }
+        if (matches.isEmpty()) error("No matching palette entry for y=$y")
+
+        if (matches.size == 1) return matches[0].value
+
+        val totalWeight = matches.sumOf { it.weight }
+        if (totalWeight <= 0.0) return matches.random(rng).value
+
+        var pick = rng.nextDouble() * totalWeight
+        for (e in matches) {
+            pick -= e.weight
+            if (pick <= 0.0) return e.value
+        }
+        return matches.last().value
+    }
+
+    override fun get(x: Double, z: Double?): T {
+        if (aintSaid) {
+            println(ANSIColor.YELLOW + "It isn't advised to use #get(x, z) in a BiomeBlockDistributionPalette please refrain and contact the developers..." + ANSIColor.RESET)
+            aintSaid = false
+        }
+        return getFor(x.toInt())
+    }
+
+    fun clear() = entries.clear()
+
+    companion object {
+        private var aintSaid: Boolean = true
+        fun empty(): BiomeBlockDistributionPalette<*> =
+            BiomeBlockDistributionPalette<PlatformBlockState<*>>()
+    }
+}
+
+class BiomeBlockDistributionPaletteBuilder<T : PlatformBlockState<*>>() {
+    val palette : BiomeBlockDistributionPalette<T> = BiomeBlockDistributionPalette()
+
+    @JvmOverloads
+    fun addLayer(yStart: Int, yEnd: Int, blockState: T, weight: Double = 1.0) : BiomeBlockDistributionPaletteBuilder<T> {
+        palette.addAbsolute(yStart, yEnd, blockState, weight)
+        return this
+    }
+
+    @JvmOverloads
+    fun addNormalizedLayer(norm0: Double, norm1: Double, value: T, weight: Double = 1.0,
+                      minY: Int = -64, maxY: Int = 319) : BiomeBlockDistributionPaletteBuilder<T> {
+        val y0 = (norm0.coerceIn(0.0,1.0) * (maxY - minY) + minY).toInt()
+        val y1 = (norm1.coerceIn(0.0,1.0) * (maxY - minY) + minY).toInt()
+        addLayer(y0, y1, value, weight)
+        return this
+    }
+
+    fun build(): BiomeBlockDistributionPalette<T> {
+        return palette
+    }
+}
+
 class NoiseBiomeDistributionPalette<B: PlatformBiome>(
     val temperatureNoiseSampler: NoiseSampler,
     val humidityNoiseSampler: NoiseSampler,
     val elevationNoiseSampler: NoiseSampler
-): Palette<B>() {
+): Palette<B>()
+{
 
     override fun get(x: Double, @NotNull z: Double?): B {
         if (z == null) throw IllegalArgumentException("The value of z cannot be null in NoiseBiomeDistributionPalette#get");

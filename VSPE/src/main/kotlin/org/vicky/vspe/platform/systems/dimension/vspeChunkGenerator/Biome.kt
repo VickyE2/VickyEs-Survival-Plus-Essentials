@@ -208,6 +208,7 @@ data class BiomeParameters @JvmOverloads constructor(
     val elevation: Double,
     val rainfall: Double,
     val category: BiomeCategory,
+    val distributionPalette: BiomeBlockDistributionPalette<*>,
     val precipitation: PrecipitationType = PrecipitationType.RAIN,
     val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
     val features: List<BiomeFeature<*, *>> = emptyList(),
@@ -231,6 +232,7 @@ interface PlatformBiome : Identifiable {
     val precipitation: PrecipitationType
         get() = PrecipitationType.RAIN
     val biomeStructureData: BiomeStructureData
+    val distributionPalette: BiomeBlockDistributionPalette<*>
 
     fun toNativeBiome(): Any
     fun isCold(): Boolean = temperature < 0.3
@@ -273,7 +275,8 @@ class SimpleConstructorBasedBiome(
     override val precipitation: PrecipitationType,
     override val biomeStructureData: BiomeStructureData,
     override val features: List<BiomeFeature<*, *>> = emptyList(),
-    override val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings()
+    override val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
+    override val distributionPalette: BiomeBlockDistributionPalette<*> = BiomeBlockDistributionPalette.empty()
 ):
     PlatformBiome {
     override fun toNativeBiome(): String {
