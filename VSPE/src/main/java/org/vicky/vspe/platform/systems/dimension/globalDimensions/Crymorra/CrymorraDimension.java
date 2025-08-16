@@ -2,6 +2,8 @@ package org.vicky.vspe.platform.systems.dimension.globalDimensions.Crymorra;
 
 import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
+import org.vicky.platform.utils.ResourceLocation;
+import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
@@ -135,7 +137,10 @@ public abstract class CrymorraDimension<T, B extends PlatformBiome> implements P
                 0.3,
                 0.5,
                 BiomeCategory.SNOWY_BEACH,
-                PrecipitationType.SNOW
+                PrecipitationType.SNOW,
+                new BiomeBlockDistributionPaletteBuilder<>()
+                        .addLayer(319, -64, VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("crymorra:magenta_grass_block")))
+                        .build()
         );
     }
 }

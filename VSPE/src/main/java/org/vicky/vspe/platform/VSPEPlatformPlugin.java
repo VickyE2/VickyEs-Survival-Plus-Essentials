@@ -55,6 +55,9 @@ public interface VSPEPlatformPlugin {
     static PlatformStructureManager<?> structureManager() {
         return get().getPlatformStructureManager();
     }
+    static PlatformBlockDataRegistry<?> blockStateCreator() {
+        return get().getPlatformBlockDataRegistry();
+    }
     static PlatformItemFactory itemFactory() {
         return get().getPlatformItemFactory();
     }
@@ -70,6 +73,7 @@ public interface VSPEPlatformPlugin {
 
     PlatformScheduler getPlatformScheduler();
     PlatformStructureManager<?> getPlatformStructureManager();
+    PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry();
     PlatformParticleProvider getParticleProvider();
     PlatformConfig getPlatformConfig();
     PlatformEntityFactory getPlatformEntityFactory();
