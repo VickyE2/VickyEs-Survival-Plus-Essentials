@@ -17,6 +17,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.vicky.ecosystem.server.CommunicatorServer;
+import org.vicky.platform.*;
+import org.vicky.platform.events.PlatformEventFactory;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ConfigManager;
 import org.vicky.utilities.FileManager;
@@ -30,6 +32,14 @@ import org.vicky.vspe.features.CharmsAndTrinkets.CnTManager;
 import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.TrinketProcessingFailureException;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreen;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreenListener;
+import org.vicky.vspe.paper.VSPEPlatformScheduler;
+import org.vicky.vspe.platform.PlatformBiomeFactory;
+import org.vicky.vspe.platform.PlatformItemFactory;
+import org.vicky.vspe.platform.PlatformStructureManager;
+import org.vicky.vspe.platform.VSPEPlatformPlugin;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
+import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformBiome;
 import org.vicky.vspe.structure_gen.*;
 import org.vicky.vspe.systems.dimension.*;
 import org.vicky.vspe.systems.dimension.Exceptions.NullManagerDimension;
@@ -53,7 +63,7 @@ import java.util.logging.Logger;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
-public final class VSPE extends JavaPlugin implements Listener {
+public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlugin {
     private static JavaPlugin plugin;
     private final vicky_utils utils = (vicky_utils) getServer().getPluginManager().getPlugin("Vicky-s_Utilities");
 
@@ -580,5 +590,65 @@ public final class VSPE extends JavaPlugin implements Listener {
             getLogger().severe("Failed to extract folder from JAR: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public PlatformScheduler getPlatformScheduler() {
+        return new VSPEPlatformScheduler();
+    }
+
+    @Override
+    public PlatformStructureManager getPlatformStructureManager() {
+        return null;
+    }
+
+    @Override
+    public PlatformParticleProvider getParticleProvider() {
+        return null;
+    }
+
+    @Override
+    public PlatformConfig getPlatformConfig() {
+        return null;
+    }
+
+    @Override
+    public PlatformEntityFactory getPlatformEntityFactory() {
+        return null;
+    }
+
+    @Override
+    public File getPlatformDataFolder() {
+        return null;
+    }
+
+    @Override
+    public PlatformLogger getPlatformLogger() {
+        return null;
+    }
+
+    @Override
+    public PlatformEventFactory getEventFactory() {
+        return null;
+    }
+
+    @Override
+    public PlatformDimensionManager getDimensionManager() {
+        return null;
+    }
+
+    @Override
+    public PlatformTrinketManager<?> getPlatformTrinketManager() {
+        return null;
+    }
+
+    @Override
+    public PlatformItemFactory getPlatformItemFactory() {
+        return null;
+    }
+
+    @Override
+    public <B extends PlatformBiome> PlatformBiomeFactory<B> getPlatformBiomeFactory() {
+        return null;
     }
 }

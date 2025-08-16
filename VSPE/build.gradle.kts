@@ -33,6 +33,7 @@ dependencies {
     api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     api("org.reflections:reflections:0.10.2")
     api("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
+    api("org.vicky.vspe:vspe-core:0.0.1-ARI")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
