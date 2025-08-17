@@ -208,7 +208,6 @@ data class BiomeParameters @JvmOverloads constructor(
     val elevation: Double,
     val rainfall: Double,
     val category: BiomeCategory,
-    val distributionPalette: BiomeBlockDistributionPalette<*>,
     val precipitation: PrecipitationType = PrecipitationType.RAIN,
     val distributionPalette: BiomeBlockDistributionPalette<*>,
     val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
