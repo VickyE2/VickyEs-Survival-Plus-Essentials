@@ -13,10 +13,28 @@ plugins {
 
 allprojects {
     repositories {
+        mavenCentral()
+        maven("https://mvn.lumine.io/repository/maven-public/")
+        maven("https://repo.papermc.io/repository/maven-public/")
+        maven("https://repo.comphenix.net/content/groups/public/")
+        maven("https://jitpack.io")
+        maven("https://repo.maven.apache.org/maven2/")
+        maven("https://repo.onarandombox.com/content/groups/public/")
+        maven("https://repo.codemc.io/repository/maven-public/")
+        maven("https://oss.sonatype.org/content/groups/public/")
+        maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+        maven("https://www.matteodev.it/spigot/public/maven/")
+        maven("https://repo.codemc.io/repository/maven-snapshots/")
+        maven("https://maven.enginehub.org/repo/")
+        maven("https://repo.codemc.org/repository/maven-public/")
+        maven("https://nexus.betonquest.org/repository/betonquest/")
+        maven("https://s01.oss.sonatype.org/content/repositories/snapshots/") {
+            name = "sonatype-oss-snapshots"
+        }
         maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
             credentials {
-                username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
-                password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+                username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME_GITHUB")).toString()
+                password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN_GITHUB")).toString()
             }
         }
     }

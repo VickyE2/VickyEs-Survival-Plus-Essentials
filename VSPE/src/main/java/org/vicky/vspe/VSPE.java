@@ -12,6 +12,8 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -19,10 +21,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.vicky.ecosystem.server.CommunicatorServer;
 import org.vicky.platform.*;
 import org.vicky.platform.events.PlatformEventFactory;
-import org.vicky.utilities.ANSIColor;
-import org.vicky.utilities.ConfigManager;
-import org.vicky.utilities.FileManager;
-import org.vicky.utilities.Identifiable;
+import org.vicky.utilities.*;
 import org.vicky.vicky_utils;
 import org.vicky.vspe.ecosystem.VSPECommunicateableImpl;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementManager;
@@ -32,14 +31,16 @@ import org.vicky.vspe.features.CharmsAndTrinkets.CnTManager;
 import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.TrinketProcessingFailureException;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreen;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreenListener;
-import org.vicky.vspe.paper.VSPEPlatformScheduler;
-import org.vicky.vspe.platform.PlatformBiomeFactory;
-import org.vicky.vspe.platform.PlatformItemFactory;
-import org.vicky.vspe.platform.PlatformStructureManager;
-import org.vicky.vspe.platform.VSPEPlatformPlugin;
+import org.vicky.vspe.paper.VSPEBukkitBlockDataRegistry;
+import org.vicky.vspe.paper.VSPEBukkitEventFactory;
+import org.vicky.vspe.paper.VSPEBukkitPlatformScheduler;
+import org.vicky.vspe.paper.VSPEBukkitStructureManager;
+import org.vicky.vspe.platform.*;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
+import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformBiome;
+import org.vicky.vspe.platform.systems.platformquestingintegration.QuestProductionFactory;
 import org.vicky.vspe.structure_gen.*;
 import org.vicky.vspe.systems.dimension.*;
 import org.vicky.vspe.systems.dimension.Exceptions.NullManagerDimension;
@@ -98,7 +99,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
                 );
         CommunicatorServer.getInstance()
                 .sendAsync("Vicky-s_Utilities", "test", obj);
-        dimensionManager = new DimensionManager();
+        dimensionManager = new VSPEBukkitDimensionManager();
         dimensionsGUIListener = new DimensionsGUIListener(this);
         dimensionManager.processDimensionGenerators(false);
         kraterosGenerationEngine = new KraterosGenerationEngine(this);
@@ -383,7 +384,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
                         Integer.valueOf(x);
                         byte[] w = x.getBytes();
                         return;
-                    };
+                    }
                     if (action.equals("gui"))
                         if (executionInfo.sender() instanceof Player)
                             new DimensionsGUI().showGui((Player) executionInfo.sender());
@@ -392,9 +393,9 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
                     else if (action.equals("set")) {
                         if (executionInfo.sender().isOp())
                             if (identifier != null) {
-                                Optional<BaseDimension> oBD = dimensionManager.LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(identifier)).findAny();
+                                Optional<BukkitBaseDimension> oBD = dimensionManager.LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(identifier)).findAny();
                                 if (oBD.isPresent()) {
-                                    BaseDimension dimension = oBD.get();
+                                    BukkitBaseDimension dimension = oBD.get();
                                     if (attribute != null) {
                                         if (attribute.equals("world")) {
                                             if (value != null && (value.equals("true") || value.equals("false"))) {
@@ -594,46 +595,117 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
 
     @Override
     public PlatformScheduler getPlatformScheduler() {
-        return new VSPEPlatformScheduler();
+        return new VSPEBukkitPlatformScheduler();
     }
 
     @Override
-    public PlatformStructureManager getPlatformStructureManager() {
-        return null;
+    public PlatformStructureManager<BlockData> getPlatformStructureManager() {
+        return new VSPEBukkitStructureManager();
+    }
+
+    @Override
+    public PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry() {
+        return new VSPEBukkitBlockDataRegistry();
     }
 
     @Override
     public PlatformParticleProvider getParticleProvider() {
-        return null;
+        return PlatformPlugin.particleProvider();
     }
 
     @Override
     public PlatformConfig getPlatformConfig() {
-        return null;
+        return new PlatformConfig() {
+            @Override
+            public boolean getBooleanValue(String s) {
+                return configManager.getBooleanValue(s);
+            }
+
+            @Override
+            public String getStringValue(String s) {
+                return configManager.getStringValue(s);
+            }
+
+            @Override
+            public Integer getIntegerValue(String s) {
+                return configManager.getIntegerValue(s);
+            }
+
+            @Override
+            public Float getFloatValue(String s) {
+                return (float) configManager.getIntegerValue(s);
+            }
+
+            @Override
+            public Double getDoubleValue(String s) {
+                return configManager.getDoubleValue(s);
+            }
+
+            @Override
+            public void setConfigValue(String s, PermittedObject<?> permittedObject) {
+                configManager.setBracedConfigValue(s, permittedObject.getValue(), "");
+            }
+
+            @Override
+            public boolean doesKeyExist(String s) {
+                return configManager.doesPathExist(s);
+            }
+
+            @Override
+            public void saveConfig() {
+                configManager.saveConfig();
+            }
+        };
     }
 
     @Override
     public PlatformEntityFactory getPlatformEntityFactory() {
-        return null;
+        return PlatformPlugin.entityFactory();
     }
 
     @Override
     public File getPlatformDataFolder() {
-        return null;
+        return getDataFolder();
     }
 
     @Override
     public PlatformLogger getPlatformLogger() {
-        return null;
+        return new PlatformLogger() {
+            @Override
+            public void info(String s) {
+                getLogger().info(s);
+            }
+
+            @Override
+            public void warn(String s) {
+                getLogger().warning(s);
+            }
+
+            @Override
+            public void error(String s) {
+                getLogger().severe(s);
+            }
+
+            @Override
+            public void debug(String s) {
+                getLogger().info("[DEBUG] " + s);
+            }
+
+            @Override
+            public void error(String s, Throwable throwable) {
+                getLogger().severe(s);
+                throwable.printStackTrace();
+            }
+        };
     }
 
     @Override
     public PlatformEventFactory getEventFactory() {
-        return null;
+        return new VSPEBukkitEventFactory();
     }
 
     @Override
-    public PlatformDimensionManager getDimensionManager() {
+    public PlatformDimensionManager<BlockData, World> getDimensionManager() {
         return null;
     }
 
@@ -644,6 +716,16 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
 
     @Override
     public PlatformItemFactory getPlatformItemFactory() {
+        return null;
+    }
+
+    @Override
+    public QuestProductionFactory getQuestProductionFactory() {
+        return null;
+    }
+
+    @Override
+    public PlatformAdvancementManager<?> getPlatformAdvancementManager() {
         return null;
     }
 

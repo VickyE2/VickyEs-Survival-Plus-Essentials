@@ -9,27 +9,6 @@ plugins {
     `maven-publish`
 }
 
-repositories {
-    maven("https://jitpack.io")
-    maven("https://repo.maven.apache.org/maven2/")
-    maven("https://repo.onarandombox.com/content/groups/public/")
-    maven("https://repo.codemc.io/repository/maven-public/")
-    maven("https://repo.papermc.io/repository/maven-public/")
-    maven("https://oss.sonatype.org/content/groups/public/")
-    maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
-    maven("https://mvn.lumine.io/repository/maven-public/")
-    maven("https://www.matteodev.it/spigot/public/maven/")
-    maven("https://repo.dmulloy2.net/repository/public/")
-    maven("https://repo.codemc.io/repository/maven-snapshots/")
-    maven("https://maven.enginehub.org/repo/")
-    maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities"){
-        credentials {
-            username = (project.findProperty("gpr.user") ?: System.getenv("USERNAME_GITHUB")).toString()
-            password = (project.findProperty("gpr.key") ?: System.getenv("TOKEN_GITHUB")).toString()
-        }
-    }
-}
-
 dependencies {
     api("org.reflections:reflections:0.10.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")

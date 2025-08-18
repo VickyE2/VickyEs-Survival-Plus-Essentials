@@ -13,7 +13,7 @@ import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementProcessingFailureException;
-import org.vicky.vspe.systems.dimension.BaseDimension;
+import org.vicky.vspe.systems.dimension.BukkitBaseDimension;
 import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
 import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.utilities.Manager.IdentifiableManager;
@@ -79,7 +79,7 @@ public class AdvancementManager implements IdentifiableManager {
 
                     StringBuilder dimensions = new StringBuilder();
                     if (advancement.getEligibleDimensions() != null) {
-                        for (BaseDimension dimension : advancement.getEligibleDimensions()) {
+                        for (BukkitBaseDimension dimension : advancement.getEligibleDimensions()) {
                             dimensions.append("    \n").append(dimension.getName());
                         }
                     }

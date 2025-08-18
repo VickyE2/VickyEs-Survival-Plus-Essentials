@@ -1,4 +1,4 @@
-package org.vicky.nms
+package org.vicky.vspe.nms
 
 import net.minecraft.core.BlockPos
 import net.minecraft.util.RandomSource

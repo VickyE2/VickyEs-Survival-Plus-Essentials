@@ -24,15 +24,15 @@ public enum DimensionType {
     ANCIENT_WORLD(new ArrayList<>(), "aadd88"),
     AETHER_WORLD(new ArrayList<>(), "ddddee");
 
-    private final List<BaseDimension> dimensions;
+    private final List<BukkitBaseDimension> dimensions;
     private final String hexCode;
 
-    DimensionType(List<BaseDimension> dimensions, String hexCode) {
+    DimensionType(List<BukkitBaseDimension> dimensions, String hexCode) {
         this.dimensions = dimensions;
         this.hexCode = hexCode;
     }
 
-    public void addDimension(BaseDimension dimension) {
+    public void addDimension(BukkitBaseDimension dimension) {
         this.dimensions.add(dimension);
     }
 
@@ -40,11 +40,11 @@ public enum DimensionType {
         return "#" + hexCode;
     }
 
-    public void removeDimension(BaseDimension dimension) {
+    public void removeDimension(BukkitBaseDimension dimension) {
         this.dimensions.remove(dimension);
     }
 
-    public boolean hasDimension(BaseDimension dimension) {
+    public boolean hasDimension(BukkitBaseDimension dimension) {
         return this.dimensions.stream().anyMatch(dimension1 -> dimension1.equals(dimension));
     }
 }

@@ -60,7 +60,8 @@ public class DimensionsGUI extends BaseGui {
             );
             theme_id = "lt";
         }
-        for (BaseDimension dimension : dimensionManager.LOADED_DIMENSIONS) PaginatedItems.add(dimension.getItemConfig(0));
+        for (BukkitBaseDimension dimension : dimensionManager.LOADED_DIMENSIONS)
+            PaginatedItems.add(dimension.getItemConfig(0));
 
         guiManager.openPaginatedGUI(
                 player,

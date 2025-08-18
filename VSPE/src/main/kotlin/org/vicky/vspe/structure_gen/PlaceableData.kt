@@ -1,15 +1,9 @@
 package org.vicky.vspe.structure_gen
 
-import com.sk89q.worldedit.WorldEdit
-import com.sk89q.worldedit.world.World
-import org.bukkit.Bukkit
-import org.bukkit.Rotation
 import org.bukkit.block.Block
-import org.bukkit.block.structure.Mirror
 import org.bukkit.block.structure.StructureRotation
 import org.spongepowered.configurate.objectmapping.ConfigSerializable
-import org.vicky.nms.NMS
-import java.io.File
+import org.vicky.vspe.nms.impl.NMS
 
 @ConfigSerializable
 data class RoadSet(

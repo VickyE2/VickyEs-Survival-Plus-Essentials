@@ -11,8 +11,8 @@ import org.vicky.vspe.features.CharmsAndTrinkets.CnTManager;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreenListener;
 import org.vicky.vspe.features.effects.potions.PotionGuiListener;
 import org.vicky.vspe.structure_gen.KraterosGenerationEngine;
-import org.vicky.vspe.systems.dimension.DimensionManager;
 import org.vicky.vspe.systems.dimension.DimensionsGUIListener;
+import org.vicky.vspe.systems.dimension.VSPEBukkitDimensionManager;
 
 import java.util.ArrayList;
 
@@ -20,7 +20,7 @@ public class GlobalResources {
     public static PotionGuiListener potionGuiListener;
     public static ConfigManager configManager;
     public static PluginCommunicator pluginCommunicator;
-    public static DimensionManager dimensionManager;
+    public static VSPEBukkitDimensionManager dimensionManager;
     public static AdvancementManager advancementManager;
     public static CnTManager trinketsManager;
     public static HibernateDatabaseManager databaseManager;

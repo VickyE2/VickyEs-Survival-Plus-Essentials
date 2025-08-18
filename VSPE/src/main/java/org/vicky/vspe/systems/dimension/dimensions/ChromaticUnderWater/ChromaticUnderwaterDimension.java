@@ -7,7 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.vicky.guiparent.GuiCreator;
-import org.vicky.vspe.systems.dimension.BaseDimension;
+import org.vicky.vspe.systems.dimension.BukkitBaseDimension;
 import org.vicky.vspe.systems.dimension.DimensionType;
 import org.vicky.vspe.systems.dimension.Exceptions.NoGeneratorException;
 import org.vicky.vspe.systems.dimension.Exceptions.WorldNotExistsException;
@@ -17,7 +17,7 @@ import java.util.List;
 
 import static org.vicky.vspe.systems.dimension.Generator.utils.Utilities.generateRandomSeed;
 
-public class ChromaticUnderwaterDimension extends BaseDimension {
+public class ChromaticUnderwaterDimension extends BukkitBaseDimension {
 
     public ChromaticUnderwaterDimension() throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
         super(

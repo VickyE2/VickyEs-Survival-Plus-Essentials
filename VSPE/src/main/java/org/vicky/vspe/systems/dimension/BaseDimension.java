@@ -6,19 +6,23 @@ import eu.endercentral.crazy_advancements.advancement.AdvancementVisibility;
 import eu.endercentral.crazy_advancements.advancement.criteria.Criteria;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.World.Environment;
-import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
+import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
+import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
 import org.vicky.guiparent.ButtonAction;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.items_adder.FontImageSender;
-import org.vicky.utilities.*;
+import org.vicky.utilities.ANSIColor;
+import org.vicky.utilities.BukkitHex;
 import org.vicky.utilities.ContextLogger.ContextLogger;
+import org.vicky.utilities.SmallCapsConverter;
+import org.vicky.utilities.UUIDGenerator;
 import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementManager;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementType;
@@ -26,10 +30,11 @@ import org.vicky.vspe.features.AdvancementPlus.Advancements.DimensionParentAdvan
 import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
+import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
 import org.vicky.vspe.systems.BroadcastSystem.ToastType;
 import org.vicky.vspe.systems.dimension.Events.DimensionWarpEvent;
-import org.vicky.vspe.systems.dimension.Exceptions.NoGeneratorException;
-import org.vicky.vspe.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.systems.dimension.Generator.BaseGenerator;
 import org.vicky.vspe.utilities.Config;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
@@ -41,16 +46,19 @@ import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
 import org.vicky.vspe.utilities.Manager.ManagerNotFoundException;
 import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
-public abstract class BaseDimension implements Identifiable, Listener {
+public abstract class BukkitBaseDimension implements PlatformBaseDimension<BlockData, World>, Listener {
     private final static DimensionService service = DimensionService.getInstance();
     private final String name;
     private final String mainName;
-    private final World world;
+    private final BukkitWorldAdapter world;
     private final List<DimensionCharacteristics> dimensionCharacteristics;
     private final List<DimensionType> dimensionTypes;
     private final Environment environmentType;
@@ -64,7 +72,7 @@ public abstract class BaseDimension implements Identifiable, Listener {
     private Location globalSpawnLocation;
     private DimensionTickHandler tickHandler;
 
-    public BaseDimension(
+    public BukkitBaseDimension(
             String mainName,
             String name,
             List<DimensionType> dimensionTypes,
@@ -99,22 +107,17 @@ public abstract class BaseDimension implements Identifiable, Listener {
         }
     }
 
-    protected abstract List<GuiCreator.ItemConfig> dimensionAdvancementGainItems();
     protected abstract void dimensionAdvancementGainProcedures(Player player);
 
     public String getName() {
         return this.name;
     }
 
-    public String getMainName() {
-        return this.mainName;
-    }
-
-    private World checkWorld() throws WorldNotExistsException, NoGeneratorException {
-        World existingWorld = Bukkit.getWorld(this.getName());
+    public BukkitWorldAdapter checkWorld() throws WorldNotExistsException, NoGeneratorException {
+        BukkitWorldAdapter existingWorld = new BukkitWorldAdapter(Bukkit.getWorld(this.getName()));
         boolean isConfiguredAsExisting = (service.getDimensionById(UUIDGenerator.generateUUIDFromString(name).toString()) != null);
         if (isConfiguredAsExisting) {
-            if (existingWorld != null) {
+            if (existingWorld.getBukkitWorld() != null) {
                 dimensionManager.LOADED_DIMENSIONS.add(this);
 
                 Dimension context;
@@ -152,7 +155,7 @@ public abstract class BaseDimension implements Identifiable, Listener {
         this.description = description;
     }
 
-    private World createWorld(String name) throws NoGeneratorException {
+    public BukkitWorldAdapter createWorld(String name) throws NoGeneratorException {
         if (this.generator == null) {
             logger.print("Generator is null for dimension: " + name, true);
             worldExists = false;
@@ -174,7 +177,7 @@ public abstract class BaseDimension implements Identifiable, Listener {
             }
 
             service.createDimension(context);
-            return worldManager.getMVWorld(name).getCBWorld();
+            return new BukkitWorldAdapter(worldManager.getMVWorld(name).getCBWorld());
         } else {
             logger.print("Failed to generate Multiverse Dimension...", true);
             worldExists = false;
@@ -193,76 +196,12 @@ public abstract class BaseDimension implements Identifiable, Listener {
         this.globalSpawnLocation = spawnLocation.clone();
     }
 
-    public World getWorld() {
+    public BukkitWorldAdapter getWorld() {
         return this.world;
     }
 
     public boolean isPlayerInDimension(Player player) {
-        return world.getPlayers().stream().anyMatch(p -> p.getUniqueId().equals(player.getUniqueId()));
-    }
-
-    public boolean takePlayerToDimension(Player player) {
-        DimensionWarpEvent event = new DimensionWarpEvent(player, this);
-        Bukkit.getPluginManager().callEvent(event);
-
-        if (event.isCancelled()) {
-            player.sendMessage(Component.text("You cannot enter this dimension right now.")
-                    .color(TextColor.fromHexString("#FF0000")));
-            return false;
-        }
-
-        if (worldExists) {
-            Optional<DimensionCharacteristics> globalSpawning = this.dimensionCharacteristics
-                    .stream()
-                    .filter(dimensionCharacteristics1 -> dimensionCharacteristics1.equals(DimensionCharacteristics.GLOBAL_SPAWN))
-                    .findAny();
-            if (globalSpawning.isPresent()) {
-                Location targetLocation = globalSpawnLocation;
-                return player.teleport(targetLocation);
-            } else {
-                Random random = new Random();
-                Location targetLocation = null;
-
-                for (int attempt = 0; attempt < 10; attempt++) {
-                    int x = random.nextInt(100000) - 50000;
-                    int z = random.nextInt(100000) - 50000;
-                    int y = this.world.getHighestBlockYAt(x, z);
-                    Location allegedLocation = new Location(this.world, x, y, z);
-                    Block block = allegedLocation.getBlock();
-                    if (this.dimensionTypes.stream().anyMatch(dimensionType -> dimensionType.equals(DimensionType.AQUATIC_WORLD))) {
-                        if (block.getType() == Material.WATER && allegedLocation.getBlockY() > 10) {
-                            Block below = block.getRelative(0, -1, 0);
-                            if (below.getType().isSolid()) {
-                                allegedLocation.add(0.5, 1.0, 0.5);
-                                targetLocation = allegedLocation;
-                                break;
-                            }
-                        }
-                    } else if (block.getType() == Material.WATER) {
-                        Block below = block.getRelative(0, -1, 0);
-                        if (below.getType().isSolid()) {
-                            allegedLocation.add(0.5, 1.0, 0.5);
-                            targetLocation = allegedLocation;
-                            break;
-                        }
-                    }
-                }
-
-                if (targetLocation != null) {
-                    return player.teleport(targetLocation);
-                } else {
-                    player.sendMessage(Component.text("There was an issue trying to get you to that world").color(TextColor.fromHexString("#440000")).append(Component.text("[err: NSS]").decorate(TextDecoration.ITALIC, TextDecoration.BOLD)));
-                    return false;
-                }
-            }
-        } else {
-            player.sendMessage(Component.text("There was an issue trying to get you to that world").color(TextColor.fromHexString("#440000")).append(Component.text("[err: WNX]").decorate(TextDecoration.ITALIC, TextDecoration.BOLD)));
-            return false;
-        }
-    }
-
-    protected void removePlayerFromDimension() {
-
+        return world.getBukkitWorld().getPlayers().stream().anyMatch(p -> p.getUniqueId().equals(player.getUniqueId()));
     }
 
     public abstract void applyMechanics(Player var1);
@@ -283,7 +222,7 @@ public abstract class BaseDimension implements Identifiable, Listener {
         worldManager.deleteWorld(this.getName());
     }
 
-    protected void disableDimension() {
+    public void disableDimension() {
         logger.print("Disabling dimension " + this.getName());
         worldManager.removePlayersFromWorld(this.getName());
         dimensionManager.UNLOADED_DIMENSIONS.add(this);
@@ -302,7 +241,7 @@ public abstract class BaseDimension implements Identifiable, Listener {
         worldManager.unloadWorld(this.getName());
     }
 
-    protected void enableDimension() {
+    public void enableDimension() {
         logger.print("Enabling dimension " + this.getName());
         dimensionManager.LOADED_DIMENSIONS.add(this);
         dimensionManager.UNLOADED_DIMENSIONS.remove(this);
@@ -333,7 +272,7 @@ public abstract class BaseDimension implements Identifiable, Listener {
                                         .map(type -> " " + FontImageSender.getImage("vspe_dimensions:" + type.name().toLowerCase()))
                                         .collect(Collectors.joining(" ")),
                         (this.description != null ? "Description: " + this.description : "")),
-                ButtonAction.ofRunCode(this::takePlayerToDimension, true)
+                ButtonAction.ofRunCode(p -> takePlayerToDimension(BukkitPlatformPlayer.of(p)), true)
         );
     }
 
@@ -366,16 +305,16 @@ public abstract class BaseDimension implements Identifiable, Listener {
                           purple[Rewards:]
                         %s
                         """,
-                                BaseDimension.this.mainName,
+                            BukkitBaseDimension.this.mainName,
                                 dimensionAdvancementGainItems().isEmpty()
                                         ? "~ nothing ~"
                                         : dimensionAdvancementGainItems().stream()
                                         .map(item -> "gold[    ▪ ]" + "rainbow-" + item.getRarity().getColor() + "[" + item.getName().toLowerCase() + "]")
                                         .collect(Collectors.joining("\n")))
                 ),
-                BaseDimension.this.mainName,
+                BukkitBaseDimension.this.mainName,
                 new NamespacedKey("vspe", "dimension_"+ getIdentifier()),
-                List.of(BaseDimension.this),
+                List.of(BukkitBaseDimension.this),
                 AdvancementType.CHALLENGE,
                 AdvancementVisibility.ALWAYS,
                 ToastType.POPUP_TOAST,
@@ -436,7 +375,7 @@ public abstract class BaseDimension implements Identifiable, Listener {
         Advancement dimensionAdvancement = oDA.get();
         if (!player.getAccomplishedAdvancements().contains(dimensionAdvancement)) {
             if (!advancementManager.grantAdvancemet(getDimensionJoinAdvancement().getClass(), event.getPlayer())) event.setCancelled(true);
-        };
+        }
     }
     public final void setTickHandler(DimensionTickHandler handler) {
         this.tickHandler = handler;

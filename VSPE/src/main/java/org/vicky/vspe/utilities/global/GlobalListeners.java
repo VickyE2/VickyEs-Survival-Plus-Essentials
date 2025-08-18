@@ -24,7 +24,7 @@ import org.vicky.vspe.features.AdvancementPlus.Advancements.TestAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
-import org.vicky.vspe.systems.dimension.BaseDimension;
+import org.vicky.vspe.systems.dimension.BukkitBaseDimension;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
 import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
@@ -66,13 +66,13 @@ public class GlobalListeners implements Listener {
             }
         }).runTaskLater(VSPE.getPlugin(), 10L);
         World transferringWorld = player.getWorld();
-        Optional<BaseDimension> dimension2 = GlobalResources.dimensionManager
+        Optional<BukkitBaseDimension> dimension2 = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
-                .filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), transferringWorld.getName()))
+                .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), transferringWorld.getName()))
                 .findAny();
         if (dimension2.isPresent()) {
-            final BaseDimension context = dimension2.get();
+            final BukkitBaseDimension context = dimension2.get();
             context.applyJoinMechanics(player);
             (new BukkitRunnable() {
                 public void run() {
@@ -86,13 +86,13 @@ public class GlobalListeners implements Listener {
     public void onPlayerLeave(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         GlobalResources.advancementManager.ADVANCEMENT_MANAGER.removePlayer(player);World transferringWorld = player.getWorld();
-        Optional<BaseDimension> dimension2 = GlobalResources.dimensionManager
+        Optional<BukkitBaseDimension> dimension2 = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
-                .filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), transferringWorld.getName()))
+                .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), transferringWorld.getName()))
                 .findAny();
         if (dimension2.isPresent()) {
-            final BaseDimension context = dimension2.get();
+            final BukkitBaseDimension context = dimension2.get();
             context.disableMechanics(player);
         }
     }
@@ -102,23 +102,23 @@ public class GlobalListeners implements Listener {
         final Player player = event.getPlayer();
         World previousWorld = event.getFrom();
         World transferringWorld = player.getWorld();
-        Optional<BaseDimension> dimension = GlobalResources.dimensionManager
+        Optional<BukkitBaseDimension> dimension = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
-                .filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), previousWorld.getName()))
+                .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), previousWorld.getName()))
                 .findAny();
-        Optional<BaseDimension> dimension2 = GlobalResources.dimensionManager
+        Optional<BukkitBaseDimension> dimension2 = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
-                .filter(baseDimension -> Objects.equals(baseDimension.getWorld().getName(), transferringWorld.getName()))
+                .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), transferringWorld.getName()))
                 .findAny();
         if (dimension.isPresent()) {
-            BaseDimension context = dimension.get();
+            BukkitBaseDimension context = dimension.get();
             context.disableMechanics(player);
         }
 
         if (dimension2.isPresent()) {
-            final BaseDimension context = dimension2.get();
+            final BukkitBaseDimension context = dimension2.get();
             context.applyJoinMechanics(player);
             (new BukkitRunnable() {
                 public void run() {

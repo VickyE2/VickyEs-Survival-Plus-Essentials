@@ -4,7 +4,7 @@ import org.bukkit.Bukkit;
 import org.vicky.platform.PlatformScheduler;
 import org.vicky.vspe.VSPE;
 
-public class VSPEPlatformScheduler implements PlatformScheduler {
+public class VSPEBukkitPlatformScheduler implements PlatformScheduler {
     @Override
     public void runMain(Runnable runnable) {
         Bukkit.getScheduler().runTask(VSPE.getPlugin(), runnable);

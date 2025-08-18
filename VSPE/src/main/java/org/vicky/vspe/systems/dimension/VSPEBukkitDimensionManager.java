@@ -1,13 +1,16 @@
 package org.vicky.vspe.systems.dimension;
 
-import io.lumine.mythic.bukkit.utils.lib.jooq.exception.IOException;
+import org.bukkit.World;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.reflections.Reflections;
+import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
-import org.vicky.utilities.Version;
 import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
+import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
 import org.vicky.vspe.systems.dimension.Exceptions.MissingConfigrationException;
 import org.vicky.vspe.systems.dimension.Generator.BaseGenerator;
 import org.vicky.vspe.systems.dimension.Generator.utils.Biome.BaseBiome;
@@ -24,22 +27,16 @@ import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.utilities.Manager.IdentifiableManager;
 import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.Pair;
-import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
-import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
-public class DimensionManager implements IdentifiableManager {
+public class VSPEBukkitDimensionManager implements PlatformDimensionManager<BlockData, World> {
     public static final Set<String> DIMENSION_PACKAGES = new HashSet<>();
     public static final Set<String> DIMENSION_ZIP_NAMES = new HashSet<>();
     private static final String YAML_FILE = "pack.yml";
@@ -48,57 +45,30 @@ public class DimensionManager implements IdentifiableManager {
         DIMENSION_PACKAGES.add("org.vicky.vspe.systems.Dimension.Dimensions");
     }
 
-    public final List<BaseDimension> LOADED_DIMENSIONS = new ArrayList<>();
-    public final List<BaseDimension> UNLOADED_DIMENSIONS = new ArrayList<>();
+    public final List<PlatformBaseDimension<BlockData, World>> LOADED_DIMENSIONS = new ArrayList<>();
+    public final List<PlatformBaseDimension<BlockData, World>> UNLOADED_DIMENSIONS = new ArrayList<>();
     public final Set<BaseGenerator> LOADED_GENERATORS = new HashSet<>();
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSIONS");
 
-    public DimensionManager() {
-        ManagerRegistry.register(this);
+    public VSPEBukkitDimensionManager() {
+        ManagerRegistry.register((IdentifiableManager) this);
     }
 
-    private static boolean shouldOverwrite(Path currentPack, Version newVersion) throws IOException {
-        String nullable = extractVersionFromYaml(currentPack);
-        if (nullable == null) return true;
-        Version currentVersion = Version.parse(nullable);
-
-        // Compare versions
-        return isNewerThan(currentVersion, newVersion);
+    @Override
+    public List<PlatformBaseDimension<BlockData, World>> getLoadedDimensions() {
+        return LOADED_DIMENSIONS;
     }
 
-    public static boolean isNewerThan(Version thiz, Version other) {
-        return thiz.compareTo(other) > 0;
-    }
-
-    /**
-     * Extracts the version from the YAML file inside the ZIP.
-     */
-    private static String extractVersionFromYaml(Path pack) throws IOException {
-        if (!Files.exists(pack)) {
-            return null;
-        }
-
-        try (ZipFile zipFile = new ZipFile(pack.toFile())) {
-            ZipEntry entry = zipFile.getEntry(YAML_FILE);
-            if (entry == null) {
-                return null; // YAML file not found
-            }
-
-            try (InputStream is = zipFile.getInputStream(entry)) {
-                Yaml yaml = new Yaml();
-                Map<String, Object> data = yaml.load(is);
-                return (String) data.get("version");
-            }
-        } catch (java.io.IOException e) {
-            throw new RuntimeException(e);
-        }
+    @Override
+    public List<PlatformBaseDimension<BlockData, World>> getUnLoadedDimensions() {
+        return UNLOADED_DIMENSIONS;
     }
 
     public void processDimensionGenerators(boolean clean) {
         logger.print("Starting Generators Processing...", ContextLogger.LogType.PENDING);
         for (String packagePath : DIMENSION_PACKAGES) {
             Reflections reflections = new Reflections(packagePath);
-            Set<Class<? extends BaseGenerator>> dimensionGenerators = reflections.getSubTypesOf(BaseGenerator.class);
+            Set<Class<? extends BaseGenerator>> dimensionGenerators = reflections.getSubTypesOf(PlatformBaseDimension.class);
 
             for (Class<? extends BaseGenerator> clazz : dimensionGenerators) {
                 try {
@@ -250,13 +220,13 @@ public class DimensionManager implements IdentifiableManager {
         logger.print("Starting Dimensions Processing...", ContextLogger.LogType.PENDING);
         for (String packagePath : DIMENSION_PACKAGES) {
             Reflections reflections = new Reflections(packagePath);
-            Set<Class<? extends BaseDimension>> dimensions = reflections.getSubTypesOf(BaseDimension.class);
+            Set<Class<? extends BukkitBaseDimension>> dimensions = reflections.getSubTypesOf(BukkitBaseDimension.class);
 
-            for (Class<? extends BaseDimension> clazz : dimensions) {
+            for (Class<? extends BukkitBaseDimension> clazz : dimensions) {
                 try {
-                    Constructor<? extends BaseDimension> constructor = clazz.getDeclaredConstructor();
+                    Constructor<? extends BukkitBaseDimension> constructor = clazz.getDeclaredConstructor();
                     constructor.setAccessible(true);
-                    BaseDimension dimension = constructor.newInstance();
+                    BukkitBaseDimension dimension = constructor.newInstance();
                     LOADED_DIMENSIONS.add(dimension);
                     logger.print(ANSIColor.colorize("purple[Added dimension " + dimension.getMainName() + "]"));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
@@ -268,8 +238,13 @@ public class DimensionManager implements IdentifiableManager {
         }
     }
 
-    public BaseDimension getPlayerDimension(Player player) {
-        for (BaseDimension dimension : this.LOADED_DIMENSIONS) {
+    @Override
+    public PlatformBaseDimension<BlockData, World> getPlayerDimension(PlatformPlayer platformPlayer) {
+        return null;
+    }
+
+    public BukkitBaseDimension getPlayerDimension(Player player) {
+        for (BukkitBaseDimension dimension : this.LOADED_DIMENSIONS) {
             if (dimension.isPlayerInDimension(player)) {
                 return dimension;
             }
@@ -278,7 +253,7 @@ public class DimensionManager implements IdentifiableManager {
         return null;
     }
 
-    public Optional<BaseDimension> getDimension(String dimensionId) {
+    public Optional<BukkitBaseDimension> getDimension(String dimensionId) {
         return this.LOADED_DIMENSIONS.stream().filter(d -> d.getIdentifier().equals(dimensionId)).findAny();
     }
 
@@ -307,9 +282,9 @@ public class DimensionManager implements IdentifiableManager {
 
     @Override
     public void removeEntity(String namespace) throws EntityNotFoundException {
-        Optional<BaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            BaseDimension context = optional.get();
+            BukkitBaseDimension context = optional.get();
             context.deleteDimension();
         } else {
             throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
@@ -319,9 +294,9 @@ public class DimensionManager implements IdentifiableManager {
 
     @Override
     public void disableEntity(String namespace) throws EntityNotFoundException {
-        Optional<BaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            BaseDimension context = optional.get();
+            BukkitBaseDimension context = optional.get();
             context.disableDimension();
         } else {
             throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
@@ -330,13 +305,18 @@ public class DimensionManager implements IdentifiableManager {
 
     @Override
     public void enableEntity(String namespace) throws EntityNotFoundException {
-        Optional<BaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            BaseDimension context = optional.get();
+            BukkitBaseDimension context = optional.get();
             context.enableDimension();
         } else {
             throw new EntityNotFoundException("Failed to locate entity with id: " + namespace);
         }
+    }
+
+    @Override
+    public void openDimensionsGUI(PlatformPlayer platformPlayer) {
+
     }
 
     public void openDimensionsGUI() {

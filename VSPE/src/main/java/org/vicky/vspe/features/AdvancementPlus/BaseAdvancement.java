@@ -7,6 +7,7 @@ import eu.endercentral.crazy_advancements.advancement.AdvancementFlag;
 import eu.endercentral.crazy_advancements.advancement.AdvancementReward;
 import eu.endercentral.crazy_advancements.advancement.AdvancementVisibility;
 import eu.endercentral.crazy_advancements.advancement.criteria.Criteria;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
@@ -15,12 +16,13 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vicky.utilities.ContextLogger.ContextLogger;
-import org.vicky.utilities.Identifiable;
 import org.vicky.utilities.UUIDGenerator;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.platform.PlatformItem;
+import org.vicky.vspe.platform.features.advancement.PlatformAdvancement;
 import org.vicky.vspe.systems.BroadcastSystem.ToastType;
-import org.vicky.vspe.systems.dimension.BaseDimension;
+import org.vicky.vspe.systems.dimension.BukkitBaseDimension;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement;
 import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
@@ -31,7 +33,7 @@ import java.util.*;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.advancementManager;
 
-public abstract class BaseAdvancement implements Identifiable {
+public abstract class BaseAdvancement implements PlatformAdvancement {
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.FEATURE, "ADVANCEMENT-BASE");
     protected String description;
     protected String title;
@@ -41,7 +43,7 @@ public abstract class BaseAdvancement implements Identifiable {
     protected AdvancementType advancementType;
     protected ToastType advancementTT;
     protected AdvancementFrame toastType;
-    protected List<BaseDimension> eligibleDimensions;
+    protected List<BukkitBaseDimension> eligibleDimensions;
     protected ItemStack icon;
     protected boolean hasParent;
     protected final Map<String, AllowedOverride<?>> overrides = new HashMap<>();
@@ -56,7 +58,7 @@ public abstract class BaseAdvancement implements Identifiable {
             @NotNull AdvancementFrame toastFrame,
             @Nullable String description,
             @NotNull String title,
-            @Nullable List<BaseDimension> permittedDimensions,
+            @Nullable List<BukkitBaseDimension> permittedDimensions,
             @NotNull AdvancementType advancementType,
             @NotNull AdvancementVisibility visibility,
             @NotNull ToastType aTT,
@@ -85,7 +87,7 @@ public abstract class BaseAdvancement implements Identifiable {
             @Nullable String description,
             @NotNull String title,
             @NotNull NamespacedKey namespace,
-            @Nullable List<BaseDimension> permittedDimensions,
+            @Nullable List<BukkitBaseDimension> permittedDimensions,
             @NotNull AdvancementType advancementType,
             @NotNull AdvancementVisibility visibility,
             @NotNull ToastType aTT,
@@ -227,8 +229,8 @@ public abstract class BaseAdvancement implements Identifiable {
 
     protected abstract void performGrantAdvancement(OfflinePlayer var1);
 
-    public String getDescription() {
-        return this.description;
+    public Component getDescription() {
+        return Component.text(this.description);
     }
 
     public <T> void addOverride(String key, AllowedOverride<T> override) {
@@ -243,7 +245,7 @@ public abstract class BaseAdvancement implements Identifiable {
         return this.advancementTT;
     }
 
-    public List<BaseDimension> getEligibleDimensions() {
+    public List<BukkitBaseDimension> getEligibleDimensions() {
         return this.eligibleDimensions;
     }
 
@@ -310,4 +312,8 @@ public abstract class BaseAdvancement implements Identifiable {
         }
     }
 
+    @Override
+    public PlatformItem getIcon() {
+        return icon;
+    }
 }
