@@ -5,26 +5,24 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
 import org.vicky.platform.world.PlatformWorld;
-import org.vicky.utilities.*;
+import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.platform.PlatformEnvironment;
-import org.vicky.vspe.platform.PlatformItem;
 import org.vicky.vspe.platform.PlatformWorldType;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancement;
 import org.vicky.vspe.platform.systems.dimension.Events.PlatformDimensionWarpEvent;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
-// import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.BaseGenerator;
-// import org.vicky.vspe.platform.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.BaseGenerator;
 import org.vicky.vspe.systems.dimension.DimensionSpawnStrategy;
 import org.vicky.vspe.systems.dimension.PlatformDimensionTickHandler;
 import org.vicky.vspe.systems.dimension.PortalContext;
 
-import java.util.*;
+import java.util.List;
 
 public interface PlatformBaseDimension<T, N> extends Identifiable {
     String getName();
@@ -97,9 +95,9 @@ public interface PlatformBaseDimension<T, N> extends Identifiable {
     void disableDimension();
     void enableDimension();
 
-    public PlatformItem getDimensionIcon(int position);
+    PlatformItem getDimensionIcon(int position);
     // public PlatformItem getDimensionIconForPlayer(AdvanceablePlayer player);
-    public PlatformAdvancement getDimensionJoinAdvancement();
+    PlatformAdvancement getDimensionJoinAdvancement();
 
     void setTickHandler(PlatformDimensionTickHandler handler);
     void tick();

@@ -1,6 +1,8 @@
 package org.vicky.vspe.platform;
 
-import org.vicky.platform.*;
+import org.vicky.platform.PlatformConfig;
+import org.vicky.platform.PlatformLogger;
+import org.vicky.platform.PlatformScheduler;
 import org.vicky.platform.events.PlatformEventFactory;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
@@ -25,17 +27,11 @@ public interface VSPEPlatformPlugin {
     static PlatformScheduler scheduler() {
         return get().getPlatformScheduler();
     }
-    static PlatformParticleProvider particleProvider() {
-        return get().getParticleProvider();
-    }
     static File dataFolder() {
         return get().getPlatformDataFolder();
     }
     static PlatformConfig config() {
         return get().getPlatformConfig();
-    }
-    static PlatformEntityFactory entityFactory() {
-        return get().getPlatformEntityFactory();
     }
     static ClassLoader classLoader() {
         return get().getClass().getClassLoader();
@@ -58,9 +54,6 @@ public interface VSPEPlatformPlugin {
     static PlatformBlockDataRegistry<?> blockStateCreator() {
         return get().getPlatformBlockDataRegistry();
     }
-    static PlatformItemFactory itemFactory() {
-        return get().getPlatformItemFactory();
-    }
     static QuestProductionFactory questFactory() {
         return get().getQuestProductionFactory();
     }
@@ -74,15 +67,12 @@ public interface VSPEPlatformPlugin {
     PlatformScheduler getPlatformScheduler();
     PlatformStructureManager<?> getPlatformStructureManager();
     PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry();
-    PlatformParticleProvider getParticleProvider();
     PlatformConfig getPlatformConfig();
-    PlatformEntityFactory getPlatformEntityFactory();
     File getPlatformDataFolder();
     PlatformLogger getPlatformLogger();
     PlatformEventFactory getEventFactory();
     PlatformDimensionManager<?, ?> getDimensionManager();
     PlatformTrinketManager<?> getPlatformTrinketManager();
-    PlatformItemFactory getPlatformItemFactory();
     QuestProductionFactory getQuestProductionFactory();
     PlatformAdvancementManager<?> getPlatformAdvancementManager();
     <B extends PlatformBiome> PlatformBiomeFactory<B> getPlatformBiomeFactory();

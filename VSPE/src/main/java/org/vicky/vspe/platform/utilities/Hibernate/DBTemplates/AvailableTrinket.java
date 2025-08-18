@@ -2,8 +2,8 @@ package org.vicky.vspe.platform.utilities.Hibernate.DBTemplates;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.NaturalId;
+import org.vicky.platform.PlatformItem;
 import org.vicky.utilities.DatabaseTemplate;
-import org.vicky.vspe.platform.PlatformItem;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinket;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;

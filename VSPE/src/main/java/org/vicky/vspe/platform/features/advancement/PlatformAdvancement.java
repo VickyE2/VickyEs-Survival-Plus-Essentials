@@ -1,18 +1,18 @@
 package org.vicky.vspe.platform.features.advancement;
 
 import net.kyori.adventure.text.Component;
-import org.jetbrains.annotations.NotNull;
+import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.Identifiable;
-import org.vicky.vspe.platform.PlatformItem;
 
-import java.util.*;
+import java.util.UUID;
 
 public interface PlatformAdvancement extends Identifiable {
-    String getId();
+    UUID getId();
     String getTitle();
     Component getDescription(); // Abstract text component
-    List<PlatformItem> getIcon();       // Abstracted from Bukkit ItemStack
+
+    PlatformItem getIcon();       // Abstracted from Bukkit ItemStack
     boolean isEligible(PlatformPlayer player);
     void grant(PlatformPlayer player);
 

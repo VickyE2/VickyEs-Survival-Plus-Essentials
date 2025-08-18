@@ -1,6 +1,6 @@
 package org.vicky.vspe.platform.features.CharmsAndTrinkets;
 
-import org.vicky.vspe.platform.PlatformItem;
+import org.vicky.platform.PlatformItem;
 
 /**
  * A simple container to hold an equipped trinket and the inventory slot it was placed in.

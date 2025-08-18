@@ -1,8 +1,6 @@
 package org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Palette;
 
 import org.vicky.platform.world.PlatformMaterial;
-import org.vicky.vspe.platform.PlatformItem;
-import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Meta.MetaClass;
 
 import java.util.ArrayList;

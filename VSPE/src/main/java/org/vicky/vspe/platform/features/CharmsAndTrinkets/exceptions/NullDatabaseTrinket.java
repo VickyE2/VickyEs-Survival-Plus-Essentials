@@ -1,8 +1,8 @@
 package org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions;
 
 
+import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
-import org.vicky.vspe.platform.PlatformItem;
 
 /**
  * Exception thrown when a database operation for a trinket fails

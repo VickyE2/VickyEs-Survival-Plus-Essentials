@@ -1,10 +1,10 @@
 package org.vicky.vspe.platform.features.CharmsAndTrinkets;
 
+import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.Identifiable;
-import org.vicky.vspe.platform.PlatformItem;
 
-import java.util.*;
+import java.util.List;
 
 public interface PlatformTrinket extends Identifiable {
     PlatformItem getIcon();
@@ -34,7 +34,7 @@ public interface PlatformTrinket extends Identifiable {
      * Base class for trinket event listeners that are shared for all users of this trinket.
      * The listener has a reference to its parent trinket so it can check the active players list.
      */
-    public abstract class PlatformTrinketEventListener {
+    abstract class PlatformTrinketEventListener {
         protected final PlatformTrinket trinket;
 
         public PlatformTrinketEventListener(PlatformTrinket trinket) {
