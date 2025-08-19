@@ -6,32 +6,33 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
 import org.vicky.guiparent.GuiCreator;
+import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.ContextLogger.ContextLogger;
-import org.vicky.utilities.Identifiable;
 import org.vicky.utilities.PermittedObjects.AllowedEnum;
 import org.vicky.utilities.PermittedObjects.AllowedUUID;
 import org.vicky.utilities.SmallCapsConverter;
 import org.vicky.utilities.UUIDGenerator;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullTrinketUser;
-import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.TrinketAbilityType;
 import org.vicky.vspe.utilities.Hibernate.dao_s.AvailableTrinketDAO;
-import org.vicky.vspe.utilities.Hibernate.dao_s.CnTPlayerDAO;
 import org.vicky.vspe.utilities.SymbolManager;
 import org.vicky.vspe.utilities.global.Events.TrinketEquippedEvent;
 import org.vicky.vspe.utilities.global.Events.TrinketGenerationEvent;
 import org.vicky.vspe.utilities.global.Events.TrinketUnEquippedEvent;
 
-import java.util.*;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.trinketManager;
 
-public abstract class BaseTrinket implements Identifiable {
+public abstract class BaseTrinket implements PlatformTrinket {
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.FEATURE, "TRINKET-BASE");
     protected final String description;
     protected final String name;
@@ -77,7 +78,7 @@ public abstract class BaseTrinket implements Identifiable {
         this.Id = UUIDGenerator.generateUUIDFromString(getFormattedName());
         icon.addNbtData("vspe_trinket_id", new AllowedUUID(this.Id));
         icon.setName(SmallCapsConverter.toSmallCaps(icon.getName()));
-        this.icon = GuiCreator.createItem(icon, null, CnTManager.getPlugin());
+        this.icon = GuiCreator.createItem(icon, null);
         this.rawIcon = icon;
 
         AvailableTrinketDAO dao = new AvailableTrinketDAO();
@@ -86,8 +87,8 @@ public abstract class BaseTrinket implements Identifiable {
         }
     }
 
-    public ItemStack getIcon() {
-        return icon;
+    public org.vicky.platform.PlatformItem getIcon() {
+        return new org.vicky.bukkitplatform.useables.BukkitItem(icon);
     }
 
     public GuiCreator.ItemConfig getRawIcon() {
@@ -170,8 +171,8 @@ public abstract class BaseTrinket implements Identifiable {
         return this.description;
     }
 
-    public TrinketSlot getTrinketSlot() {
-        return this.trinketSlot;
+    public EnumedTrinketSlot getTrinketSlot() {
+        return new EnumedTrinketSlot(this.trinketSlot);
     }
 
     public void setTrinketListener(TrinketEvent listener) {
@@ -246,5 +247,47 @@ public abstract class BaseTrinket implements Identifiable {
             if (!this.trinket.isPlayerUsing(event.getPlayer())) return;
             this.trinket.removePlayer(event.getPlayer());
         }
+    }
+
+    @Override
+    public void equipPlayer(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            addPlayer(player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
+    }
+
+    @Override
+    public void removePlayer(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            removePlayer(player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
+    }
+
+    @Override
+    public boolean isPlayerUsing(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            isPlayerUsing(player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
+    }
+
+    @Override
+    public void applyTrinketAbility(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            applyTrinketAbility(player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
+    }
+
+    @Override
+    public void performTrinketAbility(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            performTrinketAbility(player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
+    }
+
+    @Override
+    public void removeTrinketAbility(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            removeTrinketAbility(player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
     }
 }

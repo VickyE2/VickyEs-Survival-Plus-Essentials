@@ -9,12 +9,12 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.ItemStack;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementType;
-import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
+import org.vicky.vspe.features.AdvancementPlus.BukkitAdvancement;
 import org.vicky.vspe.systems.BroadcastSystem.ToastType;
 
 import java.util.ArrayList;
 
-public class TestAdvancementChild extends BaseAdvancement {
+public class TestAdvancementChild extends BukkitAdvancement {
     public TestAdvancementChild() {
         super(
                 new ItemStack(Material.FILLED_MAP),

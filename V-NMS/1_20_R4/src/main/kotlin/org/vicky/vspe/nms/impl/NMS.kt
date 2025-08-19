@@ -2,8 +2,8 @@ package org.vicky.vspe.nms.impl
 
 import com.mojang.brigadier.StringReader
 import com.mojang.brigadier.exceptions.CommandSyntaxException
+import com.mojang.serialization.Lifecycle
 import me.deecaad.core.utils.EnumUtil
-import me.deecaad.core.utils.ReflectionUtil
 import me.deecaad.core.utils.ReflectionUtil.*
 import net.minecraft.commands.arguments.ParticleArgument
 import net.minecraft.core.*
@@ -26,7 +26,6 @@ import net.minecraft.world.level.block.entity.BarrelBlockEntity
 import net.minecraft.world.level.block.entity.ChestBlockEntity
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity
-import net.minecraft.world.level.chunk.LevelChunk
 import net.minecraft.world.level.levelgen.WorldgenRandom
 import net.minecraft.world.level.levelgen.structure.BoundingBox
 import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece
@@ -251,8 +250,11 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
 
         if (particle.particle != null) {
             try {
-                val access = (Bukkit.getServer() as CraftServer).server.registryAccess()
-                val nmsParticle = ParticleArgument.readParticle(StringReader(particle.particle), access)
+                val access: RegistryAccess = (Bukkit.getServer() as CraftServer).server.registryAccess()
+                val nmsParticle = ParticleArgument.readParticle(
+                    StringReader(particle.particle),
+                    access as HolderLookup<ParticleType<*>?>
+                )
                 a.ambientParticle(AmbientParticleSettings(nmsParticle, particle.density))
             } catch (ex: CommandSyntaxException) {
                 NMS.logger?.print("Could not set particle: $particle", true)
@@ -306,7 +308,7 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
 
             (biomes as WritableRegistry<Biome>).apply {
                 createIntrusiveHolder(biome!!)
-                register(resource, biome!!, RegistrationInf.BUILT_IN)
+                register(resource, biome!!, Lifecycle.experimental())
             }
 
             setField(intrusiveHoldersField, biomes, null)

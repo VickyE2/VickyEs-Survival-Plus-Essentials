@@ -1,6 +1,6 @@
 package org.vicky.vspe.utilities;
 
-import org.vicky.vspe.systems.dimension.Exceptions.MissingConfigrationException;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.MissingConfigrationException;
 
 import java.io.FileNotFoundException;
 import java.lang.reflect.InvocationTargetException;

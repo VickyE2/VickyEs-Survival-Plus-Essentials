@@ -8,34 +8,37 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.reflections.Reflections;
+import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
+import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.VSPE;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementProcessingFailureException;
+import org.vicky.vspe.platform.features.advancement.AdvancementStorage;
+import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementProcessingFailureException;
+import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
+import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
+import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.systems.dimension.BukkitBaseDimension;
 import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
-import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
-import org.vicky.vspe.utilities.Manager.IdentifiableManager;
-import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 
 import java.lang.reflect.Constructor;
 import java.util.*;
 
 import static org.vicky.vspe.utilities.global.GlobalResources.configManager;
 
-public class AdvancementManager implements IdentifiableManager {
+public class AdvancementManager implements PlatformAdvancementManager<BukkitAdvancement> {
     public static final ArrayList<Advancement> SORTED_ADVANCEMENTS = new ArrayList<>();
-    public final Set<BaseAdvancement> LOADED_ADVANCEMENTS = new TreeSet<>(
-            Comparator.comparing(BaseAdvancement::isHasParent)
+    public final Set<BukkitAdvancement> LOADED_ADVANCEMENTS = new TreeSet<>(
+            Comparator.comparing(BukkitAdvancement::isHasParent)
                     .reversed()
-                    .thenComparing(BaseAdvancement::getIdentifier)
+                    .thenComparing(BukkitAdvancement::getIdentifier)
     );
 
-    public final Set<BaseAdvancement> UNLOADED_ADVANCEMENTS = new TreeSet<>(
-            Comparator.comparing(BaseAdvancement::isHasParent)
+    public final Set<BukkitAdvancement> UNLOADED_ADVANCEMENTS = new TreeSet<>(
+            Comparator.comparing(BukkitAdvancement::isHasParent)
                     .reversed()
-                    .thenComparing(BaseAdvancement::getIdentifier)
+                    .thenComparing(BukkitAdvancement::getIdentifier)
     );
     public final eu.endercentral.crazy_advancements.manager.AdvancementManager ADVANCEMENT_MANAGER = new eu.endercentral.crazy_advancements.manager.AdvancementManager(
             new NameKey("vspe", "manager")
@@ -57,11 +60,11 @@ public class AdvancementManager implements IdentifiableManager {
         try {
             logger.print("Starting advancement Processing...", ContextLogger.LogType.PENDING);
             Reflections reflections = new Reflections("org.vicky.vspe.features.AdvancementPlus.Advancements");
-            for (Class<? extends BaseAdvancement> clazz : reflections.getSubTypesOf(BaseAdvancement.class)) {
+            for (Class<? extends BukkitAdvancement> clazz : reflections.getSubTypesOf(BukkitAdvancement.class)) {
                 try {
-                    Constructor<? extends BaseAdvancement> constructor = clazz.getDeclaredConstructor();
+                    Constructor<? extends BukkitAdvancement> constructor = clazz.getDeclaredConstructor();
                     constructor.setAccessible(true);
-                    BaseAdvancement advancement = constructor.newInstance();
+                    BukkitAdvancement advancement = constructor.newInstance();
                     logger.print(ANSIColor.colorize("purple[Loaded advancement: ]") + advancement.getTitle());
                 } catch (Exception var9) {
                     VSPE.getInstancedLogger().severe("Failed to load advancement: " + clazz.getName());
@@ -69,7 +72,7 @@ public class AdvancementManager implements IdentifiableManager {
                 }
             }
 
-            for (BaseAdvancement advancement : this.LOADED_ADVANCEMENTS) {
+            for (BukkitAdvancement advancement : this.LOADED_ADVANCEMENTS) {
                 if (configManager.getBooleanValue("Debug")) {
                     logger.print(ANSIColor.colorize("Processing advancement: purple[" + advancement.getNamespace() + "]"));
                     logger.print(ANSIColor.colorize("    Advancement Title: purple[" + advancement.getFormattedTitle() + "]"));
@@ -103,6 +106,20 @@ public class AdvancementManager implements IdentifiableManager {
         }
     }
 
+    @Override
+    public boolean grantAdvancement(Class<? extends BukkitAdvancement> aClass, PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            return grantAdvancemet(aClass, player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
+    }
+
+    @Override
+    public void grantAdvancement(String s, PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            grantAdvancemet(s, player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got generic PlatformPlayer instead of BukkitPlatformPlayer");
+    }
+
     public void saveManagerProgress() {
         for (OfflinePlayer player : Bukkit.getOfflinePlayers()) {
             this.ADVANCEMENT_MANAGER.saveProgress(player.getUniqueId());
@@ -123,13 +140,13 @@ public class AdvancementManager implements IdentifiableManager {
         }
     }
 
-    public boolean grantAdvancemet(Class<? extends BaseAdvancement> advancementClass, Player player) {
-        Optional<BaseAdvancement> contextAdvancementOptional = this.LOADED_ADVANCEMENTS
+    public boolean grantAdvancemet(Class<? extends BukkitAdvancement> advancementClass, Player player) {
+        Optional<BukkitAdvancement> contextAdvancementOptional = this.LOADED_ADVANCEMENTS
                 .stream()
                 .filter(advancement -> advancement.getClass().equals(advancementClass))
                 .findFirst();
         if (contextAdvancementOptional.isPresent()) {
-            BaseAdvancement contextAdvancement = contextAdvancementOptional.get();
+            BukkitAdvancement contextAdvancement = contextAdvancementOptional.get();
             contextAdvancement.grantAdvancement(player);
             this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
             return true;
@@ -140,19 +157,19 @@ public class AdvancementManager implements IdentifiableManager {
     }
 
     public void grantAdvancemet(String advancementId, Player player) {
-        Optional<BaseAdvancement> contextAdvancementOptional = this.LOADED_ADVANCEMENTS
+        Optional<BukkitAdvancement> contextAdvancementOptional = this.LOADED_ADVANCEMENTS
                 .stream()
                 .filter(advancement -> advancement.getFormattedTitle().equals(advancementId))
                 .findFirst();
         if (contextAdvancementOptional.isPresent()) {
-            BaseAdvancement contextAdvancement = contextAdvancementOptional.get();
+            BukkitAdvancement contextAdvancement = contextAdvancementOptional.get();
             this.ADVANCEMENT_MANAGER.grantAdvancement(player, contextAdvancement.getInstance());
         } else {
             logger.print("Advancement of Id " + advancementId + " not found in LOADED_ADVANCEMENTS.", true);
         }
     }
 
-    public void addAdvancement(BaseAdvancement advancement) {
+    public void addAdvancement(BukkitAdvancement advancement) {
         LOADED_ADVANCEMENTS.add(advancement);
         SORTED_ADVANCEMENTS.add(advancement.getInstance());
         ADVANCEMENT_MANAGER.addAdvancement(advancement.getInstance());
@@ -172,8 +189,8 @@ public class AdvancementManager implements IdentifiableManager {
         packet.send();
     }
 
-    public BaseAdvancement getAdvancement(Class<? extends BaseAdvancement> advancementClass) {
-        Optional<BaseAdvancement> contextAdvancementOptional = this.LOADED_ADVANCEMENTS
+    public BukkitAdvancement getAdvancement(Class<? extends BukkitAdvancement> advancementClass) {
+        Optional<BukkitAdvancement> contextAdvancementOptional = this.LOADED_ADVANCEMENTS
                 .stream()
                 .filter(advancement -> advancement.getClass().equals(advancementClass))
                 .findFirst();
@@ -186,15 +203,20 @@ public class AdvancementManager implements IdentifiableManager {
     }
 
     @Override
+    public void setStorage(AdvancementStorage advancementStorage) {
+
+    }
+
+    @Override
     public String getManagerId() {
         return "advancement_manager";
     }
 
     @Override
     public void removeEntity(String namespace) throws EntityNotFoundException {
-        Optional<BaseAdvancement> optional = LOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
+        Optional<BukkitAdvancement> optional = LOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            BaseAdvancement context = optional.get();
+            BukkitAdvancement context = optional.get();
             context.deleteAdvancement();
             saveAndUnloadManagerProgress();
         } else {
@@ -205,9 +227,9 @@ public class AdvancementManager implements IdentifiableManager {
 
     @Override
     public void disableEntity(String namespace) throws EntityNotFoundException {
-        Optional<BaseAdvancement> optional = LOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
+        Optional<BukkitAdvancement> optional = LOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            BaseAdvancement context = optional.get();
+            BukkitAdvancement context = optional.get();
             context.disableAdvancement();
             saveAndUnloadManagerProgress();
         } else {
@@ -218,9 +240,9 @@ public class AdvancementManager implements IdentifiableManager {
 
     @Override
     public void enableEntity(String namespace) throws EntityNotFoundException {
-        Optional<BaseAdvancement> optional = UNLOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
+        Optional<BukkitAdvancement> optional = UNLOADED_ADVANCEMENTS.stream().filter(k -> k.getNamespace().equals(namespace)).findAny();
         if (optional.isPresent()) {
-            BaseAdvancement context = optional.get();
+            BukkitAdvancement context = optional.get();
             context.enableAdvancement();
             saveAndUnloadManagerProgress();
         } else {

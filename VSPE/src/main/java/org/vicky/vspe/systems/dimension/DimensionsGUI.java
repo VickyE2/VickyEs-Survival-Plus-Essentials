@@ -2,11 +2,12 @@ package org.vicky.vspe.systems.dimension;
 
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
 import org.vicky.guiparent.BaseGui;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.vspe.VSPE;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.utilities.Hibernate.api.AdvanceablePlayerService;
 
@@ -39,7 +40,7 @@ public class DimensionsGUI extends BaseGui {
         Optional<AdvanceablePlayer> oAP = service.getPlayerById(player.getUniqueId());
         if (oAP.isEmpty()) {
             try {
-                throw new NullAdvancementUser("Failed to get AdvancementPlayer from database", player);
+                throw new NullAdvancementUser("Failed to get AdvancementPlayer from database", BukkitPlatformPlayer.of(player));
             } catch (NullAdvancementUser e) {
                 throw new RuntimeException(e);
             }
@@ -60,10 +61,10 @@ public class DimensionsGUI extends BaseGui {
             );
             theme_id = "lt";
         }
-        for (BukkitBaseDimension dimension : dimensionManager.LOADED_DIMENSIONS)
+        for (BukkitBaseDimension dimension : dimensionManager.LOADED_DIMENSIONS.stream().map(BukkitBaseDimension.class::cast).toList())
             PaginatedItems.add(dimension.getItemConfig(0));
 
-        guiManager.openPaginatedGUI(
+        guiManager.paginated(
                 player,
                 6,
                 GuiCreator.ArrowGap.SMALL,

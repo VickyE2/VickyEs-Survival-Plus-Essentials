@@ -9,23 +9,23 @@ import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.MissingConfigrationException;
 import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
-import org.vicky.vspe.systems.dimension.Exceptions.MissingConfigrationException;
-import org.vicky.vspe.systems.dimension.Generator.BaseGenerator;
-import org.vicky.vspe.systems.dimension.Generator.utils.Biome.BaseBiome;
-import org.vicky.vspe.systems.dimension.Generator.utils.Extrusion.Extrusion;
-import org.vicky.vspe.systems.dimension.Generator.utils.Feature.Feature;
-import org.vicky.vspe.systems.dimension.Generator.utils.Locator.Locator;
-import org.vicky.vspe.systems.dimension.Generator.utils.Meta.BaseClass;
-import org.vicky.vspe.systems.dimension.Generator.utils.Meta.MetaClass;
-import org.vicky.vspe.systems.dimension.Generator.utils.NoiseSampler.NoiseSampler;
-import org.vicky.vspe.systems.dimension.Generator.utils.Palette.Palette;
-import org.vicky.vspe.systems.dimension.Generator.utils.progressbar.progressbars.NullProgressBar;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.BaseGenerator;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Biome.BaseBiome;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Extrusion.Extrusion;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Feature.Feature;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Locator.Locator;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Meta.BaseClass;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Meta.MetaClass;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.NoiseSampler.NoiseSampler;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Palette.Palette;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.progressbar.progressbars.NullProgressBar;
+import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
+import org.vicky.vspe.platform.utilities.Manager.IdentifiableManager;
+import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.ExceptionDerivator;
-import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
-import org.vicky.vspe.utilities.Manager.IdentifiableManager;
-import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.Pair;
 
 import java.io.File;
@@ -39,7 +39,6 @@ import java.util.concurrent.CompletableFuture;
 public class VSPEBukkitDimensionManager implements PlatformDimensionManager<BlockData, World> {
     public static final Set<String> DIMENSION_PACKAGES = new HashSet<>();
     public static final Set<String> DIMENSION_ZIP_NAMES = new HashSet<>();
-    private static final String YAML_FILE = "pack.yml";
 
     static {
         DIMENSION_PACKAGES.add("org.vicky.vspe.systems.Dimension.Dimensions");
@@ -51,7 +50,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSIONS");
 
     public VSPEBukkitDimensionManager() {
-        ManagerRegistry.register((IdentifiableManager) this);
+        ManagerRegistry.register(this);
     }
 
     @Override
@@ -68,7 +67,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
         logger.print("Starting Generators Processing...", ContextLogger.LogType.PENDING);
         for (String packagePath : DIMENSION_PACKAGES) {
             Reflections reflections = new Reflections(packagePath);
-            Set<Class<? extends BaseGenerator>> dimensionGenerators = reflections.getSubTypesOf(PlatformBaseDimension.class);
+            Set<Class<? extends BaseGenerator>> dimensionGenerators = reflections.getSubTypesOf(BaseGenerator.class);
 
             for (Class<? extends BaseGenerator> clazz : dimensionGenerators) {
                 try {
@@ -228,7 +227,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
                     constructor.setAccessible(true);
                     BukkitBaseDimension dimension = constructor.newInstance();
                     LOADED_DIMENSIONS.add(dimension);
-                    logger.print(ANSIColor.colorize("purple[Added dimension " + dimension.getMainName() + "]"));
+                    logger.print(ANSIColor.colorize("purple[Added dimension " + dimension.getName() + "]"));
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                          NoSuchMethodException var18) {
                     logger.print("Exception encountered on dimension load: " + var18.getMessage(), true);
@@ -244,17 +243,21 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
     }
 
     public BukkitBaseDimension getPlayerDimension(Player player) {
-        for (BukkitBaseDimension dimension : this.LOADED_DIMENSIONS) {
-            if (dimension.isPlayerInDimension(player)) {
-                return dimension;
-            }
-        }
-
-        return null;
+        return LOADED_DIMENSIONS.stream()
+                .filter(BukkitBaseDimension.class::isInstance)             // keep only BukkitBaseDimension
+                .map(BukkitBaseDimension.class::cast)                      // cast safely
+                .filter(dimension -> dimension.isPlayerInDimension(player)) // check if player is in it
+                .findFirst()                                               // get the first match
+                .orElse(null);                                             // null if none found
     }
 
-    public Optional<BukkitBaseDimension> getDimension(String dimensionId) {
-        return this.LOADED_DIMENSIONS.stream().filter(d -> d.getIdentifier().equals(dimensionId)).findAny();
+    public Optional<PlatformBaseDimension<BlockData, World>> getDimension(String dimensionId) {
+        return LOADED_DIMENSIONS.stream()
+                .filter(BukkitBaseDimension.class::isInstance)              // keep only BukkitBaseDimension
+                .map(BukkitBaseDimension.class::cast)                       // cast safely
+                .filter(dimension -> dimension.getIdentifier().equals(dimensionId))
+                .map(d -> (PlatformBaseDimension<BlockData, World>) d)                  // cast back to base type
+                .findAny();
     }
 
     private void handleException(Exception e, String generatorName) {
@@ -282,7 +285,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
 
     @Override
     public void removeEntity(String namespace) throws EntityNotFoundException {
-        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(BukkitBaseDimension.class::isInstance).map(BukkitBaseDimension.class::cast).filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
             BukkitBaseDimension context = optional.get();
             context.deleteDimension();
@@ -294,7 +297,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
 
     @Override
     public void disableEntity(String namespace) throws EntityNotFoundException {
-        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(BukkitBaseDimension.class::isInstance).map(BukkitBaseDimension.class::cast).filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
             BukkitBaseDimension context = optional.get();
             context.disableDimension();
@@ -305,7 +308,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
 
     @Override
     public void enableEntity(String namespace) throws EntityNotFoundException {
-        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(namespace)).findAny();
+        Optional<BukkitBaseDimension> optional = LOADED_DIMENSIONS.stream().filter(BukkitBaseDimension.class::isInstance).map(BukkitBaseDimension.class::cast).filter(k -> k.getIdentifier().equals(namespace)).findAny();
         if (optional.isPresent()) {
             BukkitBaseDimension context = optional.get();
             context.enableDimension();
@@ -316,10 +319,6 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
 
     @Override
     public void openDimensionsGUI(PlatformPlayer platformPlayer) {
-
-    }
-
-    public void openDimensionsGUI() {
 
     }
 

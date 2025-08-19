@@ -5,14 +5,17 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.vicky.bukkitplatform.useables.BukkitItem;
+import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.listeners.BaseGuiListener;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.vspe.features.CharmsAndTrinkets.BaseTrinket;
 import org.vicky.vspe.features.CharmsAndTrinkets.TrinketSlot;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullDatabaseTrinket;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullTrinketUser;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullDatabaseTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullTrinketUser;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AvailableTrinket;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
 import org.vicky.vspe.utilities.Hibernate.dao_s.AvailableTrinketDAO;
@@ -419,19 +422,19 @@ event.setCancelled(false);
                     for (Map.Entry<TrinketSlot, List<EquippedTrinket>> slotItems : slotMap.entrySet()) {
                         for (EquippedTrinket equippedTrinket : slotItems.getValue()) {
                             // Look up the corresponding trinket in the database.
-                            Optional<BaseTrinket> trinketOpt = trinketManager.getTrinketById(
+                            Optional<PlatformTrinket> trinketOpt = trinketManager.getTrinketById(
                                     GuiCreator.getNBTData(equippedTrinket.getItem(), "vspe_trinket_id", UUID.class).toString());
                             // Call the unequipped event regardless (even if the trinket isn’t found in DB)
                             if (trinketOpt.isEmpty()) {
                                 try {
-                                    throw new NullManagerTrinket("Trinket was found in database but failed to be found in the manager", equippedTrinket.getItem(), p);
+                                    throw new NullManagerTrinket("Trinket was found in database but failed to be found in the manager", new BukkitItem(equippedTrinket.getItem()), BukkitPlatformPlayer.of(p));
                                 }
                                 catch (NullManagerTrinket e) {
                                     throw new RuntimeException(e);
                                 }
                             }
                             TrinketUnEquippedEvent unequippedEvent =
-                                    new TrinketUnEquippedEvent(p, trinketOpt.get());
+                                    new TrinketUnEquippedEvent(p, (BaseTrinket) trinketOpt.get());
                             Bukkit.getPluginManager().callEvent(unequippedEvent);
 
                             // Update dbPlayer: clear the appropriate slot.
@@ -483,7 +486,7 @@ event.setCancelled(false);
                 }
                 else {
                     try {
-                        throw new NullTrinketUser("An error occurred while trying to unequip a player trinket. The player is not in the database...", p);
+                        throw new NullTrinketUser("An error occurred while trying to unequip a player trinket. The player is not in the database...", BukkitPlatformPlayer.of(p));
                     } catch (NullTrinketUser e) {
                         throw new RuntimeException(e);
                     }
@@ -500,18 +503,18 @@ event.setCancelled(false);
                                     GuiCreator.getNBTData(equippedTrinket.getItem(), "vspe_trinket_id", UUID.class).toString());
                             if (trinketOpt.isPresent()) {
                                     // Look up the corresponding trinket in the database.
-                                    Optional<BaseTrinket> tOpt = trinketManager.getTrinketById(
+                                Optional<PlatformTrinket> tOpt = trinketManager.getTrinketById(
                                             GuiCreator.getNBTData(equippedTrinket.getItem(), "vspe_trinket_id", UUID.class).toString());
                                     // Call the unequipped event regardless (even if the trinket isn’t found in DB)
                                     if (tOpt.isEmpty()) {
                                         try {
-                                            throw new NullManagerTrinket("Trinket was found in database but failed to be found in the manager", equippedTrinket.getItem(), p);
+                                            throw new NullManagerTrinket("Trinket was found in database but failed to be found in the manager", new BukkitItem(equippedTrinket.getItem()), BukkitPlatformPlayer.of(p));
                                         } catch (NullManagerTrinket e) {
                                             throw new RuntimeException(e);
                                         }
                                     }// Call the equipped event before updating the DB.
                                     TrinketEquippedEvent equippedEvent =
-                                            new TrinketEquippedEvent(p, tOpt.get());
+                                            new TrinketEquippedEvent(p, (BaseTrinket) tOpt.get());
                                     Bukkit.getPluginManager().callEvent(equippedEvent);
 
                                     switch (slotItems.getKey()) {
@@ -559,7 +562,7 @@ event.setCancelled(false);
                                 }
                             else {
                                     try {
-                                        throw new NullDatabaseTrinket("A trinket from itemStack was passed but was not found in database.", equippedTrinket.getItem(), p);
+                                        throw new NullDatabaseTrinket("A trinket from itemStack was passed but was not found in database.", new BukkitItem(equippedTrinket.getItem()), BukkitPlatformPlayer.of(p));
                                     } catch (NullDatabaseTrinket e) {
                                         throw new RuntimeException(e);
                                     }
@@ -570,7 +573,7 @@ event.setCancelled(false);
                 }
                 else {
                     try {
-                        throw new NullTrinketUser("An error occurred while trying to equip a player trinket. The player seems to not be in the database...", p);
+                        throw new NullTrinketUser("An error occurred while trying to equip a player trinket. The player seems to not be in the database...", BukkitPlatformPlayer.of(p));
                     } catch (NullTrinketUser e) {
                         throw new RuntimeException(e);
                     }

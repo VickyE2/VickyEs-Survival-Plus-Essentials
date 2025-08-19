@@ -16,14 +16,15 @@ import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.DatabaseManager.dao_s.DatabasePlayerDAO;
 import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.AdvancementPlus.Advancements.TestAdvancement;
-import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.features.AdvancementPlus.BukkitAdvancement;
+import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementNotExists;
+import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
 import org.vicky.vspe.systems.dimension.BukkitBaseDimension;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
@@ -69,6 +70,7 @@ public class GlobalListeners implements Listener {
         Optional<BukkitBaseDimension> dimension2 = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
+                .map(BukkitBaseDimension.class::cast)
                 .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), transferringWorld.getName()))
                 .findAny();
         if (dimension2.isPresent()) {
@@ -89,6 +91,7 @@ public class GlobalListeners implements Listener {
         Optional<BukkitBaseDimension> dimension2 = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
+                .map(BukkitBaseDimension.class::cast)
                 .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), transferringWorld.getName()))
                 .findAny();
         if (dimension2.isPresent()) {
@@ -105,11 +108,13 @@ public class GlobalListeners implements Listener {
         Optional<BukkitBaseDimension> dimension = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
+                .map(BukkitBaseDimension.class::cast)
                 .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), previousWorld.getName()))
                 .findAny();
         Optional<BukkitBaseDimension> dimension2 = GlobalResources.dimensionManager
                 .LOADED_DIMENSIONS
                 .stream()
+                .map(BukkitBaseDimension.class::cast)
                 .filter(BukkitBaseDimension -> Objects.equals(BukkitBaseDimension.getWorld().getName(), transferringWorld.getName()))
                 .findAny();
         if (dimension.isPresent()) {
@@ -132,13 +137,13 @@ public class GlobalListeners implements Listener {
     public void onPlayerReceivedAdvancements(AdvancementGrantEvent event) {
         Player player = event.getPlayer();
         Advancement advancement = event.getAdvancement();
-        Optional<BaseAdvancement> optionalBaseAdvancement = GlobalResources.advancementManager
+        Optional<BukkitAdvancement> optionalBaseAdvancement = GlobalResources.advancementManager
                 .LOADED_ADVANCEMENTS
                 .stream()
                 .filter(baseAdvancement -> Objects.equals(baseAdvancement.getFormattedTitle(), advancement.getName().getKey()))
                 .findAny();
         if (optionalBaseAdvancement.isPresent()) {
-            BaseAdvancement contextAdvancemet = optionalBaseAdvancement.get();
+            BukkitAdvancement contextAdvancemet = optionalBaseAdvancement.get();
             if (!contextAdvancemet.isHasParent()) {
                 GlobalResources.advancementManager.ADVANCEMENT_MANAGER.saveProgress(player, advancement);
             } else {
@@ -160,7 +165,7 @@ public class GlobalListeners implements Listener {
         String advancementTextColor = event.getAdvancementType().getAdvancementColor();
         Optional<AdvanceablePlayer> oAP = service.getPlayerById(player.getUniqueId());
         if (oAP.isEmpty()) {
-            throw new NullAdvancementUser("Failed to get AdvancementPlayer from database", player);
+            throw new NullAdvancementUser("Failed to get AdvancementPlayer from database", BukkitPlatformPlayer.of(player));
         }
         AdvanceablePlayer databasePlayer = oAP.get();
         Component hoverMessage = Component

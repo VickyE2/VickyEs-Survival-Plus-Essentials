@@ -11,17 +11,19 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
+import org.vicky.bukkitplatform.useables.BukkitItem;
+import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.utilities.JarClassScanner;
-import org.vicky.vspe.VSPE;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.TrinketProcessingFailureException;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.TrinketProcessingFailureException;
+import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
+import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
 import org.vicky.vspe.utilities.Hibernate.dao_s.CnTPlayerDAO;
-import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
-import org.vicky.vspe.utilities.Manager.IdentifiableManager;
-import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -36,11 +38,11 @@ import static org.vicky.vspe.utilities.global.GlobalResources.classLoader;
  * It also provides helper methods for managing trinket listeners and implements the IdentifiableManager interface.
  * </p>
  */
-public class CnTManager implements IdentifiableManager, Listener {
+public class CnTManager implements PlatformTrinketManager<BaseTrinket>, Listener {
     // A list of currently loaded trinket instances.
-    public final List<BaseTrinket> LOADED_TRINKETS = new ArrayList<>();
+    public final List<PlatformTrinket> LOADED_TRINKETS = new ArrayList<>();
     // A list of trinket instances that have been unloaded (if applicable).
-    public final List<BaseTrinket> UNLOADED_TRINKETS = new ArrayList<>();
+    public final List<PlatformTrinket> UNLOADED_TRINKETS = new ArrayList<>();
 
     // Map of package names to a list of package strings (for scanning trinket classes from jars)
     public final static Map<String, List<String>> TRINKET_PACKAGES = new HashMap<>();
@@ -104,6 +106,26 @@ public class CnTManager implements IdentifiableManager, Listener {
         }
     }
 
+    @Override
+    public List<PlatformTrinket> getLoadedTrinkets() {
+        return LOADED_TRINKETS;
+    }
+
+    @Override
+    public List<PlatformTrinket> getUnLoadedTrinkets() {
+        return UNLOADED_TRINKETS;
+    }
+
+    @Override
+    public void removeTrinketFromListener(PlatformTrinket.PlatformTrinketEventListener platformTrinketEventListener, PlatformTrinket platformTrinket) {
+
+    }
+
+    @Override
+    public void addTrinketFromListener(PlatformTrinket.PlatformTrinketEventListener platformTrinketEventListener, PlatformTrinket platformTrinket) {
+
+    }
+
     /**
      * Scans the specified packages for classes extending {@link BaseTrinket},
      * instantiates each (using a no-argument constructor), and adds the instance
@@ -161,8 +183,18 @@ public class CnTManager implements IdentifiableManager, Listener {
      * @param Id the identifier of the trinket to search for
      * @return an Optional containing the trinket if found, otherwise empty
      */
-    public Optional<BaseTrinket> getTrinketById(String Id) {
+    public Optional<PlatformTrinket> getTrinketById(String Id) {
         return LOADED_TRINKETS.stream().filter(t -> t.getIdentifier().equals(Id)).findAny();
+    }
+
+    @Override
+    public void givePlayerTrinket(PlatformPlayer platformPlayer, String s) {
+
+    }
+
+    @Override
+    public void onPlayerJoinServerTrinketCheck(BaseTrinket baseTrinket) {
+
     }
 
     @Override
@@ -197,13 +229,13 @@ public class CnTManager implements IdentifiableManager, Listener {
 
     public void givePlayerTrinket(Player sender, String trinket) {
 
-        Optional<BaseTrinket> oBT = LOADED_TRINKETS.stream().filter(t -> t.getFormattedName().equals(trinket)).findFirst();
+        Optional<PlatformTrinket> oBT = LOADED_TRINKETS.stream().filter(t -> t.getFormattedName().equals(trinket)).findFirst();
         if (oBT.isEmpty()) {
             sender.sendMessage(Component.text("That trinket does not exist :0", TextColor.color(0.6f, 0f, 0f), TextDecoration.ITALIC, TextDecoration.BOLD));
             return;
         }
-        BaseTrinket baseTrinket = oBT.get();
-        sender.getInventory().addItem(baseTrinket.getIcon());
+        BaseTrinket baseTrinket = (BaseTrinket) oBT.get();
+        sender.getInventory().addItem(((BukkitItem) baseTrinket.getIcon()).getStack());
     }
 
     @EventHandler
@@ -221,14 +253,10 @@ public class CnTManager implements IdentifiableManager, Listener {
 
             CnTPlayer cnTPlayer = optionalCnTPlayer.get();
             List<UUID> trinketUUID;
-            try {
-                trinketUUID = cnTPlayer.getTrinketUUIDs();
-            } catch (NullManagerTrinket e) {
-                throw new RuntimeException(e);
-            }
+            trinketUUID = cnTPlayer.getTrinketUUIDs();
 
             for (UUID uuid : trinketUUID) {
-                Optional<BaseTrinket> oT = this.getTrinketById(uuid.toString());
+                Optional<PlatformTrinket> oT = this.getTrinketById(uuid.toString());
                 if (oT.isEmpty()) {
                     try {
                         throw new NullManagerTrinket("Trinket was found on player but could not be found on manager");
@@ -236,7 +264,7 @@ public class CnTManager implements IdentifiableManager, Listener {
                         throw new RuntimeException(e);
                     }
                 }
-                BaseTrinket trinket = oT.get();
+                BaseTrinket trinket = (BaseTrinket) oT.get();
                 trinket.addPlayer(player);
             }
 

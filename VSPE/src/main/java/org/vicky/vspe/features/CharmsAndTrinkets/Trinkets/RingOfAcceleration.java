@@ -4,20 +4,18 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.CharmsAndTrinkets.BaseTrinket;
-import org.vicky.vspe.features.CharmsAndTrinkets.TrinketAbilityType;
 import org.vicky.vspe.features.CharmsAndTrinkets.TrinketSlot;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.AbilityCategory;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.TrinketAbility;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.TrinketAbilityType;
 
 import java.util.List;
 
@@ -62,6 +60,11 @@ public class RingOfAcceleration extends BaseTrinket {
     @Override
     protected void removeTrinketAbility(Player disabler) {
 
+    }
+
+    @Override
+    public TrinketAbility getTrinketCategory() {
+        return new TrinketAbility("vspe:ring_of_acceleration", "ROA", AbilityCategory.UTILITY);
     }
 
     /**

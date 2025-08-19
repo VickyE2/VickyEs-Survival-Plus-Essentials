@@ -8,34 +8,50 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.*;
 import org.bukkit.World.Environment;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.Nullable;
+import org.vicky.bukkitplatform.useables.BukkitItem;
+import org.vicky.bukkitplatform.useables.BukkitLocationAdapter;
 import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
 import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
 import org.vicky.guiparent.ButtonAction;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.items_adder.FontImageSender;
+import org.vicky.platform.PlatformPlayer;
+import org.vicky.platform.world.PlatformLocation;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.BukkitHex;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.SmallCapsConverter;
 import org.vicky.utilities.UUIDGenerator;
-import org.vicky.vspe.VSPE;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementManager;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementType;
 import org.vicky.vspe.features.AdvancementPlus.Advancements.DimensionParentAdvancement;
-import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementNotExists;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.features.AdvancementPlus.BukkitAdvancement;
+import org.vicky.vspe.paper.BukkitDimensionWarpEvent;
+import org.vicky.vspe.paper.BukkitWorldTypeAdapter;
+import org.vicky.vspe.platform.PlatformEnvironment;
+import org.vicky.vspe.platform.PlatformItem;
+import org.vicky.vspe.platform.PlatformWorldType;
+import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementNotExists;
+import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.platform.systems.dimension.DimensionClass;
+import org.vicky.vspe.platform.systems.dimension.DimensionType;
+import org.vicky.vspe.platform.systems.dimension.Events.PlatformDimensionWarpEvent;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.BaseGenerator;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformDimension;
+import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
+import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.systems.BroadcastSystem.ToastType;
 import org.vicky.vspe.systems.dimension.Events.DimensionWarpEvent;
-import org.vicky.vspe.systems.dimension.Generator.BaseGenerator;
 import org.vicky.vspe.utilities.Config;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.Advancement;
@@ -43,8 +59,6 @@ import org.vicky.vspe.utilities.Hibernate.DBTemplates.Dimension;
 import org.vicky.vspe.utilities.Hibernate.api.DimensionService;
 import org.vicky.vspe.utilities.Hibernate.dao_s.AdvanceablePlayerDAO;
 import org.vicky.vspe.utilities.Hibernate.dao_s.AdvancementDAO;
-import org.vicky.vspe.utilities.Manager.ManagerNotFoundException;
-import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +66,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.vicky.vspe.platform.systems.dimension.DimensionType.AQUATIC_WORLD;
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
 public abstract class BukkitBaseDimension implements PlatformBaseDimension<BlockData, World>, Listener {
@@ -59,18 +74,16 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
     private final String name;
     private final String mainName;
     private final BukkitWorldAdapter world;
-    private final List<DimensionCharacteristics> dimensionCharacteristics;
     private final List<DimensionType> dimensionTypes;
     private final Environment environmentType;
     private final String seed;
-    private final WorldType worldType;
+    private final PlatformWorldType worldType;
     private final boolean generateStructures;
     private final BaseGenerator generator;
     private final ContextLogger logger;
     private String description;
     private boolean worldExists = true;
-    private Location globalSpawnLocation;
-    private DimensionTickHandler tickHandler;
+    private PlatformDimensionTickHandler tickHandler;
 
     public BukkitBaseDimension(
             String mainName,
@@ -78,14 +91,13 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
             List<DimensionType> dimensionTypes,
             Environment environmentType,
             String seed,
-            WorldType worldType,
+            PlatformWorldType worldType,
             boolean generateStructures,
             Class<? extends BaseGenerator> generator
     ) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
         this.name = name;
         this.mainName = mainName;
         this.logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSION-" + name.toUpperCase());
-        this.dimensionCharacteristics = new ArrayList<>();
         this.dimensionTypes = dimensionTypes;
         this.environmentType = environmentType;
         this.seed = seed;
@@ -103,7 +115,7 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
             throw new ManagerNotFoundException("Failed to locate advancement manager...");
         }
         for (DimensionType dimensionType : dimensionTypes) {
-            dimensionType.addDimension(this);
+            dimensionType.addDimension((PlatformDimension<?, ?>) this);
         }
     }
 
@@ -161,7 +173,7 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
             worldExists = false;
             throw new NoGeneratorException("Dimension's Generator is not loaded in registry");
         }
-        boolean successful = worldManager.addWorld(name, this.environmentType, this.seed, this.worldType, this.generateStructures, this.generator.getGeneratorName());
+        boolean successful = worldManager.addWorld(name, this.environmentType, this.seed, BukkitWorldTypeAdapter.adapt(this.worldType), this.generateStructures, this.generator.getGeneratorName());
         if (successful) {
             dimensionManager.LOADED_DIMENSIONS.add(this);
 
@@ -183,17 +195,6 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
             worldExists = false;
             return null;
         }
-    }
-
-    protected void isRandomSpawning() {
-        this.dimensionCharacteristics.add(DimensionCharacteristics.RANDOM_SPAWN);
-        this.dimensionCharacteristics.remove(DimensionCharacteristics.GLOBAL_SPAWN);
-    }
-
-    protected void isGlobalSpawning(Location spawnLocation) {
-        this.dimensionCharacteristics.add(DimensionCharacteristics.GLOBAL_SPAWN);
-        this.dimensionCharacteristics.remove(DimensionCharacteristics.RANDOM_SPAWN);
-        this.globalSpawnLocation = spawnLocation.clone();
     }
 
     public BukkitWorldAdapter getWorld() {
@@ -290,14 +291,13 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
                                         .collect(Collectors.joining(" ")),
                         (this.description != null ? "Description: " + this.description : ""),
                         ChatColor.YELLOW + "→ "  + ChatColor.GOLD + SmallCapsConverter.toSmallCaps(player.getAccomplishedAdvancements().stream().anyMatch(d -> d.getId().equals(UUIDGenerator.generateUUIDFromString(name))) ? "You've visited this dimension before" : "You are yet to visit this dimension..")),
-                ButtonAction.ofRunCode(this::takePlayerToDimension, true)
+                ButtonAction.ofRunCode(p -> takePlayerToDimension(BukkitPlatformPlayer.of(p)), true)
         );
     }
 
-    public BaseAdvancement getDimensionJoinAdvancement() {
-
-        return new BaseAdvancement(
-                GuiCreator.createItem(getItemConfig(0), null, VSPE.getPlugin()),
+    public BukkitAdvancement getDimensionJoinAdvancement() {
+        return new BukkitAdvancement(
+                GuiCreator.createItem(getItemConfig(0), null),
                 AdvancementDisplay.AdvancementFrame.CHALLENGE,
                 BukkitHex.colorize(
                     String.format("""
@@ -309,7 +309,9 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
                                 dimensionAdvancementGainItems().isEmpty()
                                         ? "~ nothing ~"
                                         : dimensionAdvancementGainItems().stream()
-                                        .map(item -> "gold[    ▪ ]" + "rainbow-" + item.getRarity().getColor() + "[" + item.getName().toLowerCase() + "]")
+                                        .filter(ItemConfigPlatformItem.class::isInstance)
+                                        .map(ItemConfigPlatformItem.class::cast)                 // safe cast
+                                        .map(item -> "gold[    ▪ ]" + "rainbow-" + item.getStack().getRarity().getColor() + "[" + item.getName().toLowerCase() + "]")
                                         .collect(Collectors.joining("\n")))
                 ),
                 BukkitBaseDimension.this.mainName,
@@ -330,9 +332,14 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
                 return new AdvancementReward() {
                     @Override
                     public void onGrant(Player player) {
-                        for(GuiCreator.ItemConfig item : dimensionAdvancementGainItems()) {
-                            ItemStack itemStack = GuiCreator.createItem(item, player, VSPE.getPlugin());
-                            player.getInventory().addItem(itemStack);
+                        for (PlatformItem item : dimensionAdvancementGainItems()) {
+                            if (item instanceof BukkitItem bukkitItem) {
+                                player.getInventory().addItem(bukkitItem.getStack());
+                            }
+                            if (item instanceof ItemConfigPlatformItem itemConfigPlatformItem) {
+                                ItemStack itemStack = GuiCreator.createItem(itemConfigPlatformItem.getStack(), player);
+                                player.getInventory().addItem(itemStack);
+                            }
                         }
                         player.giveExp(5);
                     }
@@ -356,7 +363,7 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
         if (oAP.isEmpty()) {
             try {
                 event.setCancelled(true);
-                throw new NullAdvancementUser("Failed to locate advanceable player whilst trying to enter dimension", event.getPlayer());
+                throw new NullAdvancementUser("Failed to locate advanceable player whilst trying to enter dimension", BukkitPlatformPlayer.of(event.getPlayer()));
             } catch (NullAdvancementUser e) {
                 throw new RuntimeException(e);
             }
@@ -377,9 +384,156 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
             if (!advancementManager.grantAdvancemet(getDimensionJoinAdvancement().getClass(), event.getPlayer())) event.setCancelled(true);
         }
     }
-    public final void setTickHandler(DimensionTickHandler handler) {
-        this.tickHandler = handler;
+
+    @Override
+    public boolean isSafeSpawnLocation(@Nullable PlatformLocation platformLocation) {
+        if (platformLocation == null) {
+            return false;
+        }
+
+        var loc = BukkitLocationAdapter.to(platformLocation);
+        var block = loc.getBlock();
+
+        // Unsafe: inside liquid unless dimension allows aquatic spawns
+        if (block.isLiquid() && !this.getDimensionTypes().contains(AQUATIC_WORLD)) {
+            return false;
+        }
+
+        // Unsafe: inside a solid block (e.g. suffocating inside stone)
+        if (block.isSolid()) {
+            return false;
+        }
+
+        // Optional: also check headroom
+        var above = block.getRelative(BlockFace.UP);
+        return !above.isSolid();
     }
+
+
+    @Override
+    public @Nullable Double findGroundYAt(int x, int z) {
+        var bukkitWorld = world.getBukkitWorld();
+        bukkitWorld.loadChunk(x >> 4, z >> 4);
+        int y = bukkitWorld.getHighestBlockYAt(x, z);
+        if (y <= bukkitWorld.getMinHeight()) {
+            return null;
+        }
+
+        return (double) y;
+    }
+
+    @Override
+    public @Nullable PlatformLocation locationAt(double v, double v1, double v2) {
+        return world.getBlockAt(v, v1, v2).getLocation();
+    }
+
+    @Override
+    public boolean dimensionJoinCondition(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            return dimensionJoinCondition(player.getBukkitPlayer());
+        throw new IllegalArgumentException("Got non BukkitPlatformPlayer for warp event");
+    }
+
+    @Override
+    public PlatformItem getDimensionIcon(int i) {
+        return ItemConfigPlatformItem(getItemConfig(i));
+    }
+
+    @Override
+    public void applyJoinMechanics(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            applyJoinMechanics(player.getBukkitPlayer());
+    }
+
+    @Override
+    public void disableMechanics(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            disableMechanics(player.getBukkitPlayer());
+    }
+
+    @Override
+    public void applyMechanics(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            applyMechanics(player.getBukkitPlayer());
+    }
+
+    @Override
+    public void removePlayerFromDimension(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player) {
+
+        }
+    }
+
+    @Override
+    public boolean isPlayerInDimension(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            return isPlayerInDimension(player.getBukkitPlayer());
+        return false;
+    }
+
+    @Override
+    public PlatformDimensionWarpEvent createWarpEvent(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            return new BukkitDimensionWarpEvent(this, new DimensionWarpEvent(player.getBukkitPlayer(), this));
+        throw new IllegalArgumentException("Got non BukkitPlatformPlayer for warp event");
+    }
+
+    @Override
+    public void dimensionAdvancementGainProcedures(PlatformPlayer platformPlayer) {
+        if (platformPlayer instanceof BukkitPlatformPlayer player)
+            dimensionAdvancementGainProcedures(player.getBukkitPlayer());
+    }
+
+    @Override
+    public PlatformDimensionTickHandler getTickHandler() {
+        return tickHandler;
+    }
+
+    @Override
+    public void setTickHandler(PlatformDimensionTickHandler platformDimensionTickHandler) {
+
+    }
+
+    @Override
+    public boolean dimensionExists() {
+        return getWorld() != null;
+    }
+
+    @Override
+    public BaseGenerator getGenerator() {
+        return generator;
+    }
+
+    @Override
+    public boolean generatesStructures() {
+        return false;
+    }
+
+    @Override
+    public PlatformWorldType getWorldType() {
+        return worldType;
+    }
+
+    @Override
+    public String getSeed() {
+        return "";
+    }
+
+    @Override
+    public PlatformEnvironment getEnvironmentType() {
+        return null;
+    }
+
+    @Override
+    public List<org.vicky.vspe.platform.systems.dimension.DimensionType> getDimensionTypes() {
+        return new ArrayList<>(dimensionTypes);
+    }
+
+    @Override
+    public boolean takePlayerToDimension(PlatformPlayer player) {
+        return PlatformBaseDimension.super.takePlayerToDimension(player);
+    }
+
     public final void tick() {
         if (tickHandler != null) {
             tickHandler.tick(world.getPlayers(), this.world);

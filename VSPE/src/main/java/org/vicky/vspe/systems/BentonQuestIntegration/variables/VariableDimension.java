@@ -5,9 +5,12 @@ import org.betonquest.betonquest.exceptions.InstructionParseException;
 import org.betonquest.betonquest.exceptions.QuestRuntimeException;
 import org.betonquest.betonquest.instruction.variable.Variable;
 import org.betonquest.betonquest.quest.registry.processor.VariableProcessor;
+import org.bukkit.World;
+import org.bukkit.block.data.BlockData;
+import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
+import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.systems.dimension.BukkitBaseDimension;
-import org.vicky.vspe.systems.dimension.DimensionManager;
-import org.vicky.vspe.utilities.Manager.ManagerRegistry;
+import org.vicky.vspe.systems.dimension.VSPEBukkitDimensionManager;
 
 import java.util.Optional;
 
@@ -25,10 +28,10 @@ public class VariableDimension extends Variable<BukkitBaseDimension> {
     }
 
     public static BukkitBaseDimension parse(final String value) throws QuestRuntimeException {
-        final Optional<BukkitBaseDimension> world = ManagerRegistry.getManager(DimensionManager.class).get().getDimension(value);
+        final Optional<PlatformBaseDimension<BlockData, World>> world = ManagerRegistry.getManager(VSPEBukkitDimensionManager.class).get().getDimension(value);
         if (world.isEmpty()) {
             throw new QuestRuntimeException("Dimension " + value + " does not exists.");
         }
-        return world.get();
+        return (BukkitBaseDimension) world.get();
     }
 }

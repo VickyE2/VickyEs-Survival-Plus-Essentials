@@ -13,12 +13,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementType;
-import org.vicky.vspe.features.AdvancementPlus.BaseAdvancement;
+import org.vicky.vspe.features.AdvancementPlus.BukkitAdvancement;
 import org.vicky.vspe.systems.BroadcastSystem.ToastType;
 
 import java.util.ArrayList;
 
-public class TestAdvancement extends BaseAdvancement {
+public class TestAdvancement extends BukkitAdvancement {
     public TestAdvancement() {
         super(
                 new ItemStack(Material.PAPER),

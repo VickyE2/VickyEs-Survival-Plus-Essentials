@@ -18,39 +18,40 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.vicky.bukkitplatform.useables.BukkitLocationAdapter;
+import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
 import org.vicky.ecosystem.server.CommunicatorServer;
 import org.vicky.platform.*;
-import org.vicky.platform.events.PlatformEventFactory;
 import org.vicky.utilities.*;
 import org.vicky.vicky_utils;
 import org.vicky.vspe.ecosystem.VSPECommunicateableImpl;
 import org.vicky.vspe.features.AdvancementPlus.AdvancementManager;
-import org.vicky.vspe.features.AdvancementPlus.Exceptions.AdvancementProcessingFailureException;
+import org.vicky.vspe.features.AdvancementPlus.BukkitAdvancement;
 import org.vicky.vspe.features.CharmsAndTrinkets.BaseTrinket;
 import org.vicky.vspe.features.CharmsAndTrinkets.CnTManager;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.TrinketProcessingFailureException;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreen;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreenListener;
-import org.vicky.vspe.paper.VSPEBukkitBlockDataRegistry;
-import org.vicky.vspe.paper.VSPEBukkitEventFactory;
-import org.vicky.vspe.paper.VSPEBukkitPlatformScheduler;
-import org.vicky.vspe.paper.VSPEBukkitStructureManager;
-import org.vicky.vspe.platform.*;
+import org.vicky.vspe.paper.*;
+import org.vicky.vspe.platform.PlatformBiomeFactory;
+import org.vicky.vspe.platform.PlatformBlockDataRegistry;
+import org.vicky.vspe.platform.PlatformStructureManager;
+import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.TrinketProcessingFailureException;
+import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementProcessingFailureException;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.NullManagerDimension;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformBiome;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.StructureCacheUtils;
 import org.vicky.vspe.platform.systems.platformquestingintegration.QuestProductionFactory;
+import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
+import org.vicky.vspe.platform.utilities.Manager.IdentifiableManager;
+import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
+import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.structure_gen.*;
 import org.vicky.vspe.systems.dimension.*;
-import org.vicky.vspe.systems.dimension.Exceptions.NullManagerDimension;
-import org.vicky.vspe.systems.dimension.StructureUtils.StructureCacheUtils;
 import org.vicky.vspe.utilities.Config;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.*;
-import org.vicky.vspe.utilities.Manager.EntityNotFoundException;
-import org.vicky.vspe.utilities.Manager.IdentifiableManager;
-import org.vicky.vspe.utilities.Manager.ManagerNotFoundException;
-import org.vicky.vspe.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.global.GlobalListeners;
 
 import java.io.File;
@@ -78,7 +79,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
 
     @Override
     public void onLoad() {
-
+        VSPEPlatformPlugin.set(this);
         if (utils != null) {
             vicky_utils.addTemplateClasses(
                     AdvanceablePlayer.class,
@@ -333,7 +334,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
             String action = (String) info.previousArgs().get("action");
             if (action == null) return new String[0];
             if (action.equals("set")) {
-                Optional<DimensionManager> oM = ManagerRegistry.getManager(DimensionManager.class);
+                Optional<VSPEBukkitDimensionManager> oM = ManagerRegistry.getManager(VSPEBukkitDimensionManager.class);
                 if (oM.isEmpty()) {
                     try {
                         throw new ManagerNotFoundException("Failed to locate dimension manager in registered managers");
@@ -393,7 +394,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
                     else if (action.equals("set")) {
                         if (executionInfo.sender().isOp())
                             if (identifier != null) {
-                                Optional<BukkitBaseDimension> oBD = dimensionManager.LOADED_DIMENSIONS.stream().filter(k -> k.getIdentifier().equals(identifier)).findAny();
+                                Optional<BukkitBaseDimension> oBD = dimensionManager.LOADED_DIMENSIONS.stream().map(BukkitBaseDimension.class::cast).filter(k -> k.getIdentifier().equals(identifier)).findAny();
                                 if (oBD.isPresent()) {
                                     BukkitBaseDimension dimension = oBD.get();
                                     if (attribute != null) {
@@ -492,9 +493,9 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
                                     buildingMaxSpacing, buildingMinSpacing,
                                     buildingPadding, roadPadding
                             ),
-                            player.getWorld(),
+                            new BukkitWorldAdapter(player.getWorld()),
                             found,
-                            location,
+                            BukkitLocationAdapter.from(location),
                             new DistributedRoadLayoutEngine(RoadLayoutStrategy.Centered.INSTANCE),
                             true,
                             true,
@@ -525,7 +526,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
             getLogger().info(ANSIColor.colorize("cyan[Saving advancement and progress]"));
             advancementManager.saveAndUnloadManagerProgress();
         }, 10200L, 10200L);
-        DimensionTickLoop.INSTANCE.runTaskTimer(this, 1L, 20L);
+        Bukkit.getScheduler().runTaskTimer(this, DimensionTickLoop.INSTANCE, 1L, 20L);
     }
     @Override
     public void onDisable() {
@@ -700,23 +701,13 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
     }
 
     @Override
-    public PlatformEventFactory getEventFactory() {
-        return new VSPEBukkitEventFactory();
-    }
-
-    @Override
     public PlatformDimensionManager<BlockData, World> getDimensionManager() {
-        return null;
+        return dimensionManager;
     }
 
     @Override
     public PlatformTrinketManager<?> getPlatformTrinketManager() {
-        return null;
-    }
-
-    @Override
-    public PlatformItemFactory getPlatformItemFactory() {
-        return null;
+        return trinketManager;
     }
 
     @Override
@@ -725,12 +716,12 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
     }
 
     @Override
-    public PlatformAdvancementManager<?> getPlatformAdvancementManager() {
-        return null;
+    public PlatformAdvancementManager<BukkitAdvancement> getPlatformAdvancementManager() {
+        return advancementManager;
     }
 
     @Override
-    public <B extends PlatformBiome> PlatformBiomeFactory<B> getPlatformBiomeFactory() {
-        return null;
+    public PlatformBiomeFactory<BukkitBiome> getPlatformBiomeFactory() {
+        return new BukkitBiomeFactory();
     }
 }
