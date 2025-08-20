@@ -42,6 +42,8 @@ import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.TrinketProcessingFailureException;
 import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementProcessingFailureException;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
+import org.vicky.vspe.platform.systems.dimension.CoreDimensionRegistry;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NullManagerDimension;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.StructureCacheUtils;
@@ -110,6 +112,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
 
     @Override
     public void onEnable() {
+        CoreDimensionRegistry.installInto(this);
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null
                 && Bukkit.getPluginManager().getPlugin("MythicMobs") != null
                 && Bukkit.getPluginManager().getPlugin("ItemsAdder") != null
@@ -594,6 +597,16 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
             getLogger().severe("Failed to extract folder from JAR: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public void registerDimensionDescriptor(DimensionDescriptor dimensionDescriptor) {
+        VSPEBukkitDimensionManager.DIMENSION_DESCRIPTOR_SET.add(dimensionDescriptor);
+    }
+
+    @Override
+    public void processPendingDimensions() {
+        dimensionManager.loadDimensionsFromDescriptors();
     }
 
     @Override

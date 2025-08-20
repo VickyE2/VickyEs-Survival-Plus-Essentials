@@ -3,13 +3,20 @@ package org.vicky.vspe.systems.dimension;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.reflections.Reflections;
+import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
+import org.vicky.platform.world.PlatformLocation;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.MissingConfigrationException;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
+import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.BaseGenerator;
@@ -23,6 +30,7 @@ import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Genera
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Palette.Palette;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.progressbar.progressbars.NullProgressBar;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
+import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.ExceptionDerivator;
 import org.vicky.vspe.utilities.Pair;
@@ -38,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 public class VSPEBukkitDimensionManager implements PlatformDimensionManager<BlockData, World> {
     public static final Set<String> DIMENSION_PACKAGES = new HashSet<>();
     public static final Set<String> DIMENSION_ZIP_NAMES = new HashSet<>();
+    public static final Set<DimensionDescriptor> DIMENSION_DESCRIPTOR_SET = new HashSet<>();
 
     static {
         DIMENSION_PACKAGES.add("org.vicky.vspe.systems.Dimension.Dimensions");
@@ -329,5 +338,60 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
     @Override
     public List<Identifiable> getUnregisteredEntities() {
         return new ArrayList<>(LOADED_DIMENSIONS);
+    }
+
+    public void loadDimensionsFromDescriptors() {
+        for (DimensionDescriptor descriptor : DIMENSION_DESCRIPTOR_SET) {
+            try {
+                var dimension = new BukkitBaseDimension(descriptor, "") {
+                    @Override
+                    public @Nullable PlatformLocation getGlobalSpawnLocation() {
+                        return null;
+                    }
+
+                    @Override
+                    public List<PlatformItem> dimensionAdvancementGainItems() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public @NotNull DimensionSpawnStrategy<BlockData, World> getStrategy() {
+                        return null;
+                    }
+
+                    @Override
+                    public @Nullable PortalContext<BlockData, World> createPortalContext(PlatformPlayer platformPlayer) {
+                        return null;
+                    }
+
+                    @Override
+                    protected void dimensionAdvancementGainProcedures(Player player) {
+
+                    }
+
+                    @Override
+                    public void applyMechanics(Player var1) {
+
+                    }
+
+                    @Override
+                    public void disableMechanics(Player var1) {
+
+                    }
+
+                    @Override
+                    public void applyJoinMechanics(Player var1) {
+
+                    }
+
+                    @Override
+                    protected boolean dimensionJoinCondition(Player player) {
+                        return false;
+                    }
+                };
+            } catch (WorldNotExistsException | ManagerNotFoundException | NoGeneratorException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }

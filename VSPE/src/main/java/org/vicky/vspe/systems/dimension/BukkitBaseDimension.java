@@ -38,6 +38,7 @@ import org.vicky.vspe.platform.PlatformWorldType;
 import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
 import org.vicky.vspe.platform.systems.dimension.DimensionClass;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.DimensionType;
 import org.vicky.vspe.platform.systems.dimension.Events.PlatformDimensionWarpEvent;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
@@ -116,6 +117,34 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
         }
     }
 
+    public BukkitBaseDimension(
+            DimensionDescriptor descriptor,
+            String seed
+    ) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
+        this.name = descriptor.name().toLowerCase().replace("!@#$^&*()-=+'\";:/?.,\\|}{][ ", "_");
+        this.mainName = descriptor.name();
+        this.logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSION-" + name.toUpperCase());
+        this.dimensionTypes = descriptor.dimensionTypes();
+        this.environmentType = Environment.NORMAL;
+        this.seed = seed;
+        this.worldType = worldType;
+        this.generateStructures = descriptor.shouldGenerateStructures();
+        this.generator = null;
+        this.world = this.checkWorld();
+        DimensionClass.registerCustomDimension(name);
+        Optional<AdvancementManager> oM = ManagerRegistry.getManager(AdvancementManager.class);
+        try {
+            AdvancementManager manager = oM.get();
+            Bukkit.getPluginManager().registerEvents(this, manager.getPlugin());
+            manager.addAdvancement(this.getDimensionJoinAdvancement());
+        } catch (NoSuchElementException e) {
+            throw new ManagerNotFoundException("Failed to locate advancement manager...");
+        }
+        for (DimensionType dimensionType : dimensionTypes) {
+            dimensionType.addDimension((PlatformDimension<?, ?>) this);
+        }
+    }
+
     protected abstract void dimensionAdvancementGainProcedures(Player player);
 
     public String getName() {
@@ -147,12 +176,12 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
                         "World with name '" + this.getName() + "' is marked as existing in the configuration, but it does not exist in Bukkit... Please edit the config and set the dimension [ " + this.mainName + " ] to false."
                 );
             }
-        } else if (existingWorld != null) {
+        } else if (existingWorld.getBukkitWorld() != null) {
             logger.print(ANSIColor.colorize("yellow[From configuration, World of dimension " + this.mainName + "does not exist but is found in bukkit. Please verify that is the world. use /dimension set " + this.mainName + " world true" + "]"));
             return existingWorld;
         } else {
             Config.configs.put("Dimensions." + this.getName() + ".exists", true);
-            return this.createWorld(this.getName());
+            return this.createWorld();
         }
     }
 
@@ -164,13 +193,13 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
         this.description = description;
     }
 
-    public BukkitWorldAdapter createWorld(String name) throws NoGeneratorException {
+    public BukkitWorldAdapter createWorld() throws NoGeneratorException {
         if (this.generator == null) {
             logger.print("Generator is null for dimension: " + name, true);
             worldExists = false;
             throw new NoGeneratorException("Dimension's Generator is not loaded in registry");
         }
-        boolean successful = worldManager.addWorld(name, this.environmentType, this.seed, BukkitWorldTypeAdapter.adapt(this.worldType), this.generateStructures, this.generator.getGeneratorName());
+        boolean successful = worldManager.addWorld(name, this.environmentType, this.seed, BukkitWorldTypeAdapter.adapt(this.worldType), this.generateStructures, this.generator != null ? this.generator.getGeneratorName() : "");
         if (successful) {
             dimensionManager.LOADED_DIMENSIONS.add(this);
 

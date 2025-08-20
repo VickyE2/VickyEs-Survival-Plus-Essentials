@@ -16,7 +16,7 @@ public class BukkitBiomeProvider extends BiomeProvider implements BiomeResolver<
 
     private final BiomeResolver<BukkitBiome> biomeProvider;
     private final long seed;
-    private final PlatformDimension<?, BukkitBiome> dimension;
+    private final PlatformDimension<BlockData, BukkitBiome> dimension;
 
     public BukkitBiomeProvider(PlatformDimension<BlockData, BukkitBiome> dimension) {
         this.dimension = dimension;
@@ -42,7 +42,7 @@ public class BukkitBiomeProvider extends BiomeProvider implements BiomeResolver<
         return biomeProvider;
     }
 
-    public PlatformDimension<?, BukkitBiome> getDimension() {
+    public PlatformDimension<BlockData, BukkitBiome> getDimension() {
         return dimension;
     }
 
