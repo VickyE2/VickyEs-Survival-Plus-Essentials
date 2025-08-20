@@ -23,7 +23,6 @@ import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Genera
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Palette.Palette;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.progressbar.progressbars.NullProgressBar;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
-import org.vicky.vspe.platform.utilities.Manager.IdentifiableManager;
 import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.utilities.ExceptionDerivator;
 import org.vicky.vspe.utilities.Pair;
@@ -102,7 +101,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
                     constructor.setAccessible(true);
                     BaseGenerator generator = constructor.newInstance();
                     String packName = generator.getPackName();
-                    if (shouldOverwrite(Paths.get("./plugins/Terra/packs/" + packName), generator.getPackVersion())) {
+                    if (PlatformDimensionManager.shouldOverwrite(Paths.get("./plugins/Terra/packs/" + packName), generator.getPackVersion())) {
                         logger.print(ANSIColor.colorize("purple[Updating pack " + packName + "]"));
 
                         CompletableFuture<Void> future =

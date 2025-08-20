@@ -21,7 +21,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.vicky.bukkitplatform.useables.BukkitLocationAdapter;
 import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
 import org.vicky.ecosystem.server.CommunicatorServer;
-import org.vicky.platform.*;
+import org.vicky.platform.PlatformConfig;
+import org.vicky.platform.PlatformLogger;
+import org.vicky.platform.PlatformScheduler;
 import org.vicky.utilities.*;
 import org.vicky.vicky_utils;
 import org.vicky.vspe.ecosystem.VSPECommunicateableImpl;
@@ -610,11 +612,6 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
     }
 
     @Override
-    public PlatformParticleProvider getParticleProvider() {
-        return PlatformPlugin.particleProvider();
-    }
-
-    @Override
     public PlatformConfig getPlatformConfig() {
         return new PlatformConfig() {
             @Override
@@ -657,11 +654,6 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
                 configManager.saveConfig();
             }
         };
-    }
-
-    @Override
-    public PlatformEntityFactory getPlatformEntityFactory() {
-        return PlatformPlugin.entityFactory();
     }
 
     @Override

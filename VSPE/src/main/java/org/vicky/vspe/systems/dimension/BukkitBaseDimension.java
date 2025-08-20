@@ -15,13 +15,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
-import org.vicky.bukkitplatform.useables.BukkitItem;
-import org.vicky.bukkitplatform.useables.BukkitLocationAdapter;
-import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
-import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
+import org.vicky.bukkitplatform.useables.*;
 import org.vicky.guiparent.ButtonAction;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.items_adder.FontImageSender;
+import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
 import org.vicky.utilities.ANSIColor;
@@ -36,7 +34,6 @@ import org.vicky.vspe.features.AdvancementPlus.BukkitAdvancement;
 import org.vicky.vspe.paper.BukkitDimensionWarpEvent;
 import org.vicky.vspe.paper.BukkitWorldTypeAdapter;
 import org.vicky.vspe.platform.PlatformEnvironment;
-import org.vicky.vspe.platform.PlatformItem;
 import org.vicky.vspe.platform.PlatformWorldType;
 import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
@@ -436,7 +433,7 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
 
     @Override
     public PlatformItem getDimensionIcon(int i) {
-        return ItemConfigPlatformItem(getItemConfig(i));
+        return new ItemConfigPlatformItem(getItemConfig(i));
     }
 
     @Override

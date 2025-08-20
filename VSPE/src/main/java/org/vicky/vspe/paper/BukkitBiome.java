@@ -60,7 +60,7 @@ public class BukkitBiome implements PlatformBiome {
         this.precipitationType = precipitationType;
         this.structureData = structureData;
         this.features = features;
-        this.distributionPalette = distributionPalette;
+        this.distributionPalette = (BiomeBlockDistributionPalette<BukkitBlockState>) distributionPalette;
         this.spawnSettings = spawnSettings;
         this.identifier = identifier;
         this.isMountainous = isMountainous;
@@ -148,7 +148,7 @@ public class BukkitBiome implements PlatformBiome {
                 biomeParameters.getDistributionPalette(),
                 biomeParameters.getSpawnSettings(),
                 biomeParameters.getId(),
-                biomeParameters.isMountanious(),
+                biomeParameters.isMountainous(),
                 biomeParameters.isHumid(),
                 biomeParameters.isCold()
         );
@@ -260,12 +260,12 @@ public class BukkitBiome implements PlatformBiome {
     }
 
     @Override
-    private int getSkyColor() {
+    public int getSkyColor() {
         return skyColor;
     }
 
     @Override
-    private int getFoliageColor() {
+    public int getFoliageColor() {
         return foliageColor;
     }
 

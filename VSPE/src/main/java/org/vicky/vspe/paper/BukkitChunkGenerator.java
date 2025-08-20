@@ -161,7 +161,13 @@ public class BukkitChunkGenerator extends ChunkGenerator implements PlatformChun
         // List<Pair<NoiseSampler, Double>> layers = biome.getParameters().buildNoiseLayers();
         // return new ChunkHeightProvider(layers, someMaxHeight, ...);
         return new ChunkHeightProvider(
-                biome.getHeightSampler().getLayers()
+                biome.getHeightSampler().getLayers(),
+                319,
+                16,
+                4,
+                1.0,
+                512,
+                null
         );
     }
 

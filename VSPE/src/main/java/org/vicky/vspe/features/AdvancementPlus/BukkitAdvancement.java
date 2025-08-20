@@ -15,11 +15,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.vicky.bukkitplatform.useables.BukkitItem;
 import org.vicky.bukkitplatform.useables.BukkitPlatformPlayer;
+import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.UUIDGenerator;
-import org.vicky.vspe.platform.PlatformItem;
 import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancement;
@@ -332,6 +333,6 @@ public abstract class BukkitAdvancement implements PlatformAdvancement {
 
     @Override
     public PlatformItem getIcon() {
-        return icon;
+        return new BukkitItem(icon);
     }
 }

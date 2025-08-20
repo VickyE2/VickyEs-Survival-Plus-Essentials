@@ -3,10 +3,12 @@ package org.vicky.vspe.utilities.Hibernate.DBTemplates;
 import jakarta.persistence.*;
 import org.bukkit.inventory.ItemStack;
 import org.hibernate.annotations.NaturalId;
+import org.vicky.bukkitplatform.useables.BukkitItem;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.utilities.DatabaseTemplate;
 import org.vicky.vspe.features.CharmsAndTrinkets.BaseTrinket;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -52,19 +54,19 @@ public class AvailableTrinket implements DatabaseTemplate {
 
     @Transient
     public ItemStack getItem() throws NullManagerTrinket {
-        Optional<BaseTrinket> trinket = trinketManager.getTrinketById(this.id);
+        Optional<PlatformTrinket> trinket = trinketManager.getTrinketById(this.id);
         if (trinket.isEmpty()) {
             throw new NullManagerTrinket("Trinket could be found in database but could not be found on manager map.");
         }
-        return trinket.get().getIcon();
+        return ((BukkitItem) trinket.get().getIcon()).getStack();
     }
 
     @Transient
     public GuiCreator.ItemConfig getRawItem() throws NullManagerTrinket {
-        Optional<BaseTrinket> trinket = trinketManager.getTrinketById(this.id);
+        Optional<PlatformTrinket> trinket = trinketManager.getTrinketById(this.id);
         if (trinket.isEmpty()) {
             throw new NullManagerTrinket("Trinket could be found in database but could not be found on manager map.");
         }
-        return trinket.get().getRawIcon();
+        return ((BaseTrinket) trinket.get()).getRawIcon();
     }
 }

@@ -1,12 +1,11 @@
 package org.vicky.vspe.utilities.Hibernate.DBTemplates;
 
 import jakarta.persistence.*;
-import org.vicky.utilities.DatabaseManager.templates.DatabasePlayer;
 import org.vicky.utilities.DatabaseManager.templates.ExtendedPlayerBase;
 import org.vicky.utilities.DatabaseTemplate;
-import org.vicky.vspe.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.EquippedRawTrinket;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.EquippedTrinket;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
 
 import java.util.ArrayList;
 import java.util.List;
