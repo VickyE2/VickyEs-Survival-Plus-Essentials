@@ -101,7 +101,7 @@ class NBTBasedStructure<T>(
 ) : PlatformStructure<T>
 {
     @Suppress("UNCHECKED_CAST")
-    val structure : NbtStructure<T>? = VSPEPlatformPlugin.structureManager().getStructure(id) as NbtStructure<T>?
+    val structure: NbtStructure<T>? = VSPEPlatformPlugin.structureManager().getNBTStructure(id) as NbtStructure<T>?
 
     @Suppress("unchecked")
     override fun place(world: PlatformWorld<T, *>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {
@@ -334,7 +334,7 @@ class WeightedStructurePlacer<T>() : StructurePlacer<T>
             if (context.dimension.random.nextDouble() > rule.frequency) continue
 
             val origin = BlockVec3i(chunkX * 16, 64, chunkZ * 16)
-            val structure = VSPEPlatformPlugin.structureManager().getStructures<T>()[rule.resource]
+            val structure = VSPEPlatformPlugin.structureManager().getStructures()[rule.resource]
 
             if (structure != null) {
                 val structureBox =
@@ -363,7 +363,8 @@ class WeightedStructurePlacer<T>() : StructurePlacer<T>
 
         // Sort by priority
         candidates.sortedBy { it.priority }.forEach { candidate ->
-            val structureRaw = VSPEPlatformPlugin.structureManager().getStructures<T>()[candidate.rule.resource]
+            val structureRaw: Pair<PlatformStructure<T>, StructureRule>? = VSPEPlatformPlugin.structureManager()
+                .getStructures()[candidate.rule.resource] as Pair<PlatformStructure<T>, StructureRule>?
             if (structureRaw != null) {
                 val structure = structureRaw.first
 
@@ -386,7 +387,7 @@ class WeightedStructurePlacer<T>() : StructurePlacer<T>
     }
 
     private fun getAllStructureRules(): List<StructureRule> {
-        return VSPEPlatformPlugin.structureManager().getStructures<T>().values.map { it.second }
+        return VSPEPlatformPlugin.structureManager().getStructures().values.map { it.second }
     }
 
     private fun <T> computeStructureBox(

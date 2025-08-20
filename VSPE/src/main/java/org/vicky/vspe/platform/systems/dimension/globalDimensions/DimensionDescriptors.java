@@ -1,5 +1,6 @@
 package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
+import org.vicky.vspe.platform.systems.dimension.CoreDimensionRegistry;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.DimensionType;
 
@@ -14,4 +15,9 @@ public final class DimensionDescriptors {
                     List.of(DimensionType.FROZEN_WORLD, DimensionType.ELEMENTAL_WORLD),
                     "vspe:crymorra"
             );
+
+    static {
+        // automatic core-side registration — safe even before platform exists
+        CoreDimensionRegistry.register(CRYMORRA);
+    }
 }

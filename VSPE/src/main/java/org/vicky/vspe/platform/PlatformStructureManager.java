@@ -11,8 +11,11 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRul
 import java.util.Map;
 
 public interface PlatformStructureManager<T> {
-    @NotNull <Y> Map<ResourceLocation, Pair<PlatformStructure<Y>, StructureRule>> getStructures();
-    @Nullable NbtStructure<T> getStructure(ResourceLocation id);
+    @NotNull Map<ResourceLocation, Pair<PlatformStructure<T>, StructureRule>> getStructures();
 
-    void addStructure(@NotNull ResourceLocation id, @NotNull PlatformStructure<?> structure, @NotNull StructureRule rule);
+    @Nullable NbtStructure<T> getNBTStructure(ResourceLocation id);
+
+    @Nullable PlatformStructure<T> getStructure(ResourceLocation id);
+
+    void addStructure(@NotNull ResourceLocation id, @NotNull PlatformStructure<T> structure, @NotNull StructureRule rule);
 }

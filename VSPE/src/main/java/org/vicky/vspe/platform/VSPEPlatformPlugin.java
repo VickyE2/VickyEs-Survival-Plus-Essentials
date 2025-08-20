@@ -76,6 +76,16 @@ public interface VSPEPlatformPlugin {
         return get().getPlatformBiomeFactory();
     }
 
+    // --- core registration hooks (called by CoreDimensionRegistry.installInto(plugin)) ---
+    void registerDimensionDescriptor(org.vicky.vspe.platform.systems.dimension.DimensionDescriptor descriptor);
+
+    /**
+     * Optional: platform may implement to immediately process any pending descriptors.
+     * For example, call processDimensions() or processDimensionGenerators();
+     */
+    default void processPendingDimensions() {
+        // default no-op; implementations may trigger PlatformDimensionManager.processDimensions()
+    }
     PlatformScheduler getPlatformScheduler();
     PlatformStructureManager<?> getPlatformStructureManager();
     PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry();

@@ -7,5 +7,5 @@ public record DimensionDescriptor(
         String description,
         boolean shouldGenerateStructures,
         List<DimensionType> dimensionTypes,
-        String getIdentifier) {
+        String identifier) {
 }
