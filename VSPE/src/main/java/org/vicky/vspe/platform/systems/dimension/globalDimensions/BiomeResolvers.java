@@ -8,18 +8,15 @@ import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public final class BiomeResolvers<B extends PlatformBiome> {
-    private static final Map<Class<?>, BiomeResolvers<?>> INSTANCES = new HashMap<>();
+    private static final BiomeResolvers<?> INSTANCE = new BiomeResolvers<>();
 
     private BiomeResolvers() {
     }
 
     @SuppressWarnings("unchecked")
-    public static <B extends PlatformBiome> BiomeResolvers<B> getInstance(Class<B> clazz) {
-        return (BiomeResolvers<B>) INSTANCES.computeIfAbsent(clazz, k -> new BiomeResolvers<>());
+    public static <B extends PlatformBiome> BiomeResolvers<B> getInstance() {
+        return (BiomeResolvers<B>) INSTANCE;
     }
 
     public BiomeResolver<@NotNull B> CRYMORRA_BIOME_RESOLVER() {

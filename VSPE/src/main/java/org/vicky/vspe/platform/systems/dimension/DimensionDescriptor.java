@@ -1,5 +1,7 @@
 package org.vicky.vspe.platform.systems.dimension;
 
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
+
 import java.util.List;
 
 public record DimensionDescriptor(
@@ -7,5 +9,6 @@ public record DimensionDescriptor(
         String description,
         boolean shouldGenerateStructures,
         List<DimensionType> dimensionTypes,
-        String identifier) {
+        String identifier,
+        BiomeResolver<?> resolver) {
 }

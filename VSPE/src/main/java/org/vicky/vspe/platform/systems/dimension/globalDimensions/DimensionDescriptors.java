@@ -13,7 +13,8 @@ public final class DimensionDescriptors {
                     "A land of frozen war...",
                     true,
                     List.of(DimensionType.FROZEN_WORLD, DimensionType.ELEMENTAL_WORLD),
-                    "vspe:crymorra"
+                    "vspe:crymorra",
+                    BiomeResolvers.getInstance().CRYMORRA_BIOME_RESOLVER()
             );
 
     static {
