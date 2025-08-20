@@ -9,13 +9,16 @@ import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 public final class BiomeResolvers<B extends PlatformBiome> {
-    private static final BiomeResolvers<?> INSTANCE = new BiomeResolvers<>();
+    private static BiomeResolvers<?> INSTANCE;
 
     private BiomeResolvers() {
     }
 
     @SuppressWarnings("unchecked")
     public static <B extends PlatformBiome> BiomeResolvers<B> getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new BiomeResolvers<>();
+        }
         return (BiomeResolvers<B>) INSTANCE;
     }
 
