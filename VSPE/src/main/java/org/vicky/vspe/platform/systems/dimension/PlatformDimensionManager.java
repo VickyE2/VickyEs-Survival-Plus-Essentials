@@ -6,8 +6,6 @@ import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Version;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.ExceptionContext;
-import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
-import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.utilities.ExceptionDerivator;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.IdentifiableManager;
@@ -18,7 +16,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -109,7 +109,7 @@ public interface PlatformDimensionManager<T, N> extends IdentifiableManager {
     List<PlatformBaseDimension<T, N>> getLoadedDimensions();
     List<PlatformBaseDimension<T, N>> getUnLoadedDimensions();
 
-    private static boolean shouldOverwrite(Path currentPack, Version newVersion) throws IOException {
+    static boolean shouldOverwrite(Path currentPack, Version newVersion) throws IOException {
         String nullable = extractVersionFromYaml(currentPack);
         if (nullable == null) return true;
         Version currentVersion = Version.parse(nullable);
@@ -123,7 +123,7 @@ public interface PlatformDimensionManager<T, N> extends IdentifiableManager {
     /**
      * Extracts the version from the YAML file inside the ZIP.
      */
-    private static String extractVersionFromYaml(Path pack) {
+    static String extractVersionFromYaml(Path pack) {
         if (!Files.exists(pack)) {
             return null;
         }
@@ -151,14 +151,14 @@ public interface PlatformDimensionManager<T, N> extends IdentifiableManager {
 
     Optional<PlatformBaseDimension<T, N>> getDimension(String dimensionId);
 
-    private void handleException(Exception e, String generatorName, ExceptionContext c) {
+    static void handleException(Exception e, String generatorName, ExceptionContext c) {
         String error = ExceptionDerivator.parseException(e);
         String errorMessage = ANSIColor.colorize("red[In " + c +" " + generatorName + " " + (error != null ? error : "An Unexpected error occurred.") + " You might wana report this...]");
 
         logger.print(errorMessage, true);
     }
 
-    private void handleException(String message) {
+    static void handleException(String message) {
         logger.print(message, true);
     }
 

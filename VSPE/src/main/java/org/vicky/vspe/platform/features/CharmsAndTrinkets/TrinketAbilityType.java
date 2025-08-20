@@ -1,9 +1,5 @@
 package org.vicky.vspe.platform.features.CharmsAndTrinkets;
 
-enum AbilityCategory {
-    OFFENSIVE, DEFENSIVE, UTILITY
-}
-
 public enum TrinketAbilityType {
 
     /**

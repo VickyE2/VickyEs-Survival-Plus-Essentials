@@ -5,10 +5,12 @@ import com.dfsek.terra.api.world.WritableWorld;
 import com.dfsek.terra.api.world.chunk.generation.ProtoChunk;
 import de.pauleff.api.ICompoundTag;
 import org.jetbrains.annotations.NotNull;
+import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.platform.world.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -39,6 +41,11 @@ public class TerraPlatformWorld implements PlatformWorld<String, WritableWorld> 
     @Override
     public int getMaxWorldHeight() {
         return world.getMaxHeight();
+    }
+
+    @Override
+    public List<PlatformPlayer> getPlayers() {
+        return List.of();
     }
 
     @Override
@@ -79,18 +86,13 @@ public class TerraPlatformWorld implements PlatformWorld<String, WritableWorld> 
     }
 
     @Override
-    public PlatformBlockState<String> AIR() {
+    public PlatformBlockState<String> getAirBlockState() {
         return createPlatformBlockState("minecraft:air", "");
     }
 
     @Override
-    public PlatformBlockState<String> TOP_LAYER_BLOCK() {
-        return createPlatformBlockState("minecraft:grass_block", "");
-    }
-
-    @Override
-    public PlatformBlockState<String> STONE_LAYER_BLOCK() {
-        return createPlatformBlockState("minecraft:stone", "");
+    public PlatformBlockState<String> getWaterBlockState() {
+        return createPlatformBlockState("minecraft:water", "");
     }
 
     @Override
@@ -193,8 +195,7 @@ public class TerraPlatformWorld implements PlatformWorld<String, WritableWorld> 
         long key = key(x, y, z);
 
         // 1) If the incoming state is a TerraBlockState wrapping Terra's BlockState, attempt to call Terra API:
-        if (state instanceof TerraBlockState) {
-            TerraBlockState tbs = (TerraBlockState) state;
+        if (state instanceof TerraBlockState tbs) {
             BlockState terraNative = tbs.getUnderlyingBlockStateObject(); // we add this helper below
 
             try {

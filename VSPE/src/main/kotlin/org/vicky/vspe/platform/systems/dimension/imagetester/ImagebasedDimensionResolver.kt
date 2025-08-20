@@ -4,61 +4,23 @@ import com.dfsek.terra.api.util.MathUtil.lerp
 import de.articdive.jnoise.api.NoiseGenerator
 import de.articdive.jnoise.interpolation.Interpolation
 import de.pauleff.api.ICompoundTag
+import org.vicky.platform.PlatformPlayer
+import org.vicky.platform.utils.ResourceLocation
 import org.vicky.platform.utils.Vec3
-import org.vicky.platform.world.PlatformBlock
-import org.vicky.platform.world.PlatformBlockState
-import org.vicky.platform.world.PlatformLocation
-import org.vicky.platform.world.PlatformWorld
+import org.vicky.platform.world.*
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.PrecipitationType
-import java.awt.Color
-import java.awt.image.BufferedImage
-import javax.imageio.ImageIO
-import java.io.File
-import org.vicky.platform.utils.ResourceLocation
-import org.vicky.platform.world.PlatformMaterial
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeStructureData
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ChunkData
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ChunkGenerateContext
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.CompositeNoiseLayer
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ContinentBiomeResolver
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ContinentGenerator
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.DefaultedNoiseResult
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.FBMGenerator
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.JNoiseNoiseSampler
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.MultiParameterBiomeResolver
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.AdditionModuleBuilder
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NoiseBiomeDistributionPaletteBuilder
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NoiseSampler
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NoiseSamplerFactory
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.Palette
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformChunkGenerator
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformDimension
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SeededRandomSource
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleConstructorBasedBiome
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleMaterial
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructurePlacer
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRegistry
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRule
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.WeightedStructurePlacer
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.computeAdaptiveThreshold
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*
 import java.awt.BorderLayout
+import java.awt.Color
 import java.awt.Dimension
 import java.awt.Font
 import java.awt.event.MouseEvent
 import java.awt.event.MouseMotionAdapter
-import java.lang.Math.pow
-import javax.swing.BorderFactory
-import javax.swing.ImageIcon
-import javax.swing.JFrame
-import javax.swing.JLabel
-import javax.swing.JPanel
-import javax.swing.SwingConstants
-import javax.swing.SwingUtilities
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
+import javax.swing.*
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.pow
@@ -91,6 +53,10 @@ object ImageBasedWorld : PlatformWorld<String, String> {
     override fun getBlockAt(vec: Vec3): PlatformBlock<String?>? {
         return null
     }
+
+    override fun getAirBlockState(): PlatformBlockState<String?>? = SimpleBlockState.from<String>("test:air") { it }
+
+    override fun getWaterBlockState(): PlatformBlockState<String?>? = SimpleBlockState.from<String>("test:water") { it }
 
     override fun setPlatformBlockState(position: Vec3?, state: PlatformBlockState<String?>?) {
         if (position == null || state == null) return
@@ -127,11 +93,7 @@ object ImageBasedWorld : PlatformWorld<String, String> {
 
     override fun getHighestBlockYAt(x: Double, z: Double): Int = 64
     override fun getMaxWorldHeight(): Int = 64
-
-
-    override fun AIR(): PlatformBlockState<String?>? = SimpleBlockState.from<String>("test:air", { it })
-    override fun TOP_LAYER_BLOCK(): PlatformBlockState<String?>? = SimpleBlockState.from("test:grass", { it })
-    override fun STONE_LAYER_BLOCK(): PlatformBlockState<String?>? = SimpleBlockState.from("test:stone", { it })
+    override fun getPlayers(): List<PlatformPlayer?>? = listOf()
 
     override fun createPlatformBlockState(
         id: String?,
@@ -234,6 +196,8 @@ fun SimpleConstructorBasedBiome.withChanges(
     fogColor: Int = this.fogColor,
     waterColor: Int = this.waterColor,
     waterFogColor: Int = this.waterFogColor,
+    foliageColor: Int = this.foliageColor,
+    skyColor: Int = this.skyColor,
     isOcean: Boolean = this.isOcean,
     temperature: Double = this.temperature,
     humidity: Double = this.humidity,
@@ -253,6 +217,8 @@ fun SimpleConstructorBasedBiome.withChanges(
             fogColor = fogColor,
             waterColor = waterColor,
             waterFogColor = waterFogColor,
+            foliageColor = foliageColor,
+            skyColor = skyColor,
             isOcean = isOcean,
             temperature = temperature,
             humidity = humidity,
@@ -274,6 +240,8 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
             "test",
             0x88CC00,
             0x000000,
+            0x00AAEE,
+            0x00AAEE,
             0x00AAEE,
             0x00AAEE,
             false,
@@ -555,7 +523,7 @@ val continentResolver = ContinentBiomeResolver(
     },
     landBiomeResolver,
     landThreshold = 0.45,   // just above mean = ~50% ocean
-    deepOceanThreshold = 0.05, // barely above min
+    deepSeaLevel = 0.05, // barely above min
     coastThreshold = 0.30,  // just above deep ocean
     mountainThreshold = 0.70 // near top of range  // mountains when elevation > 0.80
 )
@@ -566,8 +534,7 @@ class ImageBasedDimension(
     override val world: PlatformWorld<String, *> = ImageBasedWorld,
     override val chunkGenerator: PlatformChunkGenerator<String, SimpleConstructorBasedBiome> = ImageBasedChunkGenerator,
     override val biomeResolver: BiomeResolver<SimpleConstructorBasedBiome> = /*ImageBiomeResolver*/ continentResolver,
-    override val structureRegistry: StructureRegistry<String> = StructureRegistry(mapOf<ResourceLocation, Pair<PlatformStructure<String>, StructureRule>>()),
-    override val structurePlacer: StructurePlacer<String> = WeightedStructurePlacer(structureRegistry),
+    override val structurePlacer: StructurePlacer<String> = WeightedStructurePlacer(),
     override val random: RandomSource = SeededRandomSource(seedBase)
 ) : PlatformDimension<String, SimpleConstructorBasedBiome>
 
@@ -853,7 +820,7 @@ fun ridgedMultifractal(
     for (i in 0 until octaves) {
         // sample and map -1..1 -> -1..1 (assumption), then apply ridge transform
         val n = sampler.sample(x * frequency, y * frequency) // [-1,1]
-        var signal = 1.0 - kotlin.math.abs(n)                // ridge base (0..1)
+        var signal = 1.0 - abs(n)                // ridge base (0..1)
         signal = signal.coerceAtLeast(0.0)
         // square to sharpen
         signal *= signal

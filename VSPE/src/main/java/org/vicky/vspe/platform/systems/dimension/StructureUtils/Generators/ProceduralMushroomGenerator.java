@@ -1,13 +1,14 @@
 package org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators;
 
 import org.vicky.platform.utils.Vec3;
+import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.platform.world.PlatformWorld;
 import org.vicky.vspe.BlockVec3i;
+import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStructureGenerator;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.StructureCacheUtils;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource;
 import org.vicky.vspe.platform.utilities.Math.Vector3;
-import org.vicky.platform.world.PlatformBlockState;
 
 import java.util.*;
 
@@ -405,7 +406,7 @@ public class ProceduralMushroomGenerator<T, N> extends
 
             // Optional warning
             if (ridgeMaterial == null)
-                System.out.println("[WARN] Ridge material not set — caps may look bland.");
+                VSPEPlatformPlugin.platformLogger().warn("Ridge material not set — caps may look bland.");
         }
 
         @Override

@@ -1,17 +1,14 @@
 package org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator
 
-import com.google.errorprone.annotations.Immutable
+import org.vicky.platform.utils.ResourceLocation
+import org.vicky.platform.utils.Vec3
+import org.vicky.platform.world.PlatformBlockState
+import org.vicky.platform.world.PlatformWorld
 import org.vicky.utilities.Identifiable
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.PrecipitationType
-import org.vicky.platform.utils.ResourceLocation
-import org.vicky.platform.utils.Vec3
-import org.vicky.platform.world.PlatformWorld
-import java.util.concurrent.Callable
-import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
+import java.util.concurrent.*
+import kotlin.math.abs
 import kotlin.math.floor
 
 /**
@@ -40,6 +37,11 @@ class ChunkHeightProvider(
         require(lowRes >= 1)
     }
 
+    private val maxPool = cacheSize.coerceAtLeast(64)
+    private fun borrowIntArray(): IntArray = samplePool.poll() ?: IntArray(chunkSize * chunkSize)
+    private fun offerToPool(arr: IntArray) {
+        if (samplePool.size < maxPool) samplePool.offer(arr)
+    }
     private val samplePool = ConcurrentLinkedDeque<IntArray>()    // IntArray pooling
     private val cache = object : LinkedHashMap<Long, IntArray>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, IntArray>): Boolean {
@@ -48,7 +50,7 @@ class ChunkHeightProvider(
                 // put removed array back into pool for reuse
                 val arr = eldest.value
                 arr.fill(0)
-                samplePool.offer(arr)
+                offerToPool(arr)
             }
             return shouldRemove
         }
@@ -90,10 +92,6 @@ class ChunkHeightProvider(
     private fun keyFor(chunkX: Int, chunkZ: Int): Long {
         return (chunkX.toLong() shl 32) or (chunkZ.toLong() and 0xffffffffL)
     }
-
-    // borrow or allocate result array
-    private fun borrowIntArray(): IntArray = samplePool.poll() ?: IntArray(chunkSize * chunkSize)
-
     // Public synchronous API — returns cached array (do NOT mutate)
     fun getChunkHeights(chunkX: Int, chunkZ: Int): IntArray {
         val key = keyFor(chunkX, chunkZ)
@@ -136,7 +134,7 @@ class ChunkHeightProvider(
         override fun isCancelled() = false
         override fun isDone() = true
         override fun get(): T = value
-        override fun get(timeout: Long, unit: java.util.concurrent.TimeUnit?): T = value
+        override fun get(timeout: Long, unit: TimeUnit?): T = value
     }
 
     // Core generator (highly optimized): coarse-grid sampling + bilerp
@@ -185,7 +183,7 @@ class ChunkHeightProvider(
     // optional maintenance helpers
     fun clearCache() {
         synchronized(cacheLock) {
-            cache.values.forEach { it.fill(0); samplePool.offer(it) }
+            cache.values.forEach { it.fill(0); offerToPool(it) }
             cache.clear()
         }
     }
@@ -202,6 +200,8 @@ data class BiomeParameters @JvmOverloads constructor(
     val fogColor: Int,
     val waterColor: Int,
     val waterFogColor: Int = waterColor,
+    val foliageColor: Int = biomeColor,
+    val skyColor: Int,
     val isOcean: Boolean,
     val temperature: Double,
     val humidity: Double,
@@ -213,7 +213,10 @@ data class BiomeParameters @JvmOverloads constructor(
     val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
     val features: List<BiomeFeature<*, *>> = emptyList(),
     val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
-    val biomeStructureData: BiomeStructureData = BiomeStructureData.EMPTY
+    val biomeStructureData: BiomeStructureData = BiomeStructureData.EMPTY,
+    val isMountainous: Boolean,
+    val isCold: Boolean,
+    val isHumid: Boolean
 )
 
 interface PlatformBiome : Identifiable {
@@ -222,6 +225,8 @@ interface PlatformBiome : Identifiable {
     val fogColor: Int
     val waterColor: Int
     val waterFogColor: Int get() = waterColor
+    val foliageColor: Int get() = biomeColor
+    val skyColor: Int
     val isOcean: Boolean
     val temperature: Double   // 0.0 - 1.0
     val humidity: Double      // 0.0 - 1.0
@@ -255,7 +260,7 @@ open class BiomeStructureData(
     val biomeId: ResourceLocation,
     val structureKeys: List<StructurePlacement>
 ) {
-    object EMPTY : BiomeStructureData(ResourceLocation.getEMPTY(), listOf());
+    object EMPTY : BiomeStructureData(ResourceLocation.getEMPTY(), listOf())
 }
 
 class SimpleConstructorBasedBiome(
@@ -265,6 +270,8 @@ class SimpleConstructorBasedBiome(
     override val fogColor: Int,
     override val waterColor: Int,
     override val waterFogColor: Int,
+    override val foliageColor: Int,
+    override val skyColor: Int,
     override val isOcean: Boolean,
     override val temperature: Double,
     override val humidity: Double,
@@ -408,13 +415,26 @@ class CaveFeature<T, N>(
     private fun Double.ceilToInt(): Int = kotlin.math.ceil(this).toInt()
 
     override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
-        val booleanArray = generateCaveMaskSliceWithPadding(x shr 4, z shr 4, y, ctx.noiseProvider.getSampler(id))
-        for (bool in booleanArray) {
-            if (bool) {
-                ctx.platformWorld.setPlatformBlockState(Vec3(x * 1.0, y * 1.0, z * 1.0), ctx.platformWorld.AIR())
+        val chunkX = x shr 4
+        val chunkZ = z shr 4
+        val mask = generateCaveMaskSliceWithPadding(chunkX, chunkZ, y, ctx.noiseProvider.getSampler(cfg.noiseId))
+        var idx = 0
+        val baseX = chunkX * 16
+        val baseZ = chunkZ * 16
+        for (cz in 0 until 16) {
+            for (cx in 0 until 16) {
+                if (mask[idx++]) {
+                    val worldX = baseX + cx
+                    val worldZ = baseZ + cz
+                    ctx.platformWorld.setPlatformBlockState(
+                        Vec3(worldX.toDouble(), y.toDouble(), worldZ.toDouble()),
+                        ctx.platformWorld.airBlockState
+                    )
+                }
             }
         }
     }
+
 }
 
 class FloraFeature<T, N>(
@@ -428,8 +448,7 @@ class FloraFeature<T, N>(
     }
 
     override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
-        // use palette/template to place entire tree or patch
-        // be conservative with block updates
+
     }
 }
 
@@ -446,3 +465,106 @@ data class BiomeSpawnSettings(
     val monsters: List<MobSpawnEntry> = emptyList(),
     val creatures: List<MobSpawnEntry> = emptyList()
 )
+
+data class RiverConfig<T : PlatformBlockState<T>>(
+    val noiseId: ResourceLocation,
+    val waterBlock: T,
+    val depositBlock: T,
+    val threshold: Double = 0.05,     // how close to noise center counts as river
+    val bankFalloff: Double = 0.1,   // wideness of banks
+    val riverDepth: Int = 7,         // target Y for water
+    val riverSpread: Int = 12
+)
+
+class RiverFeature<T : PlatformBlockState<T>, N>(
+    override val id: ResourceLocation,
+    val cfg: RiverConfig<T>,
+    override val placement: FeaturePlacement = FeaturePlacement.PER_COLUMN
+) : BiomeFeature<T, N> {
+
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean {
+        val n = ctx.noiseProvider.getSampler(cfg.noiseId).sample(x.toDouble(), z.toDouble())
+        return abs(n) < cfg.bankFalloff
+    }
+
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
+        val n = ctx.noiseProvider.getSampler(cfg.noiseId).sample(x.toDouble(), z.toDouble())
+        val absN = abs(n)
+        val closeness = 1.0 - (absN / cfg.bankFalloff).coerceIn(0.0, 1.0) // 1.0 at center
+        val depth = (closeness * cfg.riverDepth).toInt().coerceAtLeast(1)
+
+        val surfaceY = ctx.platformWorld.getHighestBlockYAt(x.toDouble(), z.toDouble())
+        // carve valley a bit using riverSpread
+        val loweredY = surfaceY - (closeness * cfg.riverSpread).toInt()
+
+        // carve column down to bottom then fill water above, deposit at bottom
+        val bottomY = loweredY - depth + 1
+        for (ty in bottomY..loweredY) {
+            val pos = Vec3(x.toDouble(), ty.toDouble(), z.toDouble())
+            if (ty == bottomY) {
+                ctx.platformWorld.setPlatformBlockState(pos, cfg.depositBlock) // bottom/sediment
+            } else {
+                ctx.platformWorld.setPlatformBlockState(pos, cfg.waterBlock)
+            }
+        }
+    }
+}
+
+class FunctionBasedFeature<T : PlatformBlockState<T>, N>(
+    override val id: ResourceLocation,
+    override val placement: FeaturePlacement,
+    private val placeCondition: (x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) -> Boolean,
+    private val proceed: (x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) -> Unit
+) : BiomeFeature<T, N> {
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean = placeCondition(x, y, z, ctx)
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) = proceed(x, y, z, ctx)
+}
+
+// result of region check: either this region doesn't own a feature, or it owns with an origin point
+sealed class RegionPlacement {
+    object Skip : RegionPlacement()
+    data class Place(val originX: Int, val originZ: Int) : RegionPlacement()
+}
+
+fun interface RegionPlacer<T, N> {
+    fun shouldPlaceRegion(ctx: FeatureContext<T, N>, regionX: Int, regionZ: Int): RegionPlacement
+}
+
+/**
+ * Example generic function-based feature that delegates ownership to a region placer.
+ * regionSize is the edge length in chunks of each region (e.g., 4 = 4x4 chunks region).
+ */
+class RegionDelegatedFeature<T, N>(
+    override val id: ResourceLocation,
+    override val placement: FeaturePlacement,
+    private val regionSizeChunks: Int = 4,
+    private val placer: RegionPlacer<T, N>,
+    private val proceed: (originX: Int, originZ: Int, ctx: FeatureContext<T, N>) -> Unit
+) : BiomeFeature<T, N> {
+
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean {
+        // region ownership is checked at chunk granularity: only the chunk that matches the region owner runs place
+        val regionX = ctx.chunkX / regionSizeChunks
+        val regionZ = ctx.chunkZ / regionSizeChunks
+        return when (placer.shouldPlaceRegion(ctx, regionX, regionZ)) {
+            is RegionPlacement.Place -> {
+                val origin = (placer.shouldPlaceRegion(ctx, regionX, regionZ) as RegionPlacement.Place)
+                // do not duplicate: only owner chunk (where origin lies) should run place
+                val ownerChunkX = origin.originX shr 4
+                val ownerChunkZ = origin.originZ shr 4
+                ownerChunkX == ctx.chunkX && ownerChunkZ == ctx.chunkZ
+            }
+
+            RegionPlacement.Skip -> false
+        }
+    }
+
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
+        val regionX = ctx.chunkX / regionSizeChunks
+        val regionZ = ctx.chunkZ / regionSizeChunks
+        when (val res = placer.shouldPlaceRegion(ctx, regionX, regionZ)) {
+            is RegionPlacement.Place -> proceed(res.originX, res.originZ, ctx)
+            RegionPlacement.Skip -> {}
+        }
+    }
+}

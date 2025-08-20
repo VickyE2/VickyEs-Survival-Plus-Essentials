@@ -1,7 +1,5 @@
 package org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator
 
-import org.vicky.vspe.noise.FastNoiseLite
-
 import de.articdive.jnoise.JNoise
 import de.articdive.jnoise.api.NoiseBuilder
 import de.articdive.jnoise.api.NoiseGenerator
@@ -11,6 +9,7 @@ import de.articdive.jnoise.api.module.NoiseModuleBuilder
 import de.articdive.jnoise.fractal_functions.FractalFunction
 import de.articdive.jnoise.interpolation.Interpolation
 import de.articdive.jnoise.modules.octavation.OctavationModule
+import org.vicky.vspe.noise.FastNoiseLite
 import kotlin.math.*
 
 fun unsignedShiftRight(x: Long, n: Int): Long {
@@ -424,6 +423,7 @@ open class CompositeNoiseLayer(
 {
     object EMPTY : CompositeNoiseLayer(listOf())
 
+    fun getLayers(): List<Pair<NoiseSampler, Double>> = layers
     override fun getSeed(): Long = seed
     override fun sample(x: Double, z: Double): Double {
         var value = 0.0
@@ -916,7 +916,7 @@ class VoronoiSampler internal constructor(
         // scale by frequency so one cell = 1.0 in integer grid
         val scaled = DoubleArray(d) { coords[it] * frequency }
         val cell = IntArray(d) { floor(scaled[it]).toInt() }
-        val fract = DoubleArray(d) { scaled[it] - cell[it] }
+        DoubleArray(d) { scaled[it] - cell[it] }
 
         // neighbor search range: -1..+1 in each axis (covers nearest seed)
         val offsets = -1..1
@@ -951,7 +951,7 @@ class VoronoiSampler internal constructor(
             val cellHash = hash64(h)
 
             // jitter/vector inside cell (0..1)
-            val jitterVal = hashToDouble01(cellHash)
+            hashToDouble01(cellHash)
             // create per-dimension jitter by rehashing
             val jitterOffsets = DoubleArray(d) { i ->
                 val h2 = hash64(cellHash + i.toLong() * -7046029254386353131L)

@@ -1,17 +1,15 @@
-package org.vicky.vspe.platform.systems.dimension.globalDimensions.Crymorra;
+package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
 import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.platform.utils.ResourceLocation;
-import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
-public abstract class CrymorraDimension<T, B extends PlatformBiome> implements PlatformDimension<T, B> {
-    @Override
-    public @NotNull BiomeResolver<@NotNull B> getBiomeResolver() {
+public final class BiomeResolvers<B extends PlatformBiome> {
+    public BiomeResolver<@NotNull B> CRYMORRA_BIOME_RESOLVER() {
         return new MultiParameterBiomeResolver<>(
                 new JNoiseNoiseSampler(
                         NoiseSamplerFactory.INSTANCE.create(
@@ -121,7 +119,6 @@ public abstract class CrymorraDimension<T, B extends PlatformBiome> implements P
                         .build()
         );
     }
-    
 
     private static class BiomeDetailHolder {
         static final BiomeParameters MAGENTA_FOREST = new BiomeParameters(
@@ -131,6 +128,8 @@ public abstract class CrymorraDimension<T, B extends PlatformBiome> implements P
                 0xff30a7,
                 0x00CCFF,
                 0xAACCFF,
+                0xff96d3,
+                0xeab7ff,
                 false,
                 0.4,
                 0.7,
@@ -140,7 +139,10 @@ public abstract class CrymorraDimension<T, B extends PlatformBiome> implements P
                 PrecipitationType.SNOW,
                 new BiomeBlockDistributionPaletteBuilder<>()
                         .addLayer(319, -64, VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("crymorra:magenta_grass_block")))
-                        .build()
+                        .build(),
+                false,
+                true,
+                false
         );
     }
 }

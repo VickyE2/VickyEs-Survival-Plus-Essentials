@@ -4,12 +4,8 @@ import de.articdive.jnoise.interpolation.Interpolation
 import org.vicky.platform.world.PlatformBlockState
 import org.vicky.platform.world.PlatformWorld
 import org.vicky.vspe.BiomeCategory
-import org.vicky.platform.utils.ResourceLocation
+import org.vicky.vspe.platform.VSPEPlatformPlugin
 import org.vicky.vspe.platform.systems.dimension.imagetester.seedBase
-import org.vicky.vspe.weightedRandomOrNull
-import java.lang.Math.clamp
-import java.util.concurrent.ThreadLocalRandom
-import kotlin.math.absoluteValue
 import kotlin.math.hypot
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -25,14 +21,9 @@ interface PlatformDimension<T, B: PlatformBiome> {
     val world: PlatformWorld<T, *>
     val chunkGenerator: PlatformChunkGenerator<T, B>
     val biomeResolver: BiomeResolver<B>
-    val structureRegistry: StructureRegistry<T>
     val structurePlacer: StructurePlacer<T>
     val random: RandomSource
 }
-
-data class StructureRegistry<T>(
-    val structures: Map<ResourceLocation, Pair<PlatformStructure<T>, StructureRule>>
-)
 
 open class ChunkGenerateContext<T, B: PlatformBiome>(
     val chunkX: Int,
@@ -62,20 +53,20 @@ class EvenSpreadBiomeResolver<B: PlatformBiome>(
 {
 
     override fun resolveBiome(x: Int, y: Int, z: Int, seed: Long): B {
-        // Scale domain for biome size
         val nx = x / biomeSize
         val nz = z / biomeSize
+        val value = (noise.sample(nx, nz) + 1.0) / 2.0
 
-        // Get noise in range [0,1]
-        val value = (noise.sample(nx, nz) + 1) / 2.0
+        // normalize weights
+        val total = entries.sumOf { it.weight }
+        if (total <= 0.0) return entries.last().biome
 
-        // Map to biome by cumulative weight
-        var sum = 0.0
+        var cum = 0.0
         for (e in entries) {
-            sum += e.weight
-            if (value <= sum) return e.biome
+            cum += e.weight / total
+            if (value <= cum) return e.biome
         }
-        return entries[entries.size - 1].biome
+        return entries.last().biome
     }
 
     override fun getBiomePalette(): Palette<B> = PaletteBuilder.EMPTY<B>().build()
@@ -271,8 +262,9 @@ class MultiParameterBiomeResolver<T: PlatformBiome> @JvmOverloads constructor(
         }
 
         if (candidatesWithFallback.isEmpty()) {
-            println("No biome matches [$desiredCategories] even after fallbacks — picking fully random.")
-            return getBiomePalette().map.values.random()
+            VSPEPlatformPlugin.platformLogger()
+                .warn("No biome matches [$desiredCategories] even after fallbacks — picking fully random.")
+            return getBiomePalette().map.values.first()
         }
 
         val weighted = candidatesWithFallback.map { b ->
@@ -293,19 +285,14 @@ class MultiParameterBiomeResolver<T: PlatformBiome> @JvmOverloads constructor(
         }
 
         // Now compute weights on candidatesWithFallback (replace `weighted` usage accordingly)
-        val totalWeight = weighted.sumOf { it.second } // if you still build 'weighted' from candidatesWithFallback
-
-        if (totalWeight == 0.0) {
-            // fallback to uniform pick if all weights are zero (i.e., all biomes are too far)
-            return candidatesWithFallback.random(random)
-        }
+        val totalWeight = weighted.sumOf { it.second }
+        if (totalWeight <= 0.0) return candidatesWithFallback.random(random) // fallback
 
         var pick = random.nextDouble() * totalWeight
         for ((biome, weight) in weighted) {
             pick -= weight
             if (pick <= 0.0) return biome
         }
-
         return weighted.last().first
     }
 }
@@ -313,10 +300,10 @@ class MultiParameterBiomeResolver<T: PlatformBiome> @JvmOverloads constructor(
 class ContinentBiomeResolver<T : PlatformBiome>(
     val continentNoise: NoiseSampler,   // Large scale land mask
     val elevationNoise: NoiseSampler,   // Medium scale elevation detail
-    val biomeNoise: MultiParameterBiomeResolver<T>, // Biome resolver for all
-    val landThreshold: Double = 0.3,    // Higher = more ocean
-    val deepOceanThreshold: Double = -0.6,
-    val coastThreshold: Double = -0.1,
+    val biomeNoise: MultiParameterBiomeResolver<T>,
+    val landThreshold: Double = 0.3,          // (0..1)
+    val deepSeaLevel: Double = 0.07,          // (0..1)
+    val coastThreshold: Double = 0.15,        // (0..1)
     val mountainThreshold: Double = 0.7
 ) : BiomeResolver<T>
 {
@@ -376,8 +363,8 @@ class ContinentBiomeResolver<T : PlatformBiome>(
         val landMask = smoothStep(landT - falloff, landT + falloff, baseN)
 
         // Deep ocean / shallow ocean decision
-        if (baseN < deepOceanThreshold) {
-            return deepOceanPalette.map.values.random()
+        if (baseN < deepSeaLevel) {
+            return deepOceanPalette.map.values.random(Random(seed)) // deterministic choice below
         }
 
         // Now sample elevation (use different scale)
@@ -442,9 +429,10 @@ class ContinentGenerator(
 ) {
     private val rng = Random(seed)
     val centers: List<ContinentCenter> = generateCenters().also {
-        println("ContinentGenerator -> created ${it.size} centers")
+        VSPEPlatformPlugin.platformLogger().debug("ContinentGenerator -> created ${it.size} centers")
         it.forEachIndexed { idx, c ->
-            println("  center[$idx] = (x=${"%.1f".format(c.x)}, z=${"%.1f".format(c.z)}, r=${"%.1f".format(c.radius)})")
+            VSPEPlatformPlugin.platformLogger()
+                .debug("  center[$idx] = (x=${"%.1f".format(c.x)}, z=${"%.1f".format(c.z)}, r=${"%.1f".format(c.radius)})")
         }
     }
 
@@ -486,9 +474,9 @@ class ContinentGenerator(
     // Smoothstep: nicer coast than linear
     private fun smoothFalloff(distance: Double, radius: Double, falloffPower: Double, x: Double, z: Double): Double {
         val noiseScale = 0.003
-        val noise = baseShapeNoise.sample(x * noiseScale, z * noiseScale) * 0.4 // ±40% variation
+        val noise = baseShapeNoise.sample(x * noiseScale, z * noiseScale) * 0.4
         val effectiveRadius = radius * (1.0 + noise)
-       return 1.0 - clamp(distance / effectiveRadius, 0.0, 1.0).pow(falloffPower)
+        return 1.0 - (distance / effectiveRadius).coerceIn(0.0, 1.0).pow(falloffPower)
     }
 
     // Compute mask at world location (0..1). Uses max of centers => distinct continents.

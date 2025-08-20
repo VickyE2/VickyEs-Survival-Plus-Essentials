@@ -311,9 +311,7 @@ data class StructureBox(val min: Vec3, val max: Vec3, val resource: ResourceLoca
 }
 
 
-class WeightedStructurePlacer<T>(
-    private val structureRegistry: StructureRegistry<T>
-) : StructurePlacer<T>
+class WeightedStructurePlacer<T>() : StructurePlacer<T>
 {
     override fun placeStructuresInChunk(
         chunkX: Int,
@@ -336,7 +334,7 @@ class WeightedStructurePlacer<T>(
             if (context.dimension.random.nextDouble() > rule.frequency) continue
 
             val origin = BlockVec3i(chunkX * 16, 64, chunkZ * 16)
-            val structure = structureRegistry.structures[rule.resource]
+            val structure = VSPEPlatformPlugin.structureManager().getStructures<T>()[rule.resource]
 
             if (structure != null) {
                 val structureBox =
@@ -365,7 +363,7 @@ class WeightedStructurePlacer<T>(
 
         // Sort by priority
         candidates.sortedBy { it.priority }.forEach { candidate ->
-            val structureRaw = structureRegistry.structures[candidate.rule.resource]
+            val structureRaw = VSPEPlatformPlugin.structureManager().getStructures<T>()[candidate.rule.resource]
             if (structureRaw != null) {
                 val structure = structureRaw.first
 
@@ -388,7 +386,7 @@ class WeightedStructurePlacer<T>(
     }
 
     private fun getAllStructureRules(): List<StructureRule> {
-        return structureRegistry.structures.values.map { it.second }
+        return VSPEPlatformPlugin.structureManager().getStructures<T>().values.map { it.second }
     }
 
     private fun <T> computeStructureBox(

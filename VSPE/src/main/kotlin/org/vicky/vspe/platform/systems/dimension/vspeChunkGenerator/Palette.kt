@@ -1,14 +1,14 @@
 package org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator
 
 import org.jetbrains.annotations.NotNull
-import kotlin.random.Random
-import kotlin.math.max
-import kotlin.math.min
 import org.jetbrains.annotations.Nullable
 import org.vicky.platform.world.PlatformBlockState
-import org.vicky.utilities.ANSIColor
 import org.vicky.vspe.distance
+import org.vicky.vspe.platform.VSPEPlatformPlugin
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoSuitableBiomeException
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.random.Random
 
 open class Palette<T> {
     internal val map: MutableMap<Pair<Double, Double>, T> = mutableMapOf()
@@ -53,7 +53,7 @@ fun <K, T> MutableMap<K, T>.getKey(t: T): K {
  * When multiple regions match a query, a weighted-random choice is made.
  */
 class BiomeBlockDistributionPalette<T : PlatformBlockState<*>> internal constructor() : Palette<T>() {
-    private data class Entry<T>(
+    data class Entry<T>(
         val y0: Int, val y1: Int,           // absolute Y range (inclusive)
         val value: T,
         val weight: Double = 1.0
@@ -108,15 +108,18 @@ class BiomeBlockDistributionPalette<T : PlatformBlockState<*>> internal construc
         return matches.last().value
     }
 
+    @Deprecated("It is advised to use #getFor(y) instead")
     override fun get(x: Double, z: Double?): T {
         if (aintSaid) {
-            println(ANSIColor.YELLOW + "It isn't advised to use #get(x, z) in a BiomeBlockDistributionPalette please refrain and contact the developers..." + ANSIColor.RESET)
+            VSPEPlatformPlugin.platformLogger()
+                .warn("It isn't advised to use #get(x, z) use the actual intended #getFor(y) in a BiomeBlockDistributionPalette please refrain and contact the developers...")
             aintSaid = false
         }
         return getFor(x.toInt())
     }
 
     fun clear() = entries.clear()
+    fun getEntries(): MutableList<Entry<T>> = entries
 
     companion object {
         private var aintSaid: Boolean = true
@@ -156,7 +159,7 @@ class NoiseBiomeDistributionPalette<B: PlatformBiome>(
 {
 
     override fun get(x: Double, @NotNull z: Double?): B {
-        if (z == null) throw IllegalArgumentException("The value of z cannot be null in NoiseBiomeDistributionPalette#get");
+        if (z == null) throw IllegalArgumentException("The value of z cannot be null in NoiseBiomeDistributionPalette#get")
         val temp = temperatureNoiseSampler.sample(x, z)
         val humid = humidityNoiseSampler.sample(x, z)
         val elev = elevationNoiseSampler.sample(x, z)
@@ -202,12 +205,12 @@ class NoiseBiomeDistributionPaletteBuilder<T: PlatformBiome>(
 
     fun add(key: Pair<Double, Double>, value: T) : NoiseBiomeDistributionPaletteBuilder<T> {
         map[key] = value
-        return this;
+        return this
     }
 
     fun add(min: Double, max: Double, value: T) : NoiseBiomeDistributionPaletteBuilder<T> {
         map[min to max] = value
-        return this;
+        return this
     }
 
     fun build(): NoiseBiomeDistributionPalette<T> {
@@ -241,12 +244,12 @@ open class PaletteBuilder<T> {
 
     open fun add(key: Pair<Double, Double>, value: T) : PaletteBuilder<T> {
         map[key] = value
-        return this;
+        return this
     }
 
     open fun add(min: Double, max: Double, value: T) : PaletteBuilder<T> {
         map[min to max] = value
-        return this;
+        return this
     }
 
     open fun build(): Palette<T> {

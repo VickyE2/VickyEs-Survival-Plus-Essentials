@@ -7,12 +7,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
+import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.world.PlatformLocation;
 import org.vicky.platform.world.PlatformWorld;
 import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.platform.PlatformEnvironment;
 import org.vicky.vspe.platform.PlatformWorldType;
-import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancement;
 import org.vicky.vspe.platform.systems.dimension.Events.PlatformDimensionWarpEvent;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
@@ -60,7 +60,7 @@ public interface PlatformBaseDimension<T, N> extends Identifiable {
      * @return If the teleport was successful or not
      */
     default boolean takePlayerToDimension(PlatformPlayer player) {
-        PlatformDimensionWarpEvent event = VSPEPlatformPlugin.get().getEventFactory().firePlatformEvent(createWarpEvent(player));
+        PlatformDimensionWarpEvent event = PlatformPlugin.get().getEventFactory().firePlatformEvent(createWarpEvent(player));
 
         if (event.eventIsCancelled()) {
             player.sendMessage(Component.text("You cannot enter this dimension right now.")
@@ -104,7 +104,12 @@ public interface PlatformBaseDimension<T, N> extends Identifiable {
 
     boolean dimensionJoinCondition(PlatformPlayer player);
 
-    @Nullable PlatformLocation locationAt(double x, double y, double z);
-    @Nullable Double findGroundYAt(int x, int z);
+    default @Nullable PlatformLocation locationAt(double x, double y, double z) {
+        return new PlatformLocation(getWorld(), x, y, z);
+    }
+
+    default @Nullable Double findGroundYAt(int x, int z) {
+        return (double) getWorld().getHighestBlockYAt(x, z);
+    }
     boolean isSafeSpawnLocation(@Nullable PlatformLocation location);
 }

@@ -3,7 +3,6 @@ package org.vicky.vspe.platform;
 import org.vicky.platform.PlatformConfig;
 import org.vicky.platform.PlatformLogger;
 import org.vicky.platform.PlatformScheduler;
-import org.vicky.platform.events.PlatformEventFactory;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
@@ -22,8 +21,24 @@ public interface VSPEPlatformPlugin {
     }
 
     static void set(VSPEPlatformPlugin instance) {
-        VSPEPlatformPlugin.Holder.INSTANCE = instance;
+        if (VSPEPlatformPlugin.Holder.INSTANCE == null) {
+            VSPEPlatformPlugin.Holder.INSTANCE = instance;
+        } else {
+            throw new IllegalStateException("Cannot set VSPEPlatformPlugin after its already been set.");
+        }
     }
+
+    /**
+     * Only the instance that was registered can unregister itself.
+     */
+    default void unregister() {
+        if (VSPEPlatformPlugin.Holder.INSTANCE == this) {
+            VSPEPlatformPlugin.Holder.INSTANCE = null;
+        } else {
+            throw new IllegalStateException("Only the registered VSPEPlatformPlugin instance can unregister itself!");
+        }
+    }
+
     static PlatformScheduler scheduler() {
         return get().getPlatformScheduler();
     }
@@ -38,9 +53,6 @@ public interface VSPEPlatformPlugin {
     }
     static PlatformLogger platformLogger() {
         return get().getPlatformLogger();
-    }
-    static PlatformEventFactory eventFactory() {
-        return get().getEventFactory();
     }
     static PlatformDimensionManager<?, ?> dimensionManager() {
         return get().getDimensionManager();
@@ -70,7 +82,6 @@ public interface VSPEPlatformPlugin {
     PlatformConfig getPlatformConfig();
     File getPlatformDataFolder();
     PlatformLogger getPlatformLogger();
-    PlatformEventFactory getEventFactory();
     PlatformDimensionManager<?, ?> getDimensionManager();
     PlatformTrinketManager<?> getPlatformTrinketManager();
     QuestProductionFactory getQuestProductionFactory();

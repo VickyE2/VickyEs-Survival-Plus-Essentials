@@ -492,8 +492,16 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
         baseY: Int,
         shape: Shape,
         fillDepth: Int = 5, // how deep to fill below with stone/dirt
-        surface: PlatformBlockState<T> = this.TOP_LAYER_BLOCK(),
-        underFill: PlatformBlockState<T> = this.STONE_LAYER_BLOCK()
+        surface: PlatformBlockState<T> = this.getBlockAt(
+            center.x,
+            this.getHighestBlockYAt(center.x, center.z).toDouble(),
+            center.z
+        ).blockState,
+        underFill: PlatformBlockState<T> = this.getBlockAt(
+            center.x,
+            this.getHighestBlockYAt(center.x, center.z).toDouble() - 10,
+            center.z
+        ).blockState
     ) {
         val centerX = center.x
         val centerZ = center.z
@@ -507,8 +515,8 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
                 // Clear blocks above target level
                 for (y in baseY..highest) {
                     val block = this.getBlockAt(x.toDouble(), y.toDouble(), z.toDouble())
-                    if (block.blockState != this.AIR()) {
-                        block.blockState = this.AIR()
+                    if (block.blockState != this.airBlockState) {
+                        block.blockState = this.airBlockState
                     }
                 }
 
@@ -552,14 +560,14 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
 
             for (y in (groundY + 1)..maxY) {
                 val block = this.getBlockAt(x.toDouble(), y.toDouble(), z.toDouble())
-                if (block.blockState != this.AIR()) {
-                    block.blockState = this.AIR()
+                if (block.blockState != this.airBlockState) {
+                    block.blockState = this.airBlockState
                 }
             }
         }
     }
     private fun PlatformWorld<*, *>.getTrueGroundY(x: Int, z: Int): Int {
-        val groundBlocks = setOf(
+        setOf(
             SimpleBlockState.from("minecraft:grass_block") { it },
             SimpleBlockState.from("minecraft:dirt") { it },
             SimpleBlockState.from("minecraft:coarse_dirt") { it },
@@ -578,7 +586,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
 
         for (y in this.maxWorldHeight - 1 downTo 0) {
             val type = this.getBlockAt(x.toDouble(), y.toDouble(), z.toDouble()).blockState
-            if (type != this.AIR()) {
+            if (type != this.airBlockState) {
                 return y
             }
         }
