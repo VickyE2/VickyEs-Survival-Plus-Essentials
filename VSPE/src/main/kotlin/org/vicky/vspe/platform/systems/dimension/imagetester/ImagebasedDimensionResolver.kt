@@ -1,6 +1,5 @@
 package org.vicky.vspe.platform.systems.dimension.imagetester
 
-import com.dfsek.terra.api.util.MathUtil.lerp
 import de.articdive.jnoise.api.NoiseGenerator
 import de.articdive.jnoise.interpolation.Interpolation
 import de.pauleff.api.ICompoundTag
@@ -10,6 +9,7 @@ import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.*
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.PrecipitationType
+import org.vicky.vspe.platform.systems.dimension.globalDimensions.BiomeResolvers
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*
 import java.awt.BorderLayout
 import java.awt.Color
@@ -455,7 +455,7 @@ val continentNoise = NoiseSamplerFactory.create(
 )
 
 val worldPx = imageSize * scale // or however big the world is
-val continents = ContinentGenerator(seedBase, 4096, 4096, targetCount = 5, minDist = 4096.0 / 3, radiusRange = 300.0 to 800.0)
+// val continents = ContinentGenerator(seedBase, 4096, 4096, targetCount = 5, minDist = 4096.0 / 3, radiusRange = 300.0 to 800.0)
 
 // low-frequency "shape" noise (gives coastline roughness)
 val baseShapeNoise = JNoiseNoiseSampler(NoiseSamplerFactory.create(
@@ -479,6 +479,7 @@ val localElevationNoise = JNoiseNoiseSampler(NoiseSamplerFactory.create(
     interpolation = Interpolation.COSINE
 ))
 
+/*
 fun maskedElevation(x: Double, z: Double): Double {
     val shape = baseShapeNoise.sample(x, z)    // in -1..1
     val shapeNorm = (shape + 1.0) / 2.0         // 0..1
@@ -487,6 +488,7 @@ fun maskedElevation(x: Double, z: Double): Double {
     val elev = localElevationNoise.sample(x, z) // -1..1
     return mask * elev
 }
+ */
 
 val breakupNoise = NoiseSamplerFactory.create(
     NoiseSamplerFactory.Type.PERLIN,
@@ -513,6 +515,7 @@ val landBiomeResolver = MultiParameterBiomeResolver<SimpleConstructorBasedBiome>
     ImageBiomeResolver.getBiomePalette()
 )
 
+/*
 val continentResolver = ContinentBiomeResolver(
     detailedContinentNoise,
     elevationNoise = object : NoiseSampler {
@@ -526,8 +529,11 @@ val continentResolver = ContinentBiomeResolver(
     coastThreshold = 0.30,  // just above deep ocean
     mountainThreshold = 0.70 // near top of range  // mountains when elevation > 0.80
 )
+ */
 
 const val seedBase = 87263626382632L
+
+/*
 class ImageBasedDimension(
     override val id: String = "test:image_dimension",
     override val world: PlatformWorld<String, *> = ImageBasedWorld,
@@ -536,7 +542,7 @@ class ImageBasedDimension(
     override val structurePlacer: StructurePlacer<String> = WeightedStructurePlacer(),
     override val random: RandomSource = SeededRandomSource(seedBase)
 ) : PlatformDimension<String, SimpleConstructorBasedBiome>
-
+ */
 const val imageSize = 256 // output image size
 const val scale = 2      // how many blocks per pixel (change this to zoom in/out)\
 const val size = 16
@@ -631,6 +637,7 @@ fun colorsAreClose(c1: Int, c2: Int, tolerance: Int = 10): Boolean {
 }
 
 fun main() {
+    /*
     val c = continents.centers.first()
     println("DEBUG center = $c")
     println("mask at center = ${continents.maskAt(c.x, c.z)}")
@@ -796,6 +803,29 @@ fun main() {
         showBiomeViewer(image, biomeMap)
     }
      */
+     */
+    fun printChunkGrid(heights: IntArray, chunkSize: Int = 16) {
+        require(heights.size == chunkSize * chunkSize) { "Array size must be chunkSize^2" }
+
+        for (z in 0 until chunkSize) {
+            val row = (0 until chunkSize).joinToString(" ") { x ->
+                "%3d".format(heights[z * chunkSize + x])
+            }
+            println("[ $row ]")
+        }
+    }
+
+    val provider =
+        ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.heightSampler.getLayers())
+    val heights = provider.getChunkHeights(0, 0)
+    val heights1 = provider.getChunkHeights(5, 7)
+    val heights2 = provider.getChunkHeights(64, 67)
+    printChunkGrid(heights)
+    println()
+    printChunkGrid(heights1)
+    println()
+    printChunkGrid(heights2)
+    println()
 }
 
 /**
@@ -847,6 +877,11 @@ fun terrace(value: Double, steps: Int): Double {
     // smooth between steps:
     return lerp(t, (t + 1.0/steps), ((value * steps) % 1.0))
 }
+
+fun lerp(a: Double, b: Double, t: Double): Double {
+    return a + (b - a) * t
+}
+
 
 fun domainWarp(
     warpX: JNoiseNoiseSampler,

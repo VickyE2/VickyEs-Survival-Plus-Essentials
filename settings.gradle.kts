@@ -8,6 +8,7 @@ rootProject.name = "vickyes-survival-plus-essentials"
 // include(":structure")
 include(":structure_loader")
 include(":VSPE")
+include(":HeightViewer")
 
 pluginManagement {
     repositories {

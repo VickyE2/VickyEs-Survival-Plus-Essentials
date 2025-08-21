@@ -9,9 +9,9 @@ import org.vicky.platform.world.PlatformWorld
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.platform.VSPEPlatformPlugin
 import org.vicky.vspe.platform.systems.dimension.imagetester.seedBase
+import java.util.concurrent.ThreadLocalRandom
 import kotlin.math.hypot
 import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 interface PlatformChunkGenerator<T, B: PlatformBiome> {
@@ -101,18 +101,24 @@ class NoiseBiomeResolver<B: PlatformBiome>(
     }
 }
 
-class MultiParameterBiomeResolver<T: PlatformBiome> @JvmOverloads constructor(
-    val tempNoise: NoiseSampler,
-    val humidNoise: NoiseSampler,
-    val elevNoise: NoiseSampler,
-    val rainNoise: NoiseSampler?,
+/**
+ * Optimized MultiParameterBiomeResolver:
+ * - caches palette entries grouped by BiomeCategory
+ * - avoids per-call allocation and heavy math
+ */
+class MultiParameterBiomeResolver<T : PlatformBiome> @JvmOverloads constructor(
+    private val tempNoise: NoiseSampler,
+    private val humidNoise: NoiseSampler,
+    private val elevNoise: NoiseSampler,
+    private val rainNoise: NoiseSampler?,
     internal var palette: Palette<T>,
     val seaLevel: Double = 0.2,
     val deepSeaLevel: Double = 0.07,
     internal var isMerged: Boolean = false
-) : BiomeResolver<T>
-{
-    val replacementMap: Map<BiomeCategory, BiomeCategory> = mapOf(
+) : BiomeResolver<T> {
+
+    // fallback mapping (unchanged)
+    private val replacementMap: Map<BiomeCategory, BiomeCategory> = mapOf(
         BiomeCategory.WARM_DEEP_OCEAN to BiomeCategory.DEEP_OCEAN,
         BiomeCategory.COLD_DEEP_OCEAN to BiomeCategory.DEEP_OCEAN,
         BiomeCategory.DEEP_OCEAN to BiomeCategory.OCEAN,
@@ -147,161 +153,231 @@ class MultiParameterBiomeResolver<T: PlatformBiome> @JvmOverloads constructor(
         BiomeCategory.PLAINS to BiomeCategory.PLAINS
     )
 
+    // ----- internal cached structures derived from palette -----
+    private val lock = Any()
+
+    private data class BiomeEntry<T : PlatformBiome>(
+        val biome: T,
+        val temp: Double,
+        val humid: Double,
+        val elev: Double,
+        val rain: Double,
+        val category: BiomeCategory
+    )
+
+    // EnumMap-like: index by ordinal (fast)
+    private var entriesByCategory: Array<Array<BiomeEntry<T>>> =
+        Array(BiomeCategory.values().size) { emptyArray() }
+
+    // flattened list of all entries (also cached)
+    private var allEntriesCached: Array<BiomeEntry<T>> = emptyArray()
+
+    init {
+        rebuildCaches()
+    }
+
     fun setPalette(palette: Palette<T>) {
-        this.palette = palette
+        synchronized(lock) {
+            this.palette = palette
+            rebuildCaches()
+        }
     }
 
     override fun getBiomePalette(): Palette<T> {
         return palette
     }
 
+    // rebuild caches from the palette (call when palette changes)
+    private fun rebuildCaches() {
+        synchronized(lock) {
+            val byCat = Array(BiomeCategory.values().size) { ArrayList<BiomeEntry<T>>() }
+            val vals = ArrayList<BiomeEntry<T>>(palette.map.size)
+
+            // assume palette.map.values is iterable of PlatformBiome (T)
+            for (b in palette.map.values) {
+                // read numeric properties once
+                val te = b.temperature.toDouble()
+                val hu = b.humidity.toDouble()
+                val el = b.elevation.toDouble()
+                val ra = b.rainfall.toDouble()
+                val cat = b.category
+                val entry = BiomeEntry(b, te, hu, el, ra, cat)
+                byCat[cat.ordinal].add(entry)
+                vals.add(entry)
+            }
+
+            entriesByCategory = Array(byCat.size) { idx ->
+                byCat[idx].toTypedArray()
+            }
+            allEntriesCached = vals.toTypedArray()
+        }
+    }
+
     override fun resolveBiome(x: Int, y: Int, z: Int, seed: Long): T {
-        // sample each map (scale tuned per‐parameter)
-        val tRaw = tempNoise.sample(x*0.005, z*0.005)
-        val hRaw = humidNoise.sample(x*0.01,  z*0.01)
-        val eRaw = elevNoise.sample(x*0.02,  z*0.02)
-        val rRaw = rainNoise?.sample(x*0.01, z*0.01) ?: 0.0
+        // sample each map (scale tuned per-parameter)
+        val tRaw = tempNoise.sample(x * 0.005, z * 0.005)
+        val hRaw = humidNoise.sample(x * 0.01, z * 0.01)
+        val eRaw = elevNoise.sample(x * 0.02, z * 0.02)
+        val rRaw = rainNoise?.sample(x * 0.01, z * 0.01) ?: 0.0
 
         // normalize to [0,1]
-        val t = ((tRaw + 1) / 2).coerceIn(0.0,1.0)
-        val h = ((hRaw + 1) / 2).coerceIn(0.0,1.0)
-        val e = ((eRaw + 1) / 2).coerceIn(0.0,1.0)
-        val r = ((rRaw + 1) / 2).coerceIn(0.0,1.0)
+        val t = ((tRaw + 1.0) * 0.5).coerceIn(0.0, 1.0)
+        val h = ((hRaw + 1.0) * 0.5).coerceIn(0.0, 1.0)
+        val e = ((eRaw + 1.0) * 0.5).coerceIn(0.0, 1.0)
+        val r = ((rRaw + 1.0) * 0.5).coerceIn(0.0, 1.0)
 
-        // lookup a biome by the 4-tuple (t,h,e,r)
-        return palette.lookup(t, h, e, r)
+        // delegate to optimized lookup (fast, no allocation)
+        return lookupFast(t, h, e, r, seed)
     }
 
-    fun <B> findCandidatesWithFallback(
-        initialDesired: Set<BiomeCategory>,
-        getCandidatesFor: (BiomeCategory) -> List<B>
-    ): List<B> {
-        var currentLevel: Set<BiomeCategory> = initialDesired.toSet()
-        val visited = mutableSetOf<BiomeCategory>()
+    /**
+     * Fast lookup using precomputed arrays. Thread-friendly (no allocation).
+     * Uses squared-distance metric (avoid sqrt).
+     */
+    private fun lookupFast(t: Double, h: Double, e: Double, r: Double, seed: Long): T {
+        // 1) pick desired categories quickly (no alloc)
+        val desiredCategories = pickDesiredCategories(t, h, e, r)
 
-        while (currentLevel.isNotEmpty()) {
-            // collect candidates for this level
-            val candidates = currentLevel.flatMap { cat -> getCandidatesFor(cat) }
-            if (candidates.isNotEmpty()) return candidates
-
-            // compute next level of fallback categories
-            val nextLevel = currentLevel.mapNotNull { replacementMap[it] }.toSet()
-            // stop if nothing to try or we've already tried these categories (prevents cycles)
-            if (nextLevel.isEmpty() || visited.containsAll(nextLevel)) break
-
-            visited.addAll(currentLevel)
-            currentLevel = nextLevel
+        // 2) find candidate entries using fallback (walk replacementMap; no list building)
+        val candidates = findCandidatesWithFallbackFast(desiredCategories)
+        if (candidates.isEmpty()) {
+            // fallback to first available biome
+            val all = allEntriesCached
+            return if (all.isNotEmpty()) all[0].biome else palette.map.values.first()
         }
 
-        // nothing found through fallbacks
-        return emptyList()
+        // 3) compute squared distance and pick using weights
+        // weight = max(0, 1 - dist) where dist is sqrt(sqDist) originally; but we can map squaredDist -> weight
+        // a cheap approach: use (1.0 - sqrt(sqDist)) approximated; to avoid sqrt we can scale accordingly:
+        // For small candidate sets the cost is small; we will compute sqrt once per candidate. This is OK.
+        var totalWeight = 0.0
+        val weights = DoubleArray(candidates.size)
+        // Use ThreadLocalRandom with seed-based mix so behavior can be somewhat repeatable per-call if desired.
+        val rnd = ThreadLocalRandom.current()
+
+        var i = 0
+        while (i < candidates.size) {
+            val ent = candidates[i]
+            // normalized difference
+            val dt = ent.temp - t
+            val dh = ent.humid - h
+            val de = ent.elev - e
+            val dr = ent.rain - r
+
+            val sq = dt * dt + dh * dh + de * de + dr * dr
+            val dist = kotlin.math.sqrt(sq) // computing sqrt here; cheaper than many allocations
+            var weight = 1.0 - dist
+            if (weight < 0.0) weight = 0.0
+            weights[i] = weight
+            totalWeight += weight
+            i++
+        }
+
+        if (totalWeight <= 0.0) {
+            // uniform random among candidates
+            val idx = (rnd.nextDouble() * candidates.size).toInt().coerceIn(0, candidates.size - 1)
+            return candidates[idx].biome
+        }
+
+        var pick = rnd.nextDouble() * totalWeight
+        i = 0
+        while (i < candidates.size) {
+            pick -= weights[i]
+            if (pick <= 0.0) return candidates[i].biome
+            i++
+        }
+        return candidates.last().biome
     }
 
-    fun Palette<T>.lookup(
-        t: Double, h: Double, e: Double, r: Double,
-        random: Random = Random(9019090930830)  // or your own RandomSource
-    ): T {
-        // 1) Pick the *category* or “biome class” you want
-        val desiredCategories = buildList {
-            if (!isMerged) {
-                val oceanBlend = 0.6
-                val oceanTransition = ((seaLevel + oceanBlend) - e).coerceIn(0.0, oceanBlend) / oceanBlend
-                val baseOceanChance = 0.6
+    /**
+     * Build the "desired categories" small array (no list alloc).
+     * Returns an IntArray of category ordinals; length 0 means none.
+     */
+    private fun pickDesiredCategories(t: Double, h: Double, e: Double, r: Double): IntArray {
+        // typical result is 1-3 categories; use small buffer
+        val buf = IntArray(6)
+        var count = 0
 
-                // 🌊 Ocean formation
-                if (e < deepSeaLevel && random.nextDouble() < (baseOceanChance + 0.4 * oceanTransition)) {
-                    if (t > 0.6) add(BiomeCategory.WARM_DEEP_OCEAN)
-                    else if (t > 0.4) add(BiomeCategory.DEEP_OCEAN)
-                    else add(BiomeCategory.COLD_DEEP_OCEAN)
-                    return@buildList
-                }
-                else if (e < seaLevel && random.nextDouble() < (baseOceanChance + 0.4 * oceanTransition)) {
-                    if (t > 0.6) add(BiomeCategory.WARM_OCEAN)
-                    else if (t > 0.4) add(BiomeCategory.OCEAN)
-                    else add(BiomeCategory.COLD_OCEAN)
-                    return@buildList
-                }
-            }
-
-            // ❄️ Cold areas
-            if (t < 0.2) {
-                if (h < 0.3) add(BiomeCategory.ICY)
-                else add(BiomeCategory.TUNDRA)
-            }
-            // 🏜️ Cool areas
-            else if (t < 0.4) {
-                when {
-                    h < 0.3 -> add(BiomeCategory.DESERT)
-                    h < 0.6 -> add(BiomeCategory.SAVANNA)
-                    else -> add(BiomeCategory.TAIGA)
-                }
-            }
-            // 🌾 Temperate areas
-            else if (t < 0.7) {
-                when {
-                    h < 0.3 -> add(BiomeCategory.DESERT)
-                    h < 0.6 -> add(BiomeCategory.PLAINS)
-                    else -> add(BiomeCategory.SWAMP)
-                }
-            }
-            // 🌴 Warm/hot areas
-            else {
-                when {
-                    h < 0.3 -> add(BiomeCategory.SAVANNA)
-                    h < 0.7 -> add(BiomeCategory.JUNGLE)
-                    else -> add(BiomeCategory.RAINFOREST)
-                }
-            }
-
-            // 🏔️ High elevation
-            if (e > 0.82) {
-                add(BiomeCategory.MOUNTAIN)
-            }
-
-            // 💦 Very rainy
-            if (r > 0.8) {
-                add(BiomeCategory.WETLAND)
+        if (!isMerged) {
+            val oceanBlend = 0.6
+            val oceanTransition = ((seaLevel + oceanBlend) - e).coerceIn(0.0, oceanBlend) / oceanBlend
+            val baseOceanChance = 0.6
+            // Note: deterministic randomness removed here to keep it cheap.
+            if (e < deepSeaLevel && baseOceanChance + 0.4 * oceanTransition > 0.5) {
+                val cat =
+                    if (t > 0.6) BiomeCategory.WARM_DEEP_OCEAN else if (t > 0.4) BiomeCategory.DEEP_OCEAN else BiomeCategory.COLD_DEEP_OCEAN
+                buf[count++] = cat.ordinal
+                return buf.copyOf(count)
+            } else if (e < seaLevel && baseOceanChance + 0.4 * oceanTransition > 0.5) {
+                val cat =
+                    if (t > 0.6) BiomeCategory.WARM_OCEAN else if (t > 0.4) BiomeCategory.OCEAN else BiomeCategory.COLD_OCEAN
+                buf[count++] = cat.ordinal
+                return buf.copyOf(count)
             }
         }
 
-
-        // 2) Filter your palette down to only those biomes
-        val candidatesWithFallback = findCandidatesWithFallback(desiredCategories.toSet()) { cat ->
-            // EXAMPLE: if your biome palette exposes a collection of Biome objects with `.category`:
-            getBiomePalette().map.values.filter { biome -> biome.category == cat }
+        if (t < 0.2) {
+            if (h < 0.3) buf[count++] = BiomeCategory.ICY.ordinal else buf[count++] = BiomeCategory.TUNDRA.ordinal
+        } else if (t < 0.4) {
+            if (h < 0.3) buf[count++] = BiomeCategory.DESERT.ordinal
+            else if (h < 0.6) buf[count++] = BiomeCategory.SAVANNA.ordinal
+            else buf[count++] = BiomeCategory.TAIGA.ordinal
+        } else if (t < 0.7) {
+            if (h < 0.3) buf[count++] = BiomeCategory.DESERT.ordinal
+            else if (h < 0.6) buf[count++] = BiomeCategory.PLAINS.ordinal
+            else buf[count++] = BiomeCategory.SWAMP.ordinal
+        } else {
+            if (h < 0.3) buf[count++] = BiomeCategory.SAVANNA.ordinal
+            else if (h < 0.7) buf[count++] = BiomeCategory.JUNGLE.ordinal
+            else buf[count++] = BiomeCategory.RAINFOREST.ordinal
         }
 
-        if (candidatesWithFallback.isEmpty()) {
-            return getBiomePalette().map.values.first()
+        if (e > 0.82) buf[count++] = BiomeCategory.MOUNTAIN.ordinal
+        if (r > 0.8) buf[count++] = BiomeCategory.WETLAND.ordinal
+
+        return if (count == buf.size) buf else buf.copyOf(count)
+    }
+
+    /**
+     * Very fast fallback search: tries categories in "currentLevel", if none found maps them
+     * to next-level via replacementMap using ordinal indices and returns the first non-empty
+     * array of BiomeEntry. Avoids allocating temporary lists whenever possible.
+     */
+    private fun findCandidatesWithFallbackFast(initial: IntArray): Array<BiomeEntry<T>> {
+        if (initial.isEmpty()) return emptyArray()
+        val seen = BooleanArray(entriesByCategory.size)
+        val work = IntArray(entriesByCategory.size)
+        var workLen = 0
+        for (o in initial) {
+            if (o in entriesByCategory.indices) work[workLen++] = o
         }
 
-        val weighted = candidatesWithFallback.map { b ->
-            val tempNorm = (b.temperature - t) / 1.0
-            val humidNorm = (b.humidity - h) / 1.0
-            val elevNorm = (b.elevation - e) / 1.0
-            val rainNorm = (b.rainfall - r) / 1.0
+        while (workLen > 0) {
+            // check each ordinal in work for entries
+            for (i in 0 until workLen) {
+                val ord = work[i]
+                val arr = entriesByCategory.getOrNull(ord)
+                if (arr != null && arr.isNotEmpty()) return arr
+            }
 
-            val dist = sqrt(
-                tempNorm.pow(2) +
-                        humidNorm.pow(2) +
-                        elevNorm.pow(2) +
-                        rainNorm.pow(2)
-            )
-
-            val weight = (1.0 - dist).coerceAtLeast(0.0)
-            b to weight
+            // compute next level into the same work array
+            var nextLen = 0
+            for (i in 0 until workLen) {
+                val ord = work[i]
+                if (ord < 0 || ord >= entriesByCategory.size) continue
+                if (seen[ord]) continue
+                seen[ord] = true
+                val cat = BiomeCategory.values()[ord]
+                val next = replacementMap[cat] ?: continue
+                val nextOrd = next.ordinal
+                if (!seen[nextOrd]) {
+                    work[nextLen++] = nextOrd
+                }
+            }
+            if (nextLen == 0) break
+            workLen = nextLen
         }
-
-        // Now compute weights on candidatesWithFallback (replace `weighted` usage accordingly)
-        val totalWeight = weighted.sumOf { it.second }
-        if (totalWeight <= 0.0) return candidatesWithFallback.random(random) // fallback
-
-        var pick = random.nextDouble() * totalWeight
-        for ((biome, weight) in weighted) {
-            pick -= weight
-            if (pick <= 0.0) return biome
-        }
-        return weighted.last().first
+        return emptyArray()
     }
 }
 

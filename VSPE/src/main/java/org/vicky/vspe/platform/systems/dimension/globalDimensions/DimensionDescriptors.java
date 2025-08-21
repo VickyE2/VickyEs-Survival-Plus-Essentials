@@ -7,7 +7,7 @@ import org.vicky.vspe.platform.systems.dimension.DimensionType;
 import java.util.List;
 
 public final class DimensionDescriptors {
-    static final DimensionDescriptor CRYMORRA =
+    public static final DimensionDescriptor CRYMORRA =
             new DimensionDescriptor(
                     "Crymorra",
                     "A land of frozen war...",

@@ -1,5 +1,3 @@
-import java.nio.file.Paths
-
 plugins {
     id("org.jetbrains.kotlin.jvm")
     `maven-publish` apply true
@@ -47,6 +45,7 @@ dependencies {
     api("com.google.guava:guava:33.1.0-jre")
     api("de.articdive:jnoise:3.0.2")
     api("de.articdive:jnoise-pipeline:4.1.0")
+    compileOnly("com.dfsek.terra:api:6.5.0-BETA+060cbfd0c")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.10")
@@ -76,7 +75,7 @@ tasks.register<Jar>("javadocJar") {
 }
 
 tasks.named<Jar>("jar") {
-    enabled = false
+    enabled = true
 }
 
 publishing {

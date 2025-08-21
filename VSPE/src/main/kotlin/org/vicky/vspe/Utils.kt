@@ -4,11 +4,12 @@ import org.vicky.platform.utils.Mirror
 import org.vicky.platform.utils.Rotation
 import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.PlatformBlockState
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.stream.Collectors
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -24,6 +25,82 @@ fun <T> List<T>.weightedRandomOrNull(weightProvider: (T) -> Int): T? {
         if (r < cumulative) return item
     }
     return null // shouldn't happen unless totalWeight is messed up
+}
+
+fun createTerrainSampler(seed: Long): CompositeNoiseLayer {
+    // low-frequency "mountain" ridges (FBM) — big scale, fewer features
+    val mountainBase = FBMGenerator(
+        seed xor 0x9E3779B97F4AL, octaves = 5,
+        amplitude = 1.0f, frequency = 0.0006f, lacunarity = 2.0f, gain = 0.5f
+    )
+
+    // mask that determines where mountains appear (very low frequency)
+    val mountainMask = FBMGenerator(
+        seed + 0x9E3779B97C15L, octaves = 3,
+        amplitude = 1.0f, frequency = 0.00035f, lacunarity = 2.0f, gain = 0.45f
+    )
+
+    // mid-frequency hills
+    val hills = FBMGenerator(
+        seed + 12345, octaves = 4,
+        amplitude = 0.8f, frequency = 0.0045f, lacunarity = 2.0f, gain = 0.5f
+    )
+
+    // higher-frequency small bumps / noise for surface detail
+    val bumps = FBMGenerator(
+        seed + 54321, octaves = 3,
+        amplitude = 0.5f, frequency = 0.02f, lacunarity = 2.0f, gain = 0.5f
+    )
+
+    // a gentle base waviness to keep the overall elevation near baseline (keeps things "mostly 73")
+    val gentle = FBMGenerator(
+        seed + 777, octaves = 2,
+        amplitude = 0.25f, frequency = 0.0015f, lacunarity = 2.0f, gain = 0.5f
+    )
+
+    // Mountain with mask: we want mountainBase to contribute only where mountainMask is high.
+    val maskedMountains = MaskedNoiseSampler(mountainBase, mountainMask, maskExponent = 4.0)
+
+    // weights chosen so bumps/hills dominate small variation, maskedMountains produce rare large peaks.
+    // CompositeNoiseLayer expects weights (we'll treat them as relative; you may want to normalize depending on behavior)
+    val layers = listOf(
+        pairs(bumps, 0.20),         // small surface bumps
+        pairs(hills, 0.45),         // rolling hills
+        pairs(gentle, 0.10),        // keeps baseline from drifting too much
+        pairs(maskedMountains, 0.25)// occasional big mountains
+    )
+
+    // note: CompositeNoiseLayer.sample currently sums ((layer.sample + 1)/2) * weight
+    // so weights should preferably sum to around 1.0 (not strictly required)
+    return CompositeNoiseLayer(layers, seed)
+}
+
+// tiny helper to avoid Kotlin's Pair constructor noise
+private fun pairs(s: NoiseSampler, w: Double) = Pair(s, w)
+
+/**
+ * Convert sampler output to a world Y coordinate.
+ * - baseline: ~73
+ * - max: ~167
+ * You can tweak baseY and amplitudeY to taste.
+ */
+fun sampleHeight(sampler: NoiseSampler, x: Double, z: Double, baseY: Int = 73, maxY: Int = 167): Int {
+    // many samplers return values roughly in [-1,1] or 0..1 depending on composition. CompositeNoiseLayer
+    // in the user's code returns weighted ((layer.sample+1)/2)*weight; so expect ~[0, totalWeight].
+    val raw = sampler.sample(x, z)
+    val v = normalize01(raw) // clamp to [0,1]
+    val height = baseY + (v * (maxY - baseY)).roundToInt()
+    return height
+}
+
+/** Normalize and clamp a potentially unbounded noise value to [0,1]. */
+fun normalize01(value: Double): Double {
+    // If your composite weights sum to 1.0 this is already ideally in [0,1].
+    // We still clamp and apply a gentle easing so extremes feel less harsh.
+    val clamped = value.coerceIn(0.0, 1.0)
+    // optional curve: bias towards lower elevations a bit (comment out if you don't want bias)
+    // return clamped.pow(0.95)
+    return clamped
 }
 
 fun distance(
@@ -87,7 +164,7 @@ fun Vec3.rotate(rotation: Rotation, origin: Vec3): Vec3 {
 
 
 fun getAllZipFiles(directoryPath: String): List<Path> {
-    val dirPath:Path = Paths.get(directoryPath);
+    val dirPath:Path = Paths.get(directoryPath)
     if (!Files.exists(dirPath) || !Files.isDirectory(dirPath)) {
         throw IllegalArgumentException("Invalid directory path: $directoryPath")
     }

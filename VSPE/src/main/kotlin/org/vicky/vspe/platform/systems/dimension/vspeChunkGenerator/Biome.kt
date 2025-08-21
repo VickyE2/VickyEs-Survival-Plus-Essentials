@@ -22,7 +22,7 @@ import kotlin.math.floor
  * IMPORTANT: Returned IntArray from getChunkHeights(...) is the cached array (for speed).
  * If you plan to mutate it, either copy it first or call getChunkHeightsCopy(...).
  */
-class ChunkHeightProvider(
+class ChunkHeightProvider @JvmOverloads constructor(
     private val noiseLayers: List<Pair<NoiseSampler, Double>>, // (sampler, weight)
     private val maxHeight: Int = 319,
     private val chunkSize: Int = 16,
@@ -208,15 +208,15 @@ data class BiomeParameters @JvmOverloads constructor(
     val elevation: Double,
     val rainfall: Double,
     val category: BiomeCategory,
+    val isMountainous: Boolean,
+    val isCold: Boolean,
+    val isHumid: Boolean,
     val precipitation: PrecipitationType = PrecipitationType.RAIN,
     val distributionPalette: BiomeBlockDistributionPalette<*>,
     val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
     val features: List<BiomeFeature<*>> = emptyList(),
     val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
     val biomeStructureData: BiomeStructureData = BiomeStructureData.EMPTY,
-    val isMountainous: Boolean,
-    val isCold: Boolean,
-    val isHumid: Boolean
 )
 
 interface PlatformBiome : Identifiable {

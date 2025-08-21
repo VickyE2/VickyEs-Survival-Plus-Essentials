@@ -2,7 +2,6 @@ package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
 import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
-import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
@@ -133,8 +132,8 @@ public final class BiomeResolvers<B extends PlatformBiome> {
         );
     }
 
-    private static class BiomeDetailHolder {
-        static final BiomeParameters MAGENTA_FOREST = new BiomeParameters(
+    public static final class BiomeDetailHolder {
+        public static final BiomeParameters MAGENTA_FOREST = new BiomeParameters(
                 "crymorra:magenta_forest",
                 "Magenta Forest",
                 0xff3761,
@@ -149,13 +148,25 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 0.3,
                 0.5,
                 BiomeCategory.SNOWY_BEACH,
-                PrecipitationType.SNOW,
-                new BiomeBlockDistributionPaletteBuilder<>()
-                        .addLayer(319, -64, VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("crymorra:magenta_grass_block")))
-                        .build(),
                 false,
                 true,
-                false
+                false,
+                PrecipitationType.SNOW,
+                BiomeBlockDistributionPalette.Companion.empty()
+                /*new BiomeBlockDistributionPaletteBuilder<>()
+                        .addLayer(319, -64, VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("crymorra:magenta_grass_block")))
+                        .build()*/,
+                new TerrainSamplerBuilder(544965145)
+                        .setUseRidgedMountains(false)
+                        .setMountaininess(0.025)
+                        .setMountainFrequency(0.0005)
+                        .setMountainRarity(0.2)
+                        .setHillFrequency(0.004)
+                        .setHilliness(0.037)
+                        .setGentleWeight(0.7)
+                        .setBaseHeight(64)
+                        .setMaxHeight(164)
+                        .buildSampler()
         );
     }
 }

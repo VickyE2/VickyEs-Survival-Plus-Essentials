@@ -598,6 +598,218 @@ object NoiseSamplerFactory {
     }
 }
 
+/**
+ * Small wrapper to produce occasional mountains via a mask.
+ */
+class MaskedNoiseSampler(
+    private val source: NoiseSampler,
+    private val mask: NoiseSampler,
+    private val maskExponent: Double = 3.0
+) : NoiseSampler {
+    override fun getSeed(): Long = source.getSeed()
+    override fun sample(x: Double, z: Double): Double {
+        val m = (mask.sample(x, z) + 1.0) / 2.0 // [-1..1] -> [0..1]
+        val s = source.sample(x, z)
+        return s * m.pow(maskExponent)
+    }
+
+    override fun sample3D(x: Double, y: Double, z: Double): Double {
+        val m = (mask.sample3D(x, y, z) + 1.0) / 2.0
+        val s = source.sample3D(x, y, z)
+        return s * m.pow(maskExponent)
+    }
+}
+
+/**
+ * Simple transform to make FBM ridged-like (for sharper mountains).
+ * This doesn't replace a true ridged multifractal, but gives sharper peaks.
+ */
+class RidgedWrapper(private val inner: NoiseSampler) : NoiseSampler {
+    override fun getSeed(): Long = inner.getSeed()
+    override fun sample(x: Double, z: Double): Double {
+        val v = inner.sample(x, z)
+        // transform: [-1..1] -> ridge effect [0..1] with sharper peaks
+        return 1.0 - abs(v) // result in [0..1], we remap to [-1..1] below when used
+    }
+
+    override fun sample3D(x: Double, y: Double, z: Double): Double {
+        val v = inner.sample3D(x, y, z)
+        return 1.0 - abs(v)
+    }
+}
+
+/**
+ * Maps a NoiseSampler (expected roughly in [-1..1] or 0..1 depending on composition)
+ * into a world Y integer. Client may also directly use the NoiseSampler produced by
+ * buildSampler(...) if they want more control.
+ */
+class HeightMapper(private val sampler: NoiseSampler, private val baseY: Int, private val maxY: Int) {
+    fun sampleHeight(x: Double, z: Double): Int {
+        val raw = sampler.sample(x, z)
+        // try to normalize to 0..1 — account for possible 0..1 outputs too
+        val v = when {
+            raw <= -1.0 -> 0.0
+            raw >= 1.0 -> 1.0
+            else -> (raw + 1.0) / 2.0 // [-1,1] -> [0,1]
+        }
+        val clamped = v.coerceIn(0.0, 1.0)
+        return baseY + (clamped * (maxY - baseY)).roundToInt()
+    }
+}
+
+/**
+ * Builder for a modular terrain sampler. Java-friendly with defaults via @JvmOverloads.
+ *
+ * Example (Kotlin):
+ * val sampler = TerrainSamplerBuilder(seed = 42L)
+ *      .setBaseHeight(73)
+ *      .setMaxHeight(167)
+ *      .setMountaininess(0.6)
+ *      .setHilliness(0.45)
+ *      .buildSampler()
+ *
+ * Example (Java):
+ * NoiseSampler sampler = new TerrainSamplerBuilder(42L).setBaseHeight(73).buildSampler();
+ */
+class TerrainSamplerBuilder @JvmOverloads constructor(private val seed: Long = 0L) {
+    // tunables, 0..1 weights (not strict, builder normalizes internally)
+    private var mountaininess: Double = 0.4   // strength of mountains
+    private var hilliness: Double = 0.45     // strength of rolling hills
+    private var bumpiness: Double = 0.25     // small surface noise
+    private var mountainRarity: Double = 0.12 // 0..1, lower -> rarer mountains (mask exponent invert)
+    private var mountainSharpness: Double = 1.6 // higher -> sharper mountains
+    private var useRidgedMountains: Boolean = true
+
+    // height mapping
+    private var baseHeight: Int = 73
+    private var maxHeight: Int = 167
+
+    // frequency / scale multipliers (you can tweak for different world scales)
+    private var mountainFrequency: Double = 0.0006
+    private var mountainMaskFrequency: Double = 0.00035
+    private var hillFrequency: Double = 0.0045
+    private var bumpFrequency: Double = 0.02
+    private var gentleFrequency: Double = 0.0015
+    private var gentleWeight: Double = 0.08
+
+    // extra: allow custom layers added by the user
+    private val customLayers: MutableList<Pair<NoiseSampler, Double>> = ArrayList()
+
+    // ---------- setters (fluent) ----------
+    fun setMountaininess(v: Double) = apply { mountaininess = v.coerceIn(0.0, 2.0) } // allow >1 if wanted
+    fun setHilliness(v: Double) = apply { hilliness = v.coerceIn(0.0, 2.0) }
+    fun setBumpiness(v: Double) = apply { bumpiness = v.coerceIn(0.0, 2.0) }
+    fun setMountainRarity(v: Double) = apply { mountainRarity = v.coerceIn(0.0, 1.0) }
+    fun setMountainSharpness(v: Double) = apply { mountainSharpness = v.coerceIn(0.1, 8.0) }
+    fun setUseRidgedMountains(flag: Boolean) = apply { useRidgedMountains = flag }
+
+    fun setBaseHeight(h: Int) = apply { baseHeight = h }
+    fun setMaxHeight(h: Int) = apply { maxHeight = h }
+
+    fun setMountainFrequency(f: Double) = apply { mountainFrequency = f }
+    fun setMountainMaskFrequency(f: Double) = apply { mountainMaskFrequency = f }
+    fun setHillFrequency(f: Double) = apply { hillFrequency = f }
+    fun setBumpFrequency(f: Double) = apply { bumpFrequency = f }
+    fun setGentleFrequency(f: Double) = apply { gentleFrequency = f }
+    fun setGentleWeight(w: Double) = apply { gentleWeight = w }
+
+    fun addCustomLayer(sampler: NoiseSampler, weight: Double) = apply {
+        customLayers.add(Pair(sampler, weight))
+    }
+
+    // ---------- build methods ----------
+    /** Build the CompositeNoiseLayer (a NoiseSampler) */
+    @JvmOverloads
+    fun buildSampler(normalizeWeights: Boolean = true): CompositeNoiseLayer {
+        // create FBM samplers with different seeds
+        val bumps = FBMGenerator(
+            (seed + 0xC0FFEE) and 0xffffffffL,
+            octaves = 3,
+            amplitude = 0.5f,
+            frequency = bumpFrequency.toFloat(),
+            lacunarity = 2.0f,
+            gain = 0.5f
+        )
+        val hills = FBMGenerator(
+            (seed + 0xBEEF) and 0xffffffffL,
+            octaves = 4,
+            amplitude = 0.8f,
+            frequency = hillFrequency.toFloat(),
+            lacunarity = 2.0f,
+            gain = 0.5f
+        )
+        val gentle = FBMGenerator(
+            (seed + 0xF00D) and 0xffffffffL,
+            octaves = 2,
+            amplitude = 0.25f,
+            frequency = gentleFrequency.toFloat(),
+            lacunarity = 2.0f,
+            gain = 0.5f
+        )
+
+        val mountainBaseFBM = FBMGenerator(
+            (seed + 0xDEADBEEFL) and 0xffffffffL,
+            octaves = 5,
+            amplitude = 1.0f,
+            frequency = mountainFrequency.toFloat(),
+            lacunarity = 2.0f,
+            gain = 0.5f
+        )
+        val mountainMaskFBM = FBMGenerator(
+            (seed + 0xFEED) and 0xffffffffL,
+            octaves = 3,
+            amplitude = 1.0f,
+            frequency = mountainMaskFrequency.toFloat(),
+            lacunarity = 2.0f,
+            gain = 0.45f
+        )
+
+        val mountainSource: NoiseSampler = if (useRidgedMountains) RidgedWrapper(mountainBaseFBM) else mountainBaseFBM
+        val maskedMountains = MaskedNoiseSampler(
+            mountainSource,
+            mountainMaskFBM,
+            maskExponent = (1.0 / (mountainRarity.coerceAtLeast(1e-6))).coerceAtMost(8.0)
+        )
+
+        // assemble layers and weights
+        val layers = ArrayList<Pair<NoiseSampler, Double>>()
+
+        // small bumps -> high frequency, low weight
+        layers.add(Pair(bumps, bumpiness))
+
+        // hills -> mid frequency, medium weight
+        layers.add(Pair(hills, hilliness))
+
+        // gentle base -> keeps baseline around baseHeight
+        layers.add(Pair(gentle, gentleWeight))
+
+        // mountains -> masked + mountaininess + sharpness multiplier
+        layers.add(Pair(maskedMountains, mountaininess * mountainSharpness))
+
+        // append user-provided custom layers
+        layers.addAll(customLayers)
+
+        // optionally normalize weights to sum to 1.0 (CompositeNoiseLayer expects weights; its sample formula uses ((layer+1)/2)*weight)
+        if (normalizeWeights) {
+            val total = layers.sumOf { it.second }.coerceAtLeast(1e-12)
+            val normalized = layers.map { Pair(it.first, it.second / total) }
+            return CompositeNoiseLayer(normalized, seed)
+        }
+
+        return CompositeNoiseLayer(layers, seed)
+    }
+
+    /**
+     * Build a HeightMapper which wraps the produced sampler and maps to ints.
+     * @param normalizeSamplerWeights true->normalize layer weights before mapping
+     */
+    @JvmOverloads
+    fun buildHeightMapper(normalizeSamplerWeights: Boolean = true): HeightMapper {
+        val sampler = buildSampler(normalizeSamplerWeights)
+        return HeightMapper(sampler, baseHeight, maxHeight)
+    }
+}
+
 class DefaultedNoiseResult(val result: Double): NoiseResult {
     override fun getPureValue(): Double = result
 }
