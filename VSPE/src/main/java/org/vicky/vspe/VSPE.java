@@ -36,6 +36,7 @@ import org.vicky.vspe.features.CharmsAndTrinkets.BaseTrinket;
 import org.vicky.vspe.features.CharmsAndTrinkets.CnTManager;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreen;
 import org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets.PlayerEquippedTrinketScreenListener;
+import org.vicky.vspe.nms.impl.NMSInjectListener;
 import org.vicky.vspe.paper.*;
 import org.vicky.vspe.platform.PlatformBiomeFactory;
 import org.vicky.vspe.platform.PlatformBlockDataRegistry;
@@ -119,6 +120,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
     public void onEnable() {
         prepareGenerators();
         CoreDimensionRegistry.installInto(this);
+        getServer().getPluginManager().registerEvents(new NMSInjectListener(), this);
         Bukkit.getPluginManager().registerEvents(this, this);
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null
                 && Bukkit.getPluginManager().getPlugin("MythicMobs") != null
