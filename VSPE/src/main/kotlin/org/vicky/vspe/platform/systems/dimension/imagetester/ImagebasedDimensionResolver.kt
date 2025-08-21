@@ -22,7 +22,6 @@ import java.io.File
 import javax.imageio.ImageIO
 import javax.swing.*
 import kotlin.math.abs
-import kotlin.math.ceil
 import kotlin.math.pow
 
 object BlockRegistry {
@@ -167,7 +166,7 @@ object ImageBasedChunkGenerator : PlatformChunkGenerator<String, SimpleConstruct
             for (z in 0 until size) {
                 val worldX = chunkData.chunkX * size + x
                 val worldZ = chunkData.chunkZ * size + z
-                val b = context.dimension.biomeResolver.resolveBiome(worldX, 64, worldZ, context.dimension.random.getSeed())
+                val b = context.biomeResolver.resolveBiome(worldX, 64, worldZ, context.random.getSeed())
                 val biome = biomeCache.getOrPut(b.name) { b }
 
                 val block = if (biome.isOcean) {
@@ -542,6 +541,7 @@ const val imageSize = 256 // output image size
 const val scale = 2      // how many blocks per pixel (change this to zoom in/out)\
 const val size = 16
 
+/*
 fun generateImageTestWorld() {
     val dim = ImageBasedDimension()
     val worldSize = imageSize * scale
@@ -554,7 +554,7 @@ fun generateImageTestWorld() {
 
     for (chunkX in 0 until chunkCount) {
         for (chunkZ in 0 until chunkCount) {
-            val context = object : ChunkGenerateContext<String, SimpleConstructorBasedBiome>(chunkX, chunkZ, dim) {}
+            val context = object : ChunkGenerateContext<String, SimpleConstructorBasedBiome>(chunkX, chunkZ, b) {}
             dim.chunkGenerator.generateChunk(context)
             done++
 
@@ -574,6 +574,7 @@ fun generateImageTestWorld() {
     // make sure any buffered pixels are flushed and final PNG saved
     ChunkFlusher.finalizeAndSave()
 }
+*/
 
 object FBMCache {
     private val cache = mutableMapOf<Long, FBMGenerator>()
