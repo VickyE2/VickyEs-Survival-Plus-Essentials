@@ -40,6 +40,7 @@ public class BukkitBiome implements PlatformBiome {
     private final boolean isMountainous;
     private final boolean isHumid;
     private final boolean isCold;
+    private final BiomeWrapper_1_20_R4 wrapper;
 
     private BukkitBiome(Biome bukkitBiome, @NotNull String name, int biomeColor, int fogColor, int waterColor, int waterFogColor, int foliageColor, int skyColor, boolean isOcean, double temperature, double humidity, double elevation, double rainfall, @NotNull CompositeNoiseLayer heightSampler, @NotNull BiomeCategory biomeCategory, @NotNull PrecipitationType precipitationType, @NotNull BiomeStructureData structureData, @NotNull List<BiomeFeature<?, ?>> features, @NotNull BiomeBlockDistributionPalette<?> distributionPalette, @NotNull BiomeSpawnSettings spawnSettings, String identifier, boolean isMountainous, boolean isHumid, boolean isCold) {
         this.bukkitBiome = bukkitBiome;
@@ -66,8 +67,30 @@ public class BukkitBiome implements PlatformBiome {
         this.isMountainous = isMountainous;
         this.isHumid = isHumid;
         this.isCold = isCold;
-    }
 
+        var splitted = getIdentifier().split(":");
+        NamespacedKey key;
+        if (splitted.length == 2) {
+            key = new NamespacedKey(splitted[0], splitted[1]);
+        } else {
+            key = new NamespacedKey("vspe", getIdentifier());
+        }
+
+        BiomeWrapper baseWrapper = BiomeRegistry.getInstance().getOrCreate(key, bukkitBiome);
+        BiomeWrapper_1_20_R4 wrapper = (BiomeWrapper_1_20_R4) baseWrapper;
+
+        // Apply special effects
+        SpecialEffectsBuilder effects = wrapper.getSpecialEffects()
+                .setFoliageColorOverride(getFoliageColor())
+                .setSkyColor(getSkyColor())
+                .setFogColor(getFogColor())
+                .setWaterColor(getWaterColor())
+                .setWaterFogColor(getWaterFogColor())
+                .setGrassColorOverride(getBiomeColor());
+
+        wrapper.setSpecialEffects(effects);
+        this.wrapper = wrapper;
+    }
     private BukkitBiome(Builder builder) {
         this.bukkitBiome = builder.bukkitBiome;
         this.name = builder.name;
@@ -93,6 +116,32 @@ public class BukkitBiome implements PlatformBiome {
         this.isMountainous = builder.isMountainous;
         this.isHumid = builder.isHumid;
         this.isCold = builder.isCold;
+
+        var splitted = getIdentifier().split(":");
+        NamespacedKey key;
+        if (splitted.length == 2) {
+            key = new NamespacedKey(splitted[0], splitted[1]);
+        } else {
+            key = new NamespacedKey("vspe", getIdentifier());
+        }
+
+        BiomeWrapper baseWrapper = BiomeRegistry.getInstance().getOrCreate(key, bukkitBiome);
+        BiomeWrapper_1_20_R4 wrapper = (BiomeWrapper_1_20_R4) baseWrapper;
+
+        // Apply special effects
+        SpecialEffectsBuilder effects = wrapper.getSpecialEffects()
+                .setFoliageColorOverride(getFoliageColor())
+                .setSkyColor(getSkyColor())
+                .setFogColor(getFogColor())
+                .setWaterColor(getWaterColor())
+                .setWaterFogColor(getWaterFogColor())
+                .setGrassColorOverride(getBiomeColor());
+
+        wrapper.setSpecialEffects(effects);
+
+        // Register it as a custom biome
+        wrapper.register(true);
+        this.wrapper = wrapper;
     }
 
     /* TODO -- Make this cleaner? */
@@ -271,28 +320,6 @@ public class BukkitBiome implements PlatformBiome {
 
     @Override
     public @NotNull BiomeWrapper_1_20_R4 toNativeBiome() {
-        NamespacedKey key = new NamespacedKey("vspe", getIdentifier());
-
-        // Grab your biome registry
-        BiomeWrapper baseWrapper = BiomeRegistry.getInstance().get(new NamespacedKey("minecraft", "plains"));
-        // ^ you can use any vanilla biome as the "base"
-
-        // Create a custom wrapper
-        BiomeWrapper_1_20_R4 wrapper = new BiomeWrapper_1_20_R4(key, (BiomeWrapper_1_20_R4) baseWrapper);
-
-        // Apply special effects
-        SpecialEffectsBuilder effects = wrapper.getSpecialEffects()
-                .setFoliageColorOverride(getFoliageColor())
-                .setSkyColor(getSkyColor())
-                .setFogColor(getFogColor())
-                .setWaterColor(getWaterColor())
-                .setWaterFogColor(getWaterFogColor())
-                .setGrassColorOverride(getBiomeColor());
-
-        wrapper.setSpecialEffects(effects);
-
-        // Register it as a custom biome
-        wrapper.register(true);
 
         return wrapper;
     }

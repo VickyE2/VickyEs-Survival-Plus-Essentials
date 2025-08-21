@@ -253,7 +253,11 @@ public class CnTManager implements PlatformTrinketManager<BaseTrinket>, Listener
 
             CnTPlayer cnTPlayer = optionalCnTPlayer.get();
             List<UUID> trinketUUID;
-            trinketUUID = cnTPlayer.getTrinketUUIDs();
+            try {
+                trinketUUID = cnTPlayer.getTrinketUUIDs();
+            } catch (NullManagerTrinket e) {
+                throw new RuntimeException(e);
+            }
 
             for (UUID uuid : trinketUUID) {
                 Optional<PlatformTrinket> oT = this.getTrinketById(uuid.toString());

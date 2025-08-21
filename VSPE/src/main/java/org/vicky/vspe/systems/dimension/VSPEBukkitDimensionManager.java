@@ -3,16 +3,19 @@ package org.vicky.vspe.systems.dimension;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.reflections.Reflections;
-import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
-import org.vicky.platform.world.PlatformLocation;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.nms.BiomeCompatibility;
+import org.vicky.vspe.nms.BiomeCompatibilityAPI;
+import org.vicky.vspe.nms.impl.v1_20_R3;
+import org.vicky.vspe.nms.impl.v1_20_R4;
+import org.vicky.vspe.paper.BukkitBiome;
+import org.vicky.vspe.paper.BukkitChunkGeneratorWrapper;
+import org.vicky.vspe.platform.systems.dimension.CoreDimensionRegistry;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.MissingConfigrationException;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
@@ -29,6 +32,7 @@ import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Genera
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Palette.Palette;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.progressbar.progressbars.NullProgressBar;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
@@ -39,9 +43,12 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Paths;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+
+import static org.vicky.vspe.systems.dimension.BukkitDescriptorBasedDimension.stringToSeed;
 
 public class VSPEBukkitDimensionManager implements PlatformDimensionManager<BlockData, World> {
     public static final Set<String> DIMENSION_PACKAGES = new HashSet<>();
@@ -56,6 +63,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
     public final List<PlatformBaseDimension<BlockData, World>> UNLOADED_DIMENSIONS = new ArrayList<>();
     public final Set<BaseGenerator> LOADED_GENERATORS = new HashSet<>();
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSIONS");
+    public static final Map<String, BukkitChunkGeneratorWrapper> GENERATORS = new HashMap<>();
 
     public VSPEBukkitDimensionManager() {
         ManagerRegistry.register(this);
@@ -340,58 +348,52 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
         return new ArrayList<>(LOADED_DIMENSIONS);
     }
 
+    public static void prepareGenerators() {
+        BiomeCompatibility comp = BiomeCompatibilityAPI.Companion.getBiomeCompatibility();
+        if (comp instanceof v1_20_R4 v120r4) {
+            v120r4.initialize();
+        } else if (comp instanceof v1_20_R3 v120r3) {
+            v120r3.initialize();
+        }
+        try {
+            Class.forName("org.vicky.vspe.platform.systems.dimension.globalDimensions.DimensionDescriptors");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        CoreDimensionRegistry.getRegisteredDescriptors().forEach(descriptor -> {
+            BukkitChunkGeneratorWrapper gen = new BukkitChunkGeneratorWrapper((BiomeResolver<BukkitBiome>) descriptor.resolver(), stringToSeed(descriptor.description()));
+            GENERATORS.put(cleanNamespace(descriptor.name()).toUpperCase(), gen);
+        });
+    }
+
+    public static String cleanNamespace(String ns) {
+        if (ns == null) return "vspe";
+        String s = Normalizer.normalize(ns, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .trim();
+        s = s.replaceAll("\\s+", "");
+        s = s.replaceAll("[^a-z0-9._\\-]", "");
+        if (s.isEmpty()) return "vspe";
+        if (s.length() > 64) s = s.substring(0, 64);
+        return s;
+    }
+
     public void loadDimensionsFromDescriptors() {
+        logger.print("Loading dimensions from descriptors", ContextLogger.LogType.PENDING);
         for (DimensionDescriptor descriptor : DIMENSION_DESCRIPTOR_SET) {
             try {
-                var dimension = new BukkitBaseDimension(descriptor, "") {
-                    @Override
-                    public @Nullable PlatformLocation getGlobalSpawnLocation() {
-                        return null;
-                    }
-
-                    @Override
-                    public List<PlatformItem> dimensionAdvancementGainItems() {
-                        return List.of();
-                    }
-
-                    @Override
-                    public @NotNull DimensionSpawnStrategy<BlockData, World> getStrategy() {
-                        return null;
-                    }
-
-                    @Override
-                    public @Nullable PortalContext<BlockData, World> createPortalContext(PlatformPlayer platformPlayer) {
-                        return null;
-                    }
-
-                    @Override
-                    protected void dimensionAdvancementGainProcedures(Player player) {
-
-                    }
-
-                    @Override
-                    public void applyMechanics(Player var1) {
-
-                    }
-
-                    @Override
-                    public void disableMechanics(Player var1) {
-
-                    }
-
-                    @Override
-                    public void applyJoinMechanics(Player var1) {
-
-                    }
-
-                    @Override
-                    protected boolean dimensionJoinCondition(Player player) {
-                        return false;
-                    }
-                };
+                var dimension = new BukkitDescriptorBasedDimension(descriptor, descriptor.description());
+                logger.print("Created dimension from descriptor " + descriptor.name(), ContextLogger.LogType.SUCCESS);
+                LOADED_DIMENSIONS.add(dimension);
             } catch (WorldNotExistsException | ManagerNotFoundException | NoGeneratorException e) {
+                logger.print("Failed to create dimension from descriptor " + descriptor.name(), true);
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public void registerGenerator(String name, BukkitChunkGeneratorWrapper gen) {
+        GENERATORS.put(name, gen);
     }
 }

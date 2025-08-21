@@ -17,7 +17,10 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.vicky.bukkitplatform.useables.BukkitLocationAdapter;
 import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
 import org.vicky.ecosystem.server.CommunicatorServer;
@@ -67,6 +70,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Logger;
 
+import static org.vicky.vspe.systems.dimension.VSPEBukkitDimensionManager.prepareGenerators;
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
 public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlugin {
@@ -83,6 +87,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
 
     @Override
     public void onLoad() {
+        plugin = this;
         VSPEPlatformPlugin.set(this);
         if (utils != null) {
             vicky_utils.addTemplateClasses(
@@ -112,18 +117,17 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
 
     @Override
     public void onEnable() {
+        prepareGenerators();
         CoreDimensionRegistry.installInto(this);
+        Bukkit.getPluginManager().registerEvents(this, this);
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null
                 && Bukkit.getPluginManager().getPlugin("MythicMobs") != null
                 && Bukkit.getPluginManager().getPlugin("ItemsAdder") != null
                 && Bukkit.getPluginManager().getPlugin("Terra") != null
                 && Bukkit.getPluginManager().getPlugin("Vicky-s_Utilities") != null) {
-
-            plugin = this;
             classLoader.getLoaders().add(this.getClassLoader());
             Thread.currentThread().setContextClassLoader(classLoader);
 
-            Bukkit.getPluginManager().registerEvents(this, this);
             trinketManager = new CnTManager(this);
 
             FileManager fileManager = new FileManager(this);
@@ -511,6 +515,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
                 })
                 .register(this);
     }
+
     @EventHandler
     public void onItemsAdderLoaded(ItemsAdderLoadDataEvent event) {
         if (event.getCause() != ItemsAdderLoadDataEvent.Cause.FIRST_LOAD) return;
@@ -522,6 +527,7 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
         }
         advancementManager.loadManagerProgress();
         dimensionManager.processDimensions();
+        processPendingDimensions();
         try {
             trinketManager.processTrinkets();
         } catch (TrinketProcessingFailureException e) {
@@ -533,12 +539,14 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
         }, 10200L, 10200L);
         Bukkit.getScheduler().runTaskTimer(this, DimensionTickLoop.INSTANCE, 1L, 20L);
     }
+
     @Override
     public void onDisable() {
-        vicky_utils.unhookDependantPlugin(this);
+        // vicky_utils.unhookDependantPlugin(this);
         if (advancementManager != null)
             advancementManager.saveManagerProgress();
     }
+
     public void extractFolderFromJar(String folderPath, File destinationFolder) {
         if (!destinationFolder.exists()) {
             destinationFolder.mkdirs(); // Create the destination folder if it doesn't exist
@@ -600,7 +608,20 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
     }
 
     @Override
+    public @Nullable ChunkGenerator getDefaultWorldGenerator(@NotNull String worldName, @Nullable String id) {
+        if (id == null || id.trim().isEmpty()) {
+            return null;
+        }
+        var gen = VSPEBukkitDimensionManager.GENERATORS.get(id.replace("VSPE:", "").toUpperCase());
+        if (gen == null) {
+            getInstancedLogger().warning("Generator " + id + " is not registered with the dimension manager. This could be an error.");
+        }
+        return gen;
+    }
+
+    @Override
     public void registerDimensionDescriptor(DimensionDescriptor dimensionDescriptor) {
+        getInstancedLogger().info("Added descriptor " + dimensionDescriptor.name());
         VSPEBukkitDimensionManager.DIMENSION_DESCRIPTOR_SET.add(dimensionDescriptor);
     }
 

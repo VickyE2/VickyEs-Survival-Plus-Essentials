@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.platform.PlatformStructureManager;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NBTBasedStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NbtStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRule;
@@ -26,13 +27,19 @@ public class VSPEBukkitStructureManager implements PlatformStructureManager<Bloc
     }
 
     @Override
-    public @Nullable NbtStructure<BlockData> getStructure(ResourceLocation resourceLocation) {
+    public @Nullable NbtStructure<BlockData> getNBTStructure(ResourceLocation resourceLocation) {
         var file = Bukkit.getStructureManager().getStructureFile(NamespacedKey.fromString(resourceLocation.asString()));
         return new NbtStructure<>(file, Bukkit::createBlockData);
     }
 
     @Override
-    public void addStructure(@NotNull ResourceLocation id, @NotNull PlatformStructure<?> structure, @NotNull StructureRule rule) {
-        structures.put(id, new Pair<>((PlatformStructure<BlockData>) structure, rule));
+    public @Nullable PlatformStructure<BlockData> getStructure(ResourceLocation id) {
+        var struct = structures.get(id).getFirst();
+        return struct != null ? struct : new NBTBasedStructure<>(id);
+    }
+
+    @Override
+    public void addStructure(@NotNull ResourceLocation id, @NotNull PlatformStructure<BlockData> structure, @NotNull StructureRule rule) {
+        structures.put(id, new Pair<>(structure, rule));
     }
 }

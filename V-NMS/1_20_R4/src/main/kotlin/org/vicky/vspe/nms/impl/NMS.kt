@@ -3,8 +3,7 @@ package org.vicky.vspe.nms.impl
 import com.mojang.brigadier.StringReader
 import com.mojang.brigadier.exceptions.CommandSyntaxException
 import com.mojang.serialization.Lifecycle
-import me.deecaad.core.utils.EnumUtil
-import me.deecaad.core.utils.ReflectionUtil.*
+import io.papermc.paper.registry.RegistryKey
 import net.minecraft.commands.arguments.ParticleArgument
 import net.minecraft.core.*
 import net.minecraft.core.particles.DustParticleOptions
@@ -12,7 +11,6 @@ import net.minecraft.core.particles.ParticleOptions
 import net.minecraft.core.particles.ParticleType
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
-import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData
 import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
@@ -41,14 +39,274 @@ import org.bukkit.block.structure.Mirror
 import org.bukkit.craftbukkit.v1_20_R3.CraftServer
 import org.bukkit.craftbukkit.v1_20_R3.CraftWorld
 import org.bukkit.craftbukkit.v1_20_R3.util.CraftMagicNumbers
+import org.vicky.vspe.nms.utils.ReflectionUtil.*
 import org.vicky.utilities.ContextLogger.ContextLogger
 import org.vicky.vspe.nms.*
+import org.vicky.vspe.nms.utils.EnumUtil
 import java.lang.reflect.Field
 import java.util.*
 import net.minecraft.world.level.block.Mirror as NMSMirror
 import net.minecraft.world.level.block.Rotation as NMSRotation
 import org.bukkit.block.structure.Mirror as BukkitMirror
 import org.bukkit.block.structure.StructureRotation as BukkitRotation
+
+class v1_20_R4 : BiomeCompatibility {
+    override fun getRegistry(): Registry<Biome> =
+        (Bukkit.getServer() as CraftServer).server.registryAccess()
+            .registryOrThrow<Biome>(Registries.BIOME)
+
+    private val biomes: Registry<Biome> by lazy {
+        MinecraftServer.getServer().registryAccess().registry(Registries.BIOME).orElseThrow()
+    }
+
+    fun initialize() {
+        for (biome in biomes) {
+            val nmsKey = biomes.getKey(biome)
+            if (nmsKey == null) {
+                NMS.logger?.print("[DEBUG] Could not find key for: $biome", true)
+                continue
+            }
+
+            try {
+                val key = NamespacedKey(nmsKey.namespace, nmsKey.path)
+                BiomeRegistry.instance.add(key, BiomeWrapper_1_20_R4(biome))
+            } catch (ex: Throwable) {
+                NMS.logger?.print("Failed to load biome: $nmsKey")
+                NMS.logger?.print(ex.message, true)
+            }
+        }
+    }
+
+    private fun getBiome(key: NamespacedKey): Biome? =
+        biomes.get(ResourceLocation(key.namespace, key.key))
+
+    override fun createBiome(key: NamespacedKey, base: BiomeWrapper): BiomeWrapper =
+        BiomeWrapper_1_20_R4(key, base as BiomeWrapper_1_20_R4)
+
+    override fun getBiomeAt(block: Block): BiomeWrapper? {
+        val world: ServerLevel = (block.world as CraftWorld).handle
+        val pos = BlockPos(block.x, block.y, block.z)
+        world.getChunkIfLoaded(pos) ?: return null
+
+        val biome = world.getBiome(pos).value()
+        val location = biomes.getResourceKey(biome).orElseThrow()
+        val key = NamespacedKey(location.location().namespace, location.location().path)
+
+        return BiomeRegistry.instance[key]
+            ?: BiomeWrapper_1_20_R4(getBiome(key)!!)
+    }
+}
+
+/**
+ * Compatibility for Paper 1.20.4 "v1_20_R3" builds.
+ *
+ * This uses reflection to find the Registry<Biome> in a few different ways to be resilient
+ * to small signature/mapping differences across Paper snapshots/dev-bundles.
+ */
+class v1_20_R3 : BiomeCompatibility {
+
+    override fun getRegistry(): Registry<Biome> =
+        (Bukkit.getServer() as CraftServer).server.registryAccess()
+            .registryOrThrow<Biome>(Registries.BIOME)
+
+    // lazy load the Registry<Biome> via multiple reflection fallbacks
+    private val biomes: Registry<Biome> by lazy {
+        try {
+            try {
+                (Bukkit.getServer() as CraftServer).server.registryAccess()
+                    .registryOrThrow<Biome>(Registries.BIOME)
+            } catch (ex: Throwable) {
+                NMS.logger?.print("Failed to locate CraftBukkit Registry Access: ${ex.message}", true)
+                ex.printStackTrace()
+                lookupBiomeRegistry()
+            }
+        } catch (ex: Throwable) {
+            NMS.logger?.print("Failed to locate biome registry reflectively: ${ex.message}", true)
+            throw ex
+        }
+    }
+
+    /** MAIN initialize method – iterate biomes and register wrappers */
+    fun initialize() {
+        for (biome in biomes) {
+            val nmsKey = biomes.getKey(biome)
+            if (nmsKey == null) {
+                NMS.logger?.print("[DEBUG] Could not find key for: $biome", true)
+                continue
+            }
+
+            try {
+                val key = NamespacedKey(nmsKey.namespace, nmsKey.path)
+                BiomeRegistry.instance.add(key, BiomeWrapper_1_20_R4(biome))
+            } catch (ex: Throwable) {
+                NMS.logger?.print("Failed to load biome: $nmsKey", true)
+                NMS.logger?.print(ex.message, true)
+            }
+        }
+    }
+
+    private fun getBiome(key: NamespacedKey): Biome? =
+        biomes.get(ResourceLocation(key.namespace, key.key))
+
+    override fun createBiome(key: NamespacedKey, base: BiomeWrapper): BiomeWrapper {
+        return BiomeWrapper_1_20_R4(key, base as BiomeWrapper_1_20_R4)
+    }
+
+    override fun getBiomeAt(block: Block): BiomeWrapper? {
+        val world: net.minecraft.server.level.ServerLevel = (block.world as CraftWorld).handle
+        val pos = net.minecraft.core.BlockPos(block.x, block.y, block.z)
+        world.getChunkIfLoaded(pos) ?: return null
+
+        val biome = world.getBiome(pos).value()
+        val location = biomes.getResourceKey(biome).orElseThrow()
+        val key = NamespacedKey(location.location().namespace, location.location().path)
+
+        return BiomeRegistry.instance[key] ?: BiomeWrapper_1_20_R4(getBiome(key)!!)
+    }
+
+    // --- reflection helpers ---
+
+    /**
+     * Tries several strategies to obtain Registry<Biome>:
+     *  1) static MinecraftServer.registryAccess()
+     *  2) instance MinecraftServer.getServer().registryAccess()
+     *  3) search for any static method returning MinecraftServer and call instance.registryAccess()
+     *  4) search for any method on server instance that looks like registryAccess
+     *
+     * Throws if none succeed.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun lookupBiomeRegistry(): net.minecraft.core.Registry<net.minecraft.world.level.biome.Biome> {
+        val serverClass = net.minecraft.server.MinecraftServer::class.java
+        val logger = NMS.logger
+
+        // Candidate return-type name fragments we've observed (includes obfuscated names)
+        val returnNameHints = listOf(
+            "LayeredRegistryAccess",
+            "IRegistryCustom",
+            "RegistryAccess",
+            "DynamicRegistries",
+            "RegistryData",
+            "IRegistry" // extra fuzz
+        )
+
+        // find zero-arg methods whose return type name matches any hint
+        val candidates = serverClass.methods.filter { m ->
+            m.parameterCount == 0 && returnNameHints.any { hint ->
+                m.returnType.name.contains(hint, ignoreCase = true)
+            }
+        }
+
+        logger?.print("[NMS] registry candidates: ${candidates.map { it.name }}", false)
+
+        fun findRegistriesBiomeKey(): Any? {
+            val candidatesNames = listOf(
+                "net.minecraft.core.registries.Registries",
+                "net.minecraft.core.registries.RegistryData",
+                "net.minecraft.core.registries.DynamicRegistries",
+                "net.minecraft.core.registries.RegistryOps"
+            )
+            for (clsName in candidatesNames) {
+                try {
+                    val cls = Class.forName(clsName)
+                    // try uppercase then lowercase field names
+                    try {
+                        val field = cls.getField("BIOME")
+                        field.isAccessible = true
+                        return field.get(null)
+                    } catch (_: NoSuchFieldException) {
+                        // try case-insensitive search
+                        val f = cls.declaredFields.firstOrNull {
+                            it.name.equals("biome", ignoreCase = true) || it.name.equals("BIOME", ignoreCase = true)
+                        }
+                        if (f != null) {
+                            f.isAccessible = true
+                            return f.get(null)
+                        }
+                    }
+                } catch (_: ClassNotFoundException) { /* try next */
+                }
+            }
+            // final fallback: scan any class loaded with "Registries" in name for a BIOME-like field
+            try {
+                val all = listOf(
+                    Class.forName("net.minecraft.core.registries.Registries", false, serverClass.classLoader)
+                )
+                for (c in all) {
+                    try {
+                        val f = c.getDeclaredField("BIOME")
+                        f.isAccessible = true
+                        return f.get(null)
+                    } catch (_: Throwable) { /* ignore */
+                    }
+                }
+            } catch (_: Throwable) {
+            }
+            return null
+        }
+
+        // Try each candidate method
+        for (m in candidates) {
+            try {
+                m.isAccessible = true
+                val ra = m.invoke(null) ?: continue
+                // find a registry(...) method taking one parameter
+                val registryMethod =
+                    ra.javaClass.methods.firstOrNull { it.name.equals("registry", true) && it.parameterCount == 1 }
+                if (registryMethod == null) {
+                    logger?.print(
+                        "[NMS] candidate ${m.name} returned ${ra.javaClass.name} but has no registry(...) method",
+                        false
+                    )
+                    continue
+                }
+
+                val biomeKey = findRegistriesBiomeKey()
+                    ?: throw IllegalStateException("Could not find Registries.BIOME field via reflection on this runtime")
+
+                registryMethod.isAccessible = true
+                val reg = registryMethod.invoke(ra, biomeKey)
+                if (reg is net.minecraft.core.Registry<*>) {
+                    @Suppress("UNCHECKED_CAST")
+                    return reg as net.minecraft.core.Registry<net.minecraft.world.level.biome.Biome>
+                } else {
+                    logger?.print("[NMS] registry(...) returned ${reg?.javaClass?.name}, not a Registry<?>", true)
+                }
+            } catch (t: Throwable) {
+                logger?.print("[NMS] candidate ${m.name} invocation failed: ${t.message}", true)
+            }
+        }
+
+        // If we get here, try a last-resort brute-force: any zero-arg method that returns something,
+        // invoke it and inspect the returned type for a registry(...) method (expensive but only once).
+        val fallback = serverClass.methods.filter { it.parameterCount == 0 }
+        for (m in fallback) {
+            try {
+                m.isAccessible = true
+                val res = try {
+                    m.invoke(null)
+                } catch (_: Throwable) {
+                    null
+                } ?: continue
+                val registryMethod =
+                    res.javaClass.methods.firstOrNull { it.name.equals("registry", true) && it.parameterCount == 1 }
+                if (registryMethod != null) {
+                    val biomeKey = findRegistriesBiomeKey() ?: continue
+                    registryMethod.isAccessible = true
+                    val reg = registryMethod.invoke(res, biomeKey)
+                    if (reg is net.minecraft.core.Registry<*>) {
+                        @Suppress("UNCHECKED_CAST")
+                        return reg as net.minecraft.core.Registry<net.minecraft.world.level.biome.Biome>
+                    }
+                }
+            } catch (_: Throwable) {
+            }
+        }
+
+        throw IllegalStateException("Could not locate MinecraftServer.registryAccess() or Registry<Biome> on this server build (${org.bukkit.Bukkit.getVersion()}).")
+    }
+}
+
 
 class BiomeWrapper_1_20_R4 : BiomeWrapper {
 
@@ -77,6 +335,7 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
     private var isVanilla = false
     private var isExternalPlugin = false
     private var isDirty = false
+    private var resource: ResourceKey<Biome>? = null
 
     constructor(biome: Biome) {
         val biomes = MinecraftServer.getServer().registryAccess().registry(Registries.BIOME).orElseThrow()
@@ -172,7 +431,6 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
                 // TODO: Write actual Dust logic
                 ""
             }
-
             else -> ""
         }
     }
@@ -295,7 +553,7 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
 
     override fun register(isCustom: Boolean) {
         val biomes = MinecraftServer.getServer().registryAccess().registry(Registries.BIOME).orElseThrow()
-        val resource = ResourceKey.create(biomes.key(), ResourceLocation(key.namespace, key.key))
+        resource = ResourceKey.create(biomes.key(), ResourceLocation(key.namespace, key.key))
 
         if (biomes !is WritableRegistry<*>) throw InternalError("$biomes was not a writable registry???")
 
@@ -308,7 +566,7 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
 
             (biomes as WritableRegistry<Biome>).apply {
                 createIntrusiveHolder(biome!!)
-                register(resource, biome!!, Lifecycle.experimental())
+                register(resource, biome!!, Lifecycle.stable())
             }
 
             setField(intrusiveHoldersField, biomes, null)
@@ -317,6 +575,7 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
         BiomeRegistry.instance.add(key, this)
     }
 
+    override fun getResource(): ResourceKey<Biome>? = resource
     override fun isExternalPlugin(): Boolean = isExternalPlugin
     override fun isDirty(): Boolean = isDirty
     override fun toString(): String = key.toString()
@@ -341,57 +600,6 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
         return BuiltInRegistries.PARTICLE_TYPE.get(key)!!
     }
 }
-
-
-class v1_20_R4 : BiomeCompatibility {
-
-    companion object {
-        private val chunkBiomesField =
-            getField(ClientboundLevelChunkPacketData::class.java, ByteArray::class.java)
-    }
-
-    private val biomes: Registry<Biome> =
-        MinecraftServer.getServer().registryAccess().registry(Registries.BIOME).orElseThrow()
-
-    init {
-        for (biome in biomes) {
-            val nmsKey = biomes.getKey(biome)
-            if (nmsKey == null) {
-                NMS.logger?.print("[DEBUG] Could not find key for: $biome", true)
-                continue
-            }
-
-            try {
-                val key = NamespacedKey(nmsKey.namespace, nmsKey.path)
-                BiomeRegistry.instance.add(key, BiomeWrapper_1_20_R4(biome))
-            } catch (ex: Throwable) {
-                NMS.logger?.print("Failed to load biome: $nmsKey")
-                NMS.logger?.print(ex.message, true)
-            }
-        }
-    }
-
-    private fun getBiome(key: NamespacedKey): Biome? =
-        biomes.get(ResourceLocation(key.namespace, key.key))
-
-    override fun createBiome(key: NamespacedKey, base: BiomeWrapper): BiomeWrapper =
-        BiomeWrapper_1_20_R4(key, base as BiomeWrapper_1_20_R4)
-
-    override fun getBiomeAt(block: Block): BiomeWrapper? {
-        val world: ServerLevel = (block.world as CraftWorld).handle
-
-        val pos = BlockPos(block.x, block.y, block.z)
-        world.getChunkIfLoaded(pos) ?: return null
-
-        val biome = world.getBiome(pos).value()
-        val location = biomes.getResourceKey(biome).orElseThrow()
-        val key = NamespacedKey(location.location().namespace, location.location().path)
-
-        return BiomeRegistry.instance[key]
-            ?: BiomeWrapper_1_20_R4(getBiome(key)!!)
-    }
-}
-
 
 class NMS_v1_20_R3_Handler : NMSHandler() {
     override fun placeStructure(
@@ -555,7 +763,7 @@ class NMS_v1_20_R3_Handler : NMSHandler() {
             }
     }
 
-    override fun getBiomeCompatibility(): BiomeCompatibility = v1_20_R4()
+    override fun getBiomeCompatibility(): BiomeCompatibility = BiomeCompatibilityAPI.getBiomeCompatibility()
 }
 
 fun Location.toChunkPos(): ChunkPos {

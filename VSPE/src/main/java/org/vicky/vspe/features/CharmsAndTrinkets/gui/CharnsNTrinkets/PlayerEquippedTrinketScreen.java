@@ -7,6 +7,7 @@ import org.vicky.guiparent.BaseGui;
 import org.vicky.guiparent.GuiCreator;
 import org.vicky.utilities.DatabaseManager.dao_s.DatabasePlayerDAO;
 import org.vicky.utilities.DatabaseManager.templates.DatabasePlayer;
+import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullManagerTrinket;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.exceptions.NullTrinketUser;
 import org.vicky.vspe.utilities.Hibernate.DBTemplates.CnTPlayer;
 import org.vicky.vspe.utilities.Hibernate.dao_s.CnTPlayerDAO;
@@ -30,7 +31,12 @@ public class PlayerEquippedTrinketScreen extends BaseGui {
         if (oCnT.isPresent() && oDP.isPresent()) {
             CnTPlayer cnTPlayer = oCnT.get();
             DatabasePlayer databasePlayer = oDP.get();
-            List<EquippedRawTrinket> playerTrinkets = cnTPlayer.getRawWornTrinkets();
+            List<EquippedRawTrinket> playerTrinkets = null;
+            try {
+                playerTrinkets = cnTPlayer.getRawWornTrinkets();
+            } catch (NullManagerTrinket e) {
+                throw new RuntimeException(e);
+            }
             List<GuiCreator.ItemConfig> itemConfigs = new ArrayList<>();
             for (EquippedRawTrinket trinket : playerTrinkets) {
                 GuiCreator.ItemConfig config = trinket.getItem();

@@ -22,6 +22,7 @@ import org.vicky.items_adder.FontImageSender;
 import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
+import org.vicky.platform.world.PlatformWorld;
 import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.BukkitHex;
 import org.vicky.utilities.ContextLogger.ContextLogger;
@@ -32,13 +33,12 @@ import org.vicky.vspe.features.AdvancementPlus.AdvancementType;
 import org.vicky.vspe.features.AdvancementPlus.Advancements.DimensionParentAdvancement;
 import org.vicky.vspe.features.AdvancementPlus.BukkitAdvancement;
 import org.vicky.vspe.paper.BukkitDimensionWarpEvent;
+import org.vicky.vspe.paper.BukkitEnvironment;
 import org.vicky.vspe.paper.BukkitWorldTypeAdapter;
-import org.vicky.vspe.platform.PlatformEnvironment;
 import org.vicky.vspe.platform.PlatformWorldType;
 import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
 import org.vicky.vspe.platform.systems.dimension.DimensionClass;
-import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.DimensionType;
 import org.vicky.vspe.platform.systems.dimension.Events.PlatformDimensionWarpEvent;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
@@ -71,7 +71,7 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
     private final static DimensionService service = DimensionService.getInstance();
     private final String name;
     private final String mainName;
-    private final BukkitWorldAdapter world;
+    private BukkitWorldAdapter world;
     private final List<DimensionType> dimensionTypes;
     private final Environment environmentType;
     private final String seed;
@@ -101,35 +101,10 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
         this.seed = seed;
         this.worldType = worldType;
         this.generateStructures = generateStructures;
-        this.generator = dimensionManager.LOADED_GENERATORS.stream().filter(g -> g.getClass().equals(generator)).findFirst().orElse(null);
-        this.world = this.checkWorld();
-        DimensionClass.registerCustomDimension(name);
-        Optional<AdvancementManager> oM = ManagerRegistry.getManager(AdvancementManager.class);
-        try {
-            AdvancementManager manager = oM.get();
-            Bukkit.getPluginManager().registerEvents(this, manager.getPlugin());
-            manager.addAdvancement(this.getDimensionJoinAdvancement());
-        }catch (NoSuchElementException e) {
-            throw new ManagerNotFoundException("Failed to locate advancement manager...");
-        }
-        for (DimensionType dimensionType : dimensionTypes) {
-            dimensionType.addDimension((PlatformDimension<?, ?>) this);
-        }
-    }
-
-    public BukkitBaseDimension(
-            DimensionDescriptor descriptor,
-            String seed
-    ) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
-        this.name = descriptor.name().toLowerCase().replace("!@#$^&*()-=+'\";:/?.,\\|}{][ ", "_");
-        this.mainName = descriptor.name();
-        this.logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSION-" + name.toUpperCase());
-        this.dimensionTypes = descriptor.dimensionTypes();
-        this.environmentType = Environment.NORMAL;
-        this.seed = seed;
-        this.worldType = worldType;
-        this.generateStructures = descriptor.shouldGenerateStructures();
-        this.generator = null;
+        this.generator = generator != null ?
+                dimensionManager.LOADED_GENERATORS.stream()
+                        .filter(g -> g.getClass().equals(generator))
+                        .findFirst().orElse(null) : null;
         this.world = this.checkWorld();
         DimensionClass.registerCustomDimension(name);
         Optional<AdvancementManager> oM = ManagerRegistry.getManager(AdvancementManager.class);
@@ -191,6 +166,11 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    @Override
+    public PlatformWorld<BlockData, World> createWorld(String s) throws NoGeneratorException {
+        return createWorld();
     }
 
     public BukkitWorldAdapter createWorld() throws NoGeneratorException {
@@ -546,8 +526,8 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
     }
 
     @Override
-    public PlatformEnvironment getEnvironmentType() {
-        return null;
+    public BukkitEnvironment getEnvironmentType() {
+        return BukkitEnvironment.of(environmentType);
     }
 
     @Override

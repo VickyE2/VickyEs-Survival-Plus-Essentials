@@ -8,7 +8,7 @@ plugins {
     id("io.papermc.paperweight.userdev") version "1.7.7" apply false
     `java-library`
     `maven-publish`
-    id("io.github.goooler.shadow") version "8.1.8" apply true
+    id("io.github.goooler.shadow") version "8.1.8" apply false
 }
 
 allprojects {
@@ -30,6 +30,15 @@ allprojects {
         maven("https://nexus.betonquest.org/repository/betonquest/")
         maven("https://s01.oss.sonatype.org/content/repositories/snapshots/") {
             name = "sonatype-oss-snapshots"
+        }
+        maven("https://repo.velocitypowered.com/snapshots/") {
+            name = "velocity-snapshots"
+        }
+        maven("https://repo.spongepowered.org/repository/maven-snapshots/") {
+            name = "sponge-snapshots"
+        }
+        maven("https://repo.minebench.de/") {
+            name = "minebench-snapshots"
         }
         maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
             credentials {
@@ -66,21 +75,6 @@ subprojects {
                 jvmTarget = "$javaVersion"
             }
         }
-    }
-
-    tasks.shadowJar {
-        archiveClassifier.set("")
-    }
-
-    tasks.named<ShadowJar>("shadowJar") {
-        archiveBaseName.set("VSPE")
-        version = project.version
-        configurations = listOf(
-            project.configurations.runtimeClasspath.get(),
-        )
-        archiveClassifier.set("")
-        mergeServiceFiles()
-        minimize()
     }
 }
 
