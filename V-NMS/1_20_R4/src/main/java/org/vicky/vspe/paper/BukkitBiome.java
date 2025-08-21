@@ -2,6 +2,7 @@ package org.vicky.vspe.paper;
 
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Biome;
+import org.bukkit.block.data.BlockData;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.bukkitplatform.useables.BukkitBlockState;
 import org.vicky.vspe.BiomeCategory;
@@ -33,7 +34,7 @@ public class BukkitBiome implements PlatformBiome {
     private final @NotNull BiomeCategory biomeCategory;
     private final @NotNull PrecipitationType precipitationType;
     private final @NotNull BiomeStructureData structureData;
-    private final @NotNull List<BiomeFeature<?, ?>> features;
+    private final @NotNull List<BiomeFeature<BlockData>> features;
     private final @NotNull BiomeBlockDistributionPalette<BukkitBlockState> distributionPalette;
     private final @NotNull BiomeSpawnSettings spawnSettings;
     private final String identifier;
@@ -42,7 +43,7 @@ public class BukkitBiome implements PlatformBiome {
     private final boolean isCold;
     private final BiomeWrapper_1_20_R4 wrapper;
 
-    private BukkitBiome(Biome bukkitBiome, @NotNull String name, int biomeColor, int fogColor, int waterColor, int waterFogColor, int foliageColor, int skyColor, boolean isOcean, double temperature, double humidity, double elevation, double rainfall, @NotNull CompositeNoiseLayer heightSampler, @NotNull BiomeCategory biomeCategory, @NotNull PrecipitationType precipitationType, @NotNull BiomeStructureData structureData, @NotNull List<BiomeFeature<?, ?>> features, @NotNull BiomeBlockDistributionPalette<?> distributionPalette, @NotNull BiomeSpawnSettings spawnSettings, String identifier, boolean isMountainous, boolean isHumid, boolean isCold) {
+    private BukkitBiome(Biome bukkitBiome, @NotNull String name, int biomeColor, int fogColor, int waterColor, int waterFogColor, int foliageColor, int skyColor, boolean isOcean, double temperature, double humidity, double elevation, double rainfall, @NotNull CompositeNoiseLayer heightSampler, @NotNull BiomeCategory biomeCategory, @NotNull PrecipitationType precipitationType, @NotNull BiomeStructureData structureData, @NotNull List<BiomeFeature<BlockData>> features, @NotNull BiomeBlockDistributionPalette<?> distributionPalette, @NotNull BiomeSpawnSettings spawnSettings, String identifier, boolean isMountainous, boolean isHumid, boolean isCold) {
         this.bukkitBiome = bukkitBiome;
         this.name = name;
         this.biomeColor = biomeColor;
@@ -193,7 +194,9 @@ public class BukkitBiome implements PlatformBiome {
                 biomeParameters.getCategory(),
                 biomeParameters.getPrecipitation(),
                 biomeParameters.getBiomeStructureData(),
-                biomeParameters.getFeatures(),
+                biomeParameters.getFeatures().stream()
+                        .map(f -> (BiomeFeature<BlockData>) f)
+                        .toList(),
                 biomeParameters.getDistributionPalette(),
                 biomeParameters.getSpawnSettings(),
                 biomeParameters.getId(),
@@ -294,8 +297,8 @@ public class BukkitBiome implements PlatformBiome {
     }
 
     @Override
-    public @NotNull List<BiomeFeature<?, ?>> getFeatures() {
-        return features;
+    public @NotNull List<BiomeFeature<?>> getFeatures() {
+        return (List<BiomeFeature<?>>) (List<?>) features;
     }
 
     @Override
@@ -343,7 +346,7 @@ public class BukkitBiome implements PlatformBiome {
         private BiomeCategory biomeCategory = BiomeCategory.PLAINS;
         private PrecipitationType precipitationType = PrecipitationType.RAIN;
         private BiomeStructureData structureData = BiomeStructureData.EMPTY.INSTANCE;
-        private List<BiomeFeature<?, ?>> features = new ArrayList<>();
+        private List<BiomeFeature<BlockData>> features = new ArrayList<>();
         private BiomeBlockDistributionPalette<BukkitBlockState> distributionPalette = new BiomeBlockDistributionPalette<>();
         private BiomeSpawnSettings spawnSettings = new BiomeSpawnSettings();
         private boolean isMountainous = false;
@@ -443,12 +446,12 @@ public class BukkitBiome implements PlatformBiome {
             return this;
         }
 
-        public Builder features(List<BiomeFeature<?, ?>> features) {
+        public Builder features(List<BiomeFeature<BlockData>> features) {
             this.features = features;
             return this;
         }
 
-        public Builder addFeature(BiomeFeature<?, ?> feature) {
+        public Builder addFeature(BiomeFeature<BlockData> feature) {
             this.features.add(feature);
             return this;
         }

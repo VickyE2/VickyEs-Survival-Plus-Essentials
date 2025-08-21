@@ -12,22 +12,22 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
-import net.minecraft.world.level.levelgen.*;
+import net.minecraft.world.level.levelgen.GenerationStep;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.blending.Blender;
-import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.craftbukkit.v1_20_R3.block.data.CraftBlockData;
 import org.jetbrains.annotations.NotNull;
-import org.vicky.platform.PlatformPlayer;
+import org.jetbrains.annotations.Nullable;
+import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.platform.utils.Vec3;
-import org.vicky.platform.world.PlatformBlock;
 import org.vicky.platform.world.PlatformBlockState;
-import org.vicky.platform.world.PlatformWorld;
+import org.vicky.platform.world.PlatformLocation;
 import org.vicky.vspe.nms.BiomeCompatibilityAPI;
-import org.vicky.vspe.nms.BiomeWrapper;
-import org.vicky.vspe.paper.BukkitBiomeProvider;
 import org.vicky.vspe.paper.BukkitBiome;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
+import org.vicky.vspe.platform.systems.dimension.imagetester.ImageBasedWorld;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 import java.util.*;
@@ -187,6 +187,41 @@ public class NMSChunkGenerator extends ChunkGenerator {
                 }
             }
 
+            var placer = new BlockPlacer<BlockData>() {
+                @Override
+                public int getHighestBlockAt(int x, int z) {
+                    int highest = minY;
+                    for (int y = maxY - 1; y >= minY; y--) {
+                        if (!chunk.getBlockState(new BlockPos(x, y, z)).isAir()) {
+                            return y;
+                        }
+                    }
+                    return highest;
+                }
+
+                @Override
+                public void placeBlock(int x, int y, int z, @Nullable PlatformBlockState<BlockData> platformBlockState) {
+                    if (platformBlockState == null) return;
+                    BlockState nmsState = ((CraftBlockData) platformBlockState.getNative()).getState();
+                    chunk.setBlockState(new BlockPos(x, y, z), nmsState, false);
+                }
+
+                @Override
+                public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockData> platformBlockState) {
+                    placeBlock((int) vec3.x, (int) vec3.y, (int) vec3.z, platformBlockState);
+                }
+
+                @Override
+                public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockData> platformBlockState, @NotNull ICompoundTag tag) {
+                    placeBlock(vec3, platformBlockState);
+                }
+
+                @Override
+                public void placeBlock(int x, int y, int z, @Nullable PlatformBlockState<BlockData> platformBlockState, @NotNull ICompoundTag tag) {
+                    placeBlock(x, y, z, platformBlockState);
+                }
+            };
+
             // step 4: per-column features
             for (int lz = 0; lz < 16; lz++) {
                 for (int lx = 0; lx < 16; lx++) {
@@ -196,25 +231,31 @@ public class NMSChunkGenerator extends ChunkGenerator {
 
                     int topY = blendedTopY.apply(idx);
 
-                    FeatureContext ctx = new FeatureContext(
+                    FeatureContext<BlockData> ctx = new FeatureContext<>(
                             seed,
                             pos.x,
                             pos.z,
                             randomSource.fork(seedForChunk.apply(0xF00D_1L)),
-                            null, // you passed 'this' before; if features need a world object supply one
-                            null
+                            placer,
+                            new NoiseSamplerProvider() {
+                                @NotNull
+                                @Override
+                                public NoiseSampler getSampler(@NotNull ResourceLocation resourceLocation) {
+                                    return new FBMGenerator(seed, 2, 0.03f, 0.003f, 0.7f, 2);
+                                }
+                            }
                     );
 
-                    for (BiomeFeature<?, ?> feature : platformBiome.getFeatures()) {
+                    for (BiomeFeature<?> feature : platformBiome.getFeatures()) {
                         if (feature.getPlacement() == FeaturePlacement.PER_COLUMN) {
-                            if (feature.shouldPlace(
+                            if (((BiomeFeature<BlockData>) feature).shouldPlace(
                                     pos.x * 16 + lx,
                                     topY,
                                     pos.z * 16 + lz,
                                     ctx
                             )) {
                                 try {
-                                    feature.place(
+                                    ((BiomeFeature<BlockData>) feature).place(
                                             pos.x * 16 + lx,
                                             topY,
                                             pos.z * 16 + lz,
@@ -231,138 +272,15 @@ public class NMSChunkGenerator extends ChunkGenerator {
 
             // step 5: per-chunk random features (TODO: implement as needed)
 
-            PlatformWorld<BlockData, Object> simpleWorld = new PlatformWorld<>() {
-                @Override
-                public String getName() {
-                    return "vspe_nms_world";
-                }
-
-                @Override
-                public Object getNative() {
-                    return null;
-                }
-
-                @Override
-                public int getHighestBlockYAt(double wx, double wz) {
-                    // convert to world coords and lookup blended top Y for this chunk column
-                    int xi = (int) Math.floor(wx);
-                    int zi = (int) Math.floor(wz);
-                    int localX = Math.floorMod(xi - fPos.getMinBlockX(), 16);
-                    int localZ = Math.floorMod(zi - fPos.getMinBlockZ(), 16);
-                    int idx = localX + localZ * 16;
-                    if (idx < 0 || idx >= fBiomeForColumn.length) return fMinY;
-                    return fBlendedTopY.apply(idx);
-                }
-
-                @Override
-                public int getMaxWorldHeight() {
-                    return fMaxY;
-                }
-
-                @Override
-                public List<PlatformPlayer> getPlayers() {
-                    return List.of();
-                }
-
-                @Override
-                public PlatformBlock<BlockData> getBlockAt(double x, double y, double z) {
-                    return null;
-                }
-
-                @Override
-                public PlatformBlock<BlockData> getBlockAt(Vec3 vec3) {
-                    return null;
-                }
-
-                @Override
-                public PlatformBlockState<BlockData> getAirBlockState() {
-                    return null;
-                }
-
-                @Override
-                public PlatformBlockState<BlockData> getWaterBlockState() {
-                    return null;
-                }
-
-                @Override
-                public void setPlatformBlockState(Vec3 vec3, PlatformBlockState<BlockData> platformBlockState) {
-                }
-
-                @Override
-                public void setPlatformBlockState(Vec3 vec3, PlatformBlockState<BlockData> platformBlockState, ICompoundTag tag) {
-                }
-
-                @Override
-                public PlatformBlockState<BlockData> createPlatformBlockState(String domain, String id) {
-                    return null;
-                }
-
-                @Override
-                public void loadChunkIfNeeded(int cx, int cz) {
-                }
-
-                @Override
-                public boolean isChunkLoaded(int cx, int cz) {
-                    return true;
-                }
-            };
-
-            // Minimal PlatformDimension implementation which supplies the simple world and a tiny generator stub.
-            // Structure placer will be able to ask for the world & biome resolver.
-            PlatformDimension<BlockData, BukkitBiome> simpleDimension = new PlatformDimension<>() {
-                @NotNull
-                @Override
-                public String getId() {
-                    return "vspe:temp_dimension";
-                }
-
-                @NotNull
-                @Override
-                public PlatformWorld<BlockData, ?> getWorld() {
-                    return simpleWorld;
-                }
-
-                @NotNull
-                @Override
-                public PlatformChunkGenerator<BlockData, BukkitBiome> getChunkGenerator() {
-                    // provide a tiny no-op chunk generator; structure placer generally only needs the chunk data adapter
-                    return new PlatformChunkGenerator<>() {
-                        @NotNull
-                        @Override
-                        public BukkitBiome getBiome(int i, int i1, int i2) {
-                            return biomeForColumn[1 * i2];
-                        }
-
-                        @NotNull
-                        @Override
-                        public ChunkData<BlockData, BukkitBiome> generateChunk(@NotNull ChunkGenerateContext<BlockData, BukkitBiome> chunkGenerateContext) {
-                            return null;
-                        }
-                    };
-                }
-
-                @NotNull
-                @Override
-                public BiomeResolver<BukkitBiome> getBiomeResolver() {
-                    return ((NMSBiomeSource) biomeSource).getBiomeProvider();
-                }
-
-                @NotNull
-                @Override
-                public StructurePlacer<BlockData> getStructurePlacer() {
-                    return new WeightedStructurePlacer<>();
-                }
-
-                @NotNull
-                @Override
-                public RandomSource getRandom() {
-                    return randomSource;
-                }
-            };
-
             // Now create the chunk generate context using the simpleDimension and pass the adapter
             ChunkGenerateContext<BlockData, BukkitBiome> chunkGenerateContext =
-                    new ChunkGenerateContext<>(pos.x, pos.z, simpleDimension);
+                    new ChunkGenerateContext<>(
+                            pos.x, pos.z,
+                            ((NMSBiomeSource) biomeSource).getBiomeProvider(),
+                            randomSource, placer,
+                            (x, y, z) ->
+                                    new PlatformLocation(ImageBasedWorld.INSTANCE, x, y, z)
+                    );
 
             try {
                 structurePlacer.placeStructuresInChunk(pos.x, pos.z, chunkGenerateContext, new ChunkData<BlockData, BukkitBiome>() {
@@ -495,12 +413,14 @@ public class NMSChunkGenerator extends ChunkGenerator {
         );
     }
 
+    /*
     /**
      * Helper that generates into a Bukkit ChunkData + BiomeGrid using our NMS-driven biome/height/palette logic.
      * This lets the Bukkit generator bridge to our NMS logic without the caller having to handle NMS objects.
      * <p>
      * Note: this runs on the server thread (getDefaultWorldGenerator -> generateChunkData) so avoid heavy blocking work.
      */
+    /*
     public void generateToBukkitChunk(World bukkitWorld,
                                       org.bukkit.generator.ChunkGenerator.ChunkData bukkitChunkData,
                                       int chunkX, int chunkZ,
@@ -620,7 +540,7 @@ public class NMSChunkGenerator extends ChunkGenerator {
                         null
                 );
 
-                for (BiomeFeature<?, ?> feature : platformBiome.getFeatures()) {
+                for (BiomeFeature<?> feature : platformBiome.getFeatures()) {
                     if (feature.getPlacement() == FeaturePlacement.PER_COLUMN) {
                         if (feature.shouldPlace(chunkX * CHUNK_SIZE + lx, topY, chunkZ * CHUNK_SIZE + lz, ctx)) {
                             try {
@@ -636,4 +556,5 @@ public class NMSChunkGenerator extends ChunkGenerator {
 
         // NOTE: structure placement handled by your caller (or add here if you prefer)
     }
+     */
 }
