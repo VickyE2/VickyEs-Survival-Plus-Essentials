@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.vicky.bukkitplatform.useables.BukkitBlockState;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
+import org.vicky.vspe.nms.BiomeCompatibilityAPI;
 import org.vicky.vspe.nms.BiomeRegistry;
 import org.vicky.vspe.nms.BiomeWrapper;
 import org.vicky.vspe.nms.SpecialEffectsBuilder;
@@ -77,7 +78,8 @@ public class BukkitBiome implements PlatformBiome {
             key = new NamespacedKey("vspe", getIdentifier());
         }
 
-        BiomeWrapper baseWrapper = BiomeRegistry.getInstance().getOrCreate(key, bukkitBiome);
+        BiomeWrapper baseWrapper = BiomeCompatibilityAPI.Companion.getBiomeCompatibility().createBiome(key,
+                BiomeRegistry.getInstance().getBukkit(bukkitBiome));
         BiomeWrapper_1_20_R4 wrapper = (BiomeWrapper_1_20_R4) baseWrapper;
 
         // Apply special effects
@@ -90,6 +92,7 @@ public class BukkitBiome implements PlatformBiome {
                 .setGrassColorOverride(getBiomeColor());
 
         wrapper.setSpecialEffects(effects);
+        wrapper.register(true);
         this.wrapper = wrapper;
     }
     private BukkitBiome(Builder builder) {
@@ -126,7 +129,8 @@ public class BukkitBiome implements PlatformBiome {
             key = new NamespacedKey("vspe", getIdentifier());
         }
 
-        BiomeWrapper baseWrapper = BiomeRegistry.getInstance().getOrCreate(key, bukkitBiome);
+        BiomeWrapper baseWrapper = BiomeCompatibilityAPI.Companion.getBiomeCompatibility().createBiome(key,
+                BiomeRegistry.getInstance().getBukkit(bukkitBiome));
         BiomeWrapper_1_20_R4 wrapper = (BiomeWrapper_1_20_R4) baseWrapper;
 
         // Apply special effects
@@ -139,8 +143,6 @@ public class BukkitBiome implements PlatformBiome {
                 .setGrassColorOverride(getBiomeColor());
 
         wrapper.setSpecialEffects(effects);
-
-        // Register it as a custom biome
         wrapper.register(true);
         this.wrapper = wrapper;
     }
@@ -174,7 +176,6 @@ public class BukkitBiome implements PlatformBiome {
                 biome.name().contains("COLD")
         );
     }
-
     public static BukkitBiome fromParams(BiomeParameters biomeParameters) {
         return new BukkitBiome(
                 Biome.PLAINS,
@@ -323,7 +324,6 @@ public class BukkitBiome implements PlatformBiome {
 
     @Override
     public @NotNull BiomeWrapper_1_20_R4 toNativeBiome() {
-
         return wrapper;
     }
 

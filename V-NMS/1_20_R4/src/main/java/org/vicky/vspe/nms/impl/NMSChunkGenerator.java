@@ -32,11 +32,12 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 public class NMSChunkGenerator extends ChunkGenerator {
     private static final WeightedStructurePlacer<BlockData> structurePlacer = new WeightedStructurePlacer<>();
-    private static final Map<String, ChunkHeightProvider> heightProviderCache = new HashMap<>();
+    private static final Map<String, ChunkHeightProvider> heightProviderCache = new ConcurrentHashMap<>();
     private final long seed;
 
     public NMSChunkGenerator(NMSBiomeSource biomeProvider, long seed) {

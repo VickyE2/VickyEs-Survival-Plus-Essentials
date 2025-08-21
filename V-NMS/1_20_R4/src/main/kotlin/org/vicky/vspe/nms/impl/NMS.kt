@@ -3,7 +3,6 @@ package org.vicky.vspe.nms.impl
 import com.mojang.brigadier.StringReader
 import com.mojang.brigadier.exceptions.CommandSyntaxException
 import com.mojang.serialization.Lifecycle
-import io.papermc.paper.registry.RegistryKey
 import net.minecraft.commands.arguments.ParticleArgument
 import net.minecraft.core.*
 import net.minecraft.core.particles.DustParticleOptions
@@ -39,10 +38,10 @@ import org.bukkit.block.structure.Mirror
 import org.bukkit.craftbukkit.v1_20_R3.CraftServer
 import org.bukkit.craftbukkit.v1_20_R3.CraftWorld
 import org.bukkit.craftbukkit.v1_20_R3.util.CraftMagicNumbers
-import org.vicky.vspe.nms.utils.ReflectionUtil.*
 import org.vicky.utilities.ContextLogger.ContextLogger
 import org.vicky.vspe.nms.*
 import org.vicky.vspe.nms.utils.EnumUtil
+import org.vicky.vspe.nms.utils.ReflectionUtil.*
 import java.lang.reflect.Field
 import java.util.*
 import net.minecraft.world.level.block.Mirror as NMSMirror
@@ -153,8 +152,8 @@ class v1_20_R3 : BiomeCompatibility {
     }
 
     override fun getBiomeAt(block: Block): BiomeWrapper? {
-        val world: net.minecraft.server.level.ServerLevel = (block.world as CraftWorld).handle
-        val pos = net.minecraft.core.BlockPos(block.x, block.y, block.z)
+        val world: ServerLevel = (block.world as CraftWorld).handle
+        val pos = BlockPos(block.x, block.y, block.z)
         world.getChunkIfLoaded(pos) ?: return null
 
         val biome = world.getBiome(pos).value()
@@ -176,8 +175,8 @@ class v1_20_R3 : BiomeCompatibility {
      * Throws if none succeed.
      */
     @Suppress("UNCHECKED_CAST")
-    private fun lookupBiomeRegistry(): net.minecraft.core.Registry<net.minecraft.world.level.biome.Biome> {
-        val serverClass = net.minecraft.server.MinecraftServer::class.java
+    private fun lookupBiomeRegistry(): Registry<Biome> {
+        val serverClass = MinecraftServer::class.java
         val logger = NMS.logger
 
         // Candidate return-type name fragments we've observed (includes obfuscated names)
@@ -266,9 +265,9 @@ class v1_20_R3 : BiomeCompatibility {
 
                 registryMethod.isAccessible = true
                 val reg = registryMethod.invoke(ra, biomeKey)
-                if (reg is net.minecraft.core.Registry<*>) {
+                if (reg is Registry<*>) {
                     @Suppress("UNCHECKED_CAST")
-                    return reg as net.minecraft.core.Registry<net.minecraft.world.level.biome.Biome>
+                    return reg as Registry<Biome>
                 } else {
                     logger?.print("[NMS] registry(...) returned ${reg?.javaClass?.name}, not a Registry<?>", true)
                 }
@@ -294,16 +293,16 @@ class v1_20_R3 : BiomeCompatibility {
                     val biomeKey = findRegistriesBiomeKey() ?: continue
                     registryMethod.isAccessible = true
                     val reg = registryMethod.invoke(res, biomeKey)
-                    if (reg is net.minecraft.core.Registry<*>) {
+                    if (reg is Registry<*>) {
                         @Suppress("UNCHECKED_CAST")
-                        return reg as net.minecraft.core.Registry<net.minecraft.world.level.biome.Biome>
+                        return reg as Registry<Biome>
                     }
                 }
             } catch (_: Throwable) {
             }
         }
 
-        throw IllegalStateException("Could not locate MinecraftServer.registryAccess() or Registry<Biome> on this server build (${org.bukkit.Bukkit.getVersion()}).")
+        throw IllegalStateException("Could not locate MinecraftServer.registryAccess() or Registry<Biome> on this server build (${Bukkit.getVersion()}).")
     }
 }
 
@@ -566,7 +565,7 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
 
             (biomes as WritableRegistry<Biome>).apply {
                 createIntrusiveHolder(biome!!)
-                register(resource, biome!!, Lifecycle.stable())
+                register(resource!!, biome!!, Lifecycle.stable())
             }
 
             setField(intrusiveHoldersField, biomes, null)
@@ -576,6 +575,10 @@ class BiomeWrapper_1_20_R4 : BiomeWrapper {
     }
 
     override fun getResource(): ResourceKey<Biome>? = resource
+    override fun setResource(key: ResourceKey<Biome>) {
+        resource = key
+    }
+
     override fun isExternalPlugin(): Boolean = isExternalPlugin
     override fun isDirty(): Boolean = isDirty
     override fun toString(): String = key.toString()

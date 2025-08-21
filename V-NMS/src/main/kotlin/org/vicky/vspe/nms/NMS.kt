@@ -1,7 +1,5 @@
 package org.vicky.vspe.nms
 
-import com.comphenix.protocol.collections.IntegerMap
-import io.papermc.paper.registry.RegistryKey
 import net.minecraft.core.Registry
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
@@ -56,8 +54,8 @@ interface BiomeCompatibility {
 }
 
 interface BiomeWrapper {
-
     fun getResource(): ResourceKey<net.minecraft.world.level.biome.Biome>?
+    fun setResource(key: ResourceKey<net.minecraft.world.level.biome.Biome>)
 
     /**
      * Resets this biome's settings to its default values.
