@@ -1,9 +1,9 @@
 package org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator
 
+import org.vicky.platform.PlatformPlugin
 import org.vicky.platform.utils.ResourceLocation
 import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.PlatformBlockState
-import org.vicky.platform.world.PlatformWorld
 import org.vicky.utilities.Identifiable
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.PrecipitationType
@@ -211,7 +211,7 @@ data class BiomeParameters @JvmOverloads constructor(
     val precipitation: PrecipitationType = PrecipitationType.RAIN,
     val distributionPalette: BiomeBlockDistributionPalette<*>,
     val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
-    val features: List<BiomeFeature<*, *>> = emptyList(),
+    val features: List<BiomeFeature<*>> = emptyList(),
     val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
     val biomeStructureData: BiomeStructureData = BiomeStructureData.EMPTY,
     val isMountainous: Boolean,
@@ -243,7 +243,7 @@ interface PlatformBiome : Identifiable {
     fun isCold(): Boolean = temperature < 0.3
     fun isHumid(): Boolean = humidity > 0.7
     fun isMountainous(): Boolean = elevation > 0.6
-    val features: List<BiomeFeature<*, *>>
+    val features: List<BiomeFeature<*>>
     val spawnSettings: BiomeSpawnSettings
     // val decorators: List<Decorator>                       // e.g., snow, leaves, post-process
     // val ambientSettings: BiomeAmbientSettings?
@@ -281,7 +281,7 @@ class SimpleConstructorBasedBiome(
     override val heightSampler: CompositeNoiseLayer,
     override val precipitation: PrecipitationType,
     override val biomeStructureData: BiomeStructureData,
-    override val features: List<BiomeFeature<*, *>> = emptyList(),
+    override val features: List<BiomeFeature<*>> = emptyList(),
     override val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
     override val distributionPalette: BiomeBlockDistributionPalette<*> = BiomeBlockDistributionPalette.empty()
 ):
@@ -295,20 +295,20 @@ class SimpleConstructorBasedBiome(
 }
 
 // Marker for anything that can be placed during generation
-interface BiomeFeature<T, N> {
+interface BiomeFeature<T> {
     val id: ResourceLocation
     val placement: FeaturePlacement
-    fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean
-    fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>)
+    fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T>): Boolean
+    fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T>)
 }
 
 // Small context passed during generation
-data class FeatureContext<T, N>(
+data class FeatureContext<T>(
     val worldSeed: Long,
     val chunkX: Int,
     val chunkZ: Int,
     val random: RandomSource,
-    val platformWorld: PlatformWorld<T, N>, // PlatformWorld<T,N> or null if not yet created
+    val blockPlacer: BlockPlacer<T>, // PlatformWorld<T,N> or null if not yet created
     val noiseProvider: NoiseSamplerProvider // helper to get noise samplers
 )
 
@@ -345,13 +345,13 @@ data class VegetationConfig(
     val allowedSurfaceBlocks: Set<ResourceLocation> = setOf(ResourceLocation.from("minecraft", "grass_block"))
 )
 
-class CaveFeature<T, N>(
+class CaveFeature<T>(
     override val id: ResourceLocation,
     val cfg: CaveFeatureConfig,
     override val placement: FeaturePlacement = FeaturePlacement.UNDERGROUND
-) : BiomeFeature<T, N> {
+) : BiomeFeature<T> {
 
-    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean {
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T>): Boolean {
         if (y !in cfg.verticalRange) return false
         val sample = ctx.noiseProvider.getSampler(cfg.noiseId).sample(x * cfg.frequencyScale, z * cfg.frequencyScale)
         return sample < cfg.threshold
@@ -414,7 +414,7 @@ class CaveFeature<T, N>(
     // small helper
     private fun Double.ceilToInt(): Int = kotlin.math.ceil(this).toInt()
 
-    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T>) {
         val chunkX = x shr 4
         val chunkZ = z shr 4
         val mask = generateCaveMaskSliceWithPadding(chunkX, chunkZ, y, ctx.noiseProvider.getSampler(cfg.noiseId))
@@ -426,9 +426,9 @@ class CaveFeature<T, N>(
                 if (mask[idx++]) {
                     val worldX = baseX + cx
                     val worldZ = baseZ + cz
-                    ctx.platformWorld.setPlatformBlockState(
-                        Vec3(worldX.toDouble(), y.toDouble(), worldZ.toDouble()),
-                        ctx.platformWorld.airBlockState
+                    ctx.blockPlacer.placeBlock(
+                        worldX.toInt(), y.toInt(), worldZ.toInt(),
+                        PlatformPlugin.stateFactory().getBlockState("minecraft:air") as PlatformBlockState<T>
                     )
                 }
             }
@@ -437,17 +437,17 @@ class CaveFeature<T, N>(
 
 }
 
-class FloraFeature<T, N>(
+class FloraFeature<T>(
     override val id: ResourceLocation,
     val cfg: VegetationConfig,
     override val placement: FeaturePlacement = FeaturePlacement.PER_CHUNK_RANDOM
-) : BiomeFeature<T, N> {
+) : BiomeFeature<T> {
 
-    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean {
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T>): Boolean {
         return y in cfg.minHeight..cfg.maxHeight
     }
 
-    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T>) {
 
     }
 }
@@ -457,7 +457,7 @@ data class MobSpawnEntry(
     val weight: Int,
     val minGroup: Int = 1,
     val maxGroup: Int = 4,
-    val spawnPredicate: ((FeatureContext<*, *>, Int, Int, Int) -> Boolean)? = null // optional custom logic
+    val spawnPredicate: ((FeatureContext<*>, Int, Int, Int) -> Boolean)? = null // optional custom logic
 )
 
 data class BiomeSpawnSettings(
@@ -476,24 +476,24 @@ data class RiverConfig<T : PlatformBlockState<T>>(
     val riverSpread: Int = 12
 )
 
-class RiverFeature<T : PlatformBlockState<T>, N>(
+class RiverFeature<T : PlatformBlockState<T>>(
     override val id: ResourceLocation,
     val cfg: RiverConfig<T>,
     override val placement: FeaturePlacement = FeaturePlacement.PER_COLUMN
-) : BiomeFeature<T, N> {
+) : BiomeFeature<T> {
 
-    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean {
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T>): Boolean {
         val n = ctx.noiseProvider.getSampler(cfg.noiseId).sample(x.toDouble(), z.toDouble())
         return abs(n) < cfg.bankFalloff
     }
 
-    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T>) {
         val n = ctx.noiseProvider.getSampler(cfg.noiseId).sample(x.toDouble(), z.toDouble())
         val absN = abs(n)
         val closeness = 1.0 - (absN / cfg.bankFalloff).coerceIn(0.0, 1.0) // 1.0 at center
         val depth = (closeness * cfg.riverDepth).toInt().coerceAtLeast(1)
 
-        val surfaceY = ctx.platformWorld.getHighestBlockYAt(x.toDouble(), z.toDouble())
+        val surfaceY = ctx.blockPlacer.getHighestBlockAt(x.toInt(), z.toInt())
         // carve valley a bit using riverSpread
         val loweredY = surfaceY - (closeness * cfg.riverSpread).toInt()
 
@@ -502,22 +502,22 @@ class RiverFeature<T : PlatformBlockState<T>, N>(
         for (ty in bottomY..loweredY) {
             val pos = Vec3(x.toDouble(), ty.toDouble(), z.toDouble())
             if (ty == bottomY) {
-                ctx.platformWorld.setPlatformBlockState(pos, cfg.depositBlock) // bottom/sediment
+                ctx.blockPlacer.placeBlock(pos, cfg.depositBlock) // bottom/sediment
             } else {
-                ctx.platformWorld.setPlatformBlockState(pos, cfg.waterBlock)
+                ctx.blockPlacer.placeBlock(pos, cfg.waterBlock)
             }
         }
     }
 }
 
-class FunctionBasedFeature<T : PlatformBlockState<T>, N>(
+class FunctionBasedFeature<T>(
     override val id: ResourceLocation,
     override val placement: FeaturePlacement,
-    private val placeCondition: (x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) -> Boolean,
-    private val proceed: (x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) -> Unit
-) : BiomeFeature<T, N> {
-    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean = placeCondition(x, y, z, ctx)
-    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) = proceed(x, y, z, ctx)
+    private val placeCondition: (x: Int, y: Int, z: Int, ctx: FeatureContext<T>) -> Boolean,
+    private val proceed: (x: Int, y: Int, z: Int, ctx: FeatureContext<T>) -> Unit
+) : BiomeFeature<T> {
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T>): Boolean = placeCondition(x, y, z, ctx)
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T>) = proceed(x, y, z, ctx)
 }
 
 // result of region check: either this region doesn't own a feature, or it owns with an origin point
@@ -526,23 +526,23 @@ sealed class RegionPlacement {
     data class Place(val originX: Int, val originZ: Int) : RegionPlacement()
 }
 
-fun interface RegionPlacer<T, N> {
-    fun shouldPlaceRegion(ctx: FeatureContext<T, N>, regionX: Int, regionZ: Int): RegionPlacement
+fun interface RegionPlacer<T> {
+    fun shouldPlaceRegion(ctx: FeatureContext<T>, regionX: Int, regionZ: Int): RegionPlacement
 }
 
 /**
  * Example generic function-based feature that delegates ownership to a region placer.
  * regionSize is the edge length in chunks of each region (e.g., 4 = 4x4 chunks region).
  */
-class RegionDelegatedFeature<T, N>(
+class RegionDelegatedFeature<T>(
     override val id: ResourceLocation,
     override val placement: FeaturePlacement,
     private val regionSizeChunks: Int = 4,
-    private val placer: RegionPlacer<T, N>,
-    private val proceed: (originX: Int, originZ: Int, ctx: FeatureContext<T, N>) -> Unit
-) : BiomeFeature<T, N> {
+    private val placer: RegionPlacer<T>,
+    private val proceed: (originX: Int, originZ: Int, ctx: FeatureContext<T>) -> Unit
+) : BiomeFeature<T> {
 
-    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>): Boolean {
+    override fun shouldPlace(x: Int, y: Int, z: Int, ctx: FeatureContext<T>): Boolean {
         // region ownership is checked at chunk granularity: only the chunk that matches the region owner runs place
         val regionX = ctx.chunkX / regionSizeChunks
         val regionZ = ctx.chunkZ / regionSizeChunks
@@ -559,7 +559,7 @@ class RegionDelegatedFeature<T, N>(
         }
     }
 
-    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T, N>) {
+    override fun place(x: Int, y: Int, z: Int, ctx: FeatureContext<T>) {
         val regionX = ctx.chunkX / regionSizeChunks
         val regionZ = ctx.chunkZ / regionSizeChunks
         when (val res = placer.shouldPlaceRegion(ctx, regionX, regionZ)) {

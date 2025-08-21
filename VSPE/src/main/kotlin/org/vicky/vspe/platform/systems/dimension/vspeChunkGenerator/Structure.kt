@@ -11,7 +11,6 @@ import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.PlatformBlockState
 import org.vicky.platform.world.PlatformLocation
 import org.vicky.platform.world.PlatformMaterial
-import org.vicky.platform.world.PlatformWorld
 import org.vicky.vspe.*
 import org.vicky.vspe.platform.VSPEPlatformPlugin
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStructureGenerator
@@ -22,7 +21,7 @@ import kotlin.random.Random
 // === Core Interfaces ===
 
 interface PlatformStructure<T> {
-    fun place(world: PlatformWorld<T, *>, origin: PlatformLocation, context: StructurePlacementContext): Boolean
+    fun place(world: BlockPlacer<T>, origin: PlatformLocation, context: StructurePlacementContext): Boolean
     fun getSize(): BlockVec3i
 }
 
@@ -104,7 +103,7 @@ class NBTBasedStructure<T>(
     val structure: NbtStructure<T>? = VSPEPlatformPlugin.structureManager().getNBTStructure(id) as NbtStructure<T>?
 
     @Suppress("unchecked")
-    override fun place(world: PlatformWorld<T, *>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {
+    override fun place(world: BlockPlacer<T>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {
         if (structure == null) {
             VSPEPlatformPlugin.platformLogger().warn("Unknown structure: Structure $id not found on manager")
             return false
@@ -124,7 +123,7 @@ class NBTBasedStructure<T>(
                 .let { if (context.rotation != Rotation.NONE) it.rotate(context.rotation, origin) else it }
                 .let { if (context.mirror != Mirror.NONE) it.mirror(context.mirror, origin) else it }
 
-            world.setPlatformBlockState(transformedPos, structure.resolveBlockState(state), nbt)
+            world.placeBlock(transformedPos, structure.resolveBlockState(state) as PlatformBlockState<T>?, nbt)
         }
 
         /*structure.blockEntities.forEach { pos, tag ->
@@ -141,7 +140,7 @@ class SchematicStructure<BST>(
     private val transformer: (String) -> BST
 ) : PlatformStructure<BST>
 {
-    override fun place(world: PlatformWorld<BST, *>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {
+    override fun place(world: BlockPlacer<BST>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {
         schematic.blocks().forEach { pair ->
             val position = pair.left()
             val blockData = pair.right()
@@ -154,7 +153,10 @@ class SchematicStructure<BST>(
                 .let { if (context.rotation != Rotation.NONE) it.rotate(context.rotation, origin) else it }
                 .let { if (context.mirror != Mirror.NONE) it.mirror(context.mirror, origin) else it }
 
-            world.setPlatformBlockState(transformedPos, SimpleBlockState.from<BST>(blockData.name(), transformer))
+            world.placeBlock(
+                transformedPos,
+                SimpleBlockState.from<BST>(blockData.name(), transformer) as PlatformBlockState<BST>?
+            )
         }
         return true
     }
@@ -167,8 +169,7 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST, *>, BST>(
     private val generator: T
 ) : PlatformStructure<BST>
 {
-
-    override fun place(world: PlatformWorld<BST, *>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {
+    override fun place(world: BlockPlacer<BST>, origin: PlatformLocation, context: StructurePlacementContext): Boolean {
         generator.generate(context.random, origin)
         return true
     }
@@ -324,14 +325,14 @@ class WeightedStructurePlacer<T>() : StructurePlacer<T>
 
         rule@for (rule in getAllStructureRules()) {
             // Check biome if needed
-            val biome = context.dimension.biomeResolver.resolveBiome(chunkX * 16, 64, chunkZ * 16, context.dimension.random.getSeed())
+            val biome = context.biomeResolver.resolveBiome(chunkX * 16, 64, chunkZ * 16, context.random.getSeed())
             if (biome.biomeStructureData.structureKeys.contains { it.structureKey == rule.resource }) continue
 
             // Respect spacing
             if ((chunkX % rule.spacing != 0) || (chunkZ % rule.spacing != 0)) continue
 
             // Frequency check
-            if (context.dimension.random.nextDouble() > rule.frequency) continue
+            if (context.random.nextDouble() > rule.frequency) continue
 
             val origin = BlockVec3i(chunkX * 16, 64, chunkZ * 16)
             val structure = VSPEPlatformPlugin.structureManager().getStructures()[rule.resource]
@@ -368,12 +369,13 @@ class WeightedStructurePlacer<T>() : StructurePlacer<T>
             if (structureRaw != null) {
                 val structure = structureRaw.first
 
-                val origin = PlatformLocation(context.dimension.world, candidate.position.x.toDouble(), candidate.position.y.toDouble(), candidate.position.z.toDouble())
+                val origin =
+                    context.locationProvider.invoke(candidate.position.x, candidate.position.y, candidate.position.z)
                 val success = structure.place(
-                    context.dimension.world,
+                    context.blockPlacer,
                     origin,
                     StructurePlacementContext(
-                        random = context.dimension.random.fork(candidate.position.hashCode().toLong()),
+                        random = context.random.fork(candidate.position.hashCode().toLong()),
                         rotation = candidate.rule.rotation,
                         mirror = candidate.rule.mirror
                     )

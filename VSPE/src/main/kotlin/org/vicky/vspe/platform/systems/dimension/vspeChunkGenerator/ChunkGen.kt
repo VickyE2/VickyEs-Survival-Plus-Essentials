@@ -1,7 +1,10 @@
 package org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator
 
 import de.articdive.jnoise.interpolation.Interpolation
+import de.pauleff.api.ICompoundTag
+import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.PlatformBlockState
+import org.vicky.platform.world.PlatformLocation
 import org.vicky.platform.world.PlatformWorld
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.platform.VSPEPlatformPlugin
@@ -28,7 +31,10 @@ interface PlatformDimension<T, B: PlatformBiome> {
 open class ChunkGenerateContext<T, B: PlatformBiome>(
     val chunkX: Int,
     val chunkZ: Int,
-    val dimension: PlatformDimension<T, B>
+    val biomeResolver: BiomeResolver<B>,
+    val random: RandomSource,
+    val blockPlacer: BlockPlacer<T>,
+    val locationProvider: (x: Int, y: Int, z: Int) -> PlatformLocation
 )
 
 interface BiomeResolver<B: PlatformBiome>{
@@ -41,9 +47,13 @@ interface ChunkData<T, B: PlatformBiome> {
     fun setBiome(x: Int, y: Int, z: Int, biome: B)
 }
 
-
-
-
+interface BlockPlacer<T> {
+    fun placeBlock(x: Int, y: Int, z: Int, data: PlatformBlockState<T>?)
+    fun placeBlock(x: Int, y: Int, z: Int, data: PlatformBlockState<T>?, nbt: ICompoundTag)
+    fun placeBlock(vec: Vec3, data: PlatformBlockState<T>?)
+    fun placeBlock(vec: Vec3, data: PlatformBlockState<T>?, nbt: ICompoundTag)
+    fun getHighestBlockAt(x: Int, z: Int): Int
+}
 
 class EvenSpreadBiomeResolver<B: PlatformBiome>(
     private val entries: List<Entry<B>>,
@@ -262,8 +272,6 @@ class MultiParameterBiomeResolver<T: PlatformBiome> @JvmOverloads constructor(
         }
 
         if (candidatesWithFallback.isEmpty()) {
-            VSPEPlatformPlugin.platformLogger()
-                .warn("No biome matches [$desiredCategories] even after fallbacks — picking fully random.")
             return getBiomePalette().map.values.first()
         }
 
