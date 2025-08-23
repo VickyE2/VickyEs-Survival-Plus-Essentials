@@ -4,7 +4,6 @@ import de.articdive.jnoise.interpolation.Interpolation
 import de.pauleff.api.ICompoundTag
 import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.PlatformBlockState
-import org.vicky.platform.world.PlatformLocation
 import org.vicky.platform.world.PlatformWorld
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.platform.VSPEPlatformPlugin
@@ -34,7 +33,7 @@ open class ChunkGenerateContext<T, B: PlatformBiome>(
     val biomeResolver: BiomeResolver<B>,
     val random: RandomSource,
     val blockPlacer: BlockPlacer<T>,
-    val locationProvider: (x: Int, y: Int, z: Int) -> PlatformLocation
+    val locationProvider: (x: Int, y: Int, z: Int) -> Vec3
 )
 
 interface BiomeResolver<B: PlatformBiome>{

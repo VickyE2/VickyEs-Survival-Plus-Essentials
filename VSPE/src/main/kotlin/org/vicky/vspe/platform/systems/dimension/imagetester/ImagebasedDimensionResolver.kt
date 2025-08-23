@@ -9,7 +9,6 @@ import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.*
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.PrecipitationType
-import org.vicky.vspe.platform.systems.dimension.globalDimensions.BiomeResolvers
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*
 import java.awt.BorderLayout
 import java.awt.Color
@@ -203,7 +202,7 @@ fun SimpleConstructorBasedBiome.withChanges(
     elevation: Double = this.elevation,
     rainfall: Double = this.rainfall,
     category: BiomeCategory = this.category,
-    heightSampler: CompositeNoiseLayer = this.heightSampler,
+    heightSampler: List<NoiseLayer> = this.heightSampler,
     precipitation: PrecipitationType = this.precipitation,
     biomeStructureData: BiomeStructureData = this.biomeStructureData,
     namespace: String = this.namespace
@@ -249,9 +248,9 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
             0.4,
             rainfall = 0.5,
             category = BiomeCategory.PLAINS,
-            heightSampler = CompositeNoiseLayer(listOf<Pair<NoiseSampler, Double>>(FBMCache.get(989829839283) to 3.0)),
+            heightSampler = listOf(),
             precipitation = PrecipitationType.RAIN,
-            biomeStructureData = BiomeStructureData(ResourceLocation.from("test:test_paper_biome") , listOf())
+            biomeStructureData = BiomeStructureData(listOf())
         )
         val forest = plains.withChanges(
             name       = "forest",
@@ -260,7 +259,7 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
             rainfall      = 0.6,
             category   = BiomeCategory.FOREST,
             elevation = 0.4,
-            biomeStructureData = BiomeStructureData(ResourceLocation.from("test:forest"), emptyList())
+            biomeStructureData = BiomeStructureData(emptyList())
         )
         val rainforest = plains.withChanges(
             name       = "rainforest",
@@ -269,7 +268,7 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
             rainfall      = 1.0,
             category   = BiomeCategory.RAINFOREST,
             elevation = 0.45,
-            biomeStructureData = BiomeStructureData(ResourceLocation.from("test:rainforest"), emptyList())
+            biomeStructureData = BiomeStructureData(emptyList())
         )
         val jungle = forest.withChanges(
             name       = "jungle",
@@ -278,7 +277,7 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
             rainfall      = 0.7,
             category   = BiomeCategory.JUNGLE,
             elevation = 0.3,
-            biomeStructureData = BiomeStructureData(ResourceLocation.from("test:jungle"), emptyList())
+            biomeStructureData = BiomeStructureData(emptyList())
         )
         val taiga = forest.withChanges(
             name = "taiga",
@@ -815,8 +814,9 @@ fun main() {
         }
     }
 
+    /*
     val provider =
-        ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.heightSampler.getLayers())
+        ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.heightSampler.buildSampler().getLayers())
     val heights = provider.getChunkHeights(0, 0)
     val heights1 = provider.getChunkHeights(5, 7)
     val heights2 = provider.getChunkHeights(64, 67)
@@ -826,6 +826,8 @@ fun main() {
     println()
     printChunkGrid(heights2)
     println()
+
+     */
 }
 
 /**

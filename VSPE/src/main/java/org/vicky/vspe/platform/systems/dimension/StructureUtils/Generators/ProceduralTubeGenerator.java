@@ -1,21 +1,26 @@
 package org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators;
 
 import org.vicky.platform.utils.Vec3;
-import org.vicky.platform.world.PlatformWorld;
 import org.vicky.platform.world.PlatformBlockState;
+import org.vicky.platform.world.PlatformWorld;
 import org.vicky.vspe.BlockVec3i;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStructureGenerator;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.StructureCacheUtils;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BlockPlacement;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.BiConsumer;
 
 /**
  * Generates a single hollow tube coral structure with an optional one-block-thick spherical reservoir beneath.
  * Supports configurable height range, wall thickness, quadratic flare, rim cap, flare start percentage, and cached scanlines.
  */
-public class ProceduralTubeGenerator<T, N>
-        extends ProceduralStructureGenerator<T, N>{
+public class ProceduralTubeGenerator<T>
+        extends ProceduralStructureGenerator<T> {
     // Configuration fields
     private final int heightMin, heightMax;
     private final int tubeRadius;
@@ -27,8 +32,7 @@ public class ProceduralTubeGenerator<T, N>
     private final boolean includeRimCap;
     private final PlatformBlockState<T> coralMaterial, waterMaterial;
 
-    public ProceduralTubeGenerator(PlatformWorld<T, N> platform, Builder<T, N> b) {
-        super(platform);
+    public ProceduralTubeGenerator(Builder<T> b) {
         this.heightMin = b.heightMin;
         this.heightMax = b.heightMax;
         this.tubeRadius = b.tubeRadius;
@@ -43,11 +47,15 @@ public class ProceduralTubeGenerator<T, N>
     }
 
     @Override
-    public void generate(RandomSource rnd, Vec3 origin) {
+    public BlockVec3i getApproximateSize() {
+        return null;
+    }
+
+    @Override
+    protected void performGeneration(RandomSource rnd, Vec3 origin, List<BlockPlacement<T>> outPlacements, Map<Long, BiConsumer<PlatformWorld<T, ?>, Vec3>> outActions) {
         this.rnd = rnd;
         int height = rnd.nextInt(heightMin, heightMax + 1);
         int flareStartY = (int) (flareStartPercentage * height);
-        prepareFlush();
 
         // Cache scanlines up to maximum needed radius (tube flare or reservoir)
         int maxFlare = (int) Math.round(slopeCoef * (height - flareStartY) * (height - flareStartY));
@@ -77,8 +85,6 @@ public class ProceduralTubeGenerator<T, N>
             int centerY = origin.getY() - reservoirRadius;
             drawSphereShell(origin.getX(), centerY, origin.getZ(), reservoirRadius);
         }
-
-        flush.run();
     }
 
     /**
@@ -132,15 +138,10 @@ public class ProceduralTubeGenerator<T, N>
         }
     }
 
-    @Override
-    public BlockVec3i getApproximateSize() {
-        return null;
-    }
-
     /**
      * Builder with parameter validation.
      */
-    public static class Builder<T, N> extends BaseBuilder<T, N, ProceduralTubeGenerator<T, N>> {
+    public static class Builder<T> extends BaseBuilder<T, ProceduralTubeGenerator<T>> {
         private int heightMin = 6, heightMax = 12;
         private int tubeRadius = 2;
         private int wallThickness = 1;
@@ -152,16 +153,49 @@ public class ProceduralTubeGenerator<T, N>
         private PlatformBlockState<T> coralMaterial;
         private PlatformBlockState<T> waterMaterial;
 
-        public Builder<T, N> heightRange(int min, int max) { heightMin = min; heightMax = max; return this; }
-        public Builder<T, N> tubeRadius(int r) { tubeRadius = r; return this; }
-        public Builder<T, N> wallThickness(int t) { wallThickness = t; return this; }
-        public Builder<T, N> slope(double coef) { slopeCoef = coef; return this; }
-        public Builder<T, N> flareStart(double percent) { flareStartPercentage = percent; return this; }
-        public Builder<T, N> rimCap(boolean inc) { includeRimCap = inc; return this; }
-        public Builder<T, N> reservoir(boolean inc, int radius) { includeReservoir = inc; reservoirRadius = radius; return this; }
-        public Builder<T, N> materials(PlatformBlockState<T> coral, PlatformBlockState<T> water) { coralMaterial = coral; waterMaterial = water; return this; }
+        public Builder<T> heightRange(int min, int max) {
+            heightMin = min;
+            heightMax = max;
+            return this;
+        }
 
-        // TODO : Config to change these vales for more "wachiness"
+        public Builder<T> tubeRadius(int r) {
+            tubeRadius = r;
+            return this;
+        }
+
+        public Builder<T> wallThickness(int t) {
+            wallThickness = t;
+            return this;
+        }
+
+        public Builder<T> slope(double coef) {
+            slopeCoef = coef;
+            return this;
+        }
+
+        public Builder<T> flareStart(double percent) {
+            flareStartPercentage = percent;
+            return this;
+        }
+
+        public Builder<T> rimCap(boolean inc) {
+            includeRimCap = inc;
+            return this;
+        }
+
+        public Builder<T> reservoir(boolean inc, int radius) {
+            includeReservoir = inc;
+            reservoirRadius = radius;
+            return this;
+        }
+
+        public Builder<T> materials(PlatformBlockState<T> coral, PlatformBlockState<T> water) {
+            coralMaterial = coral;
+            waterMaterial = water;
+            return this;
+        }
+
         public void validate() {
             Objects.requireNonNull(coralMaterial, "Coral material must be set");
             if(heightMin > heightMax) throw new IllegalArgumentException("heightMin > heightMax");
@@ -171,8 +205,8 @@ public class ProceduralTubeGenerator<T, N>
         }
 
         @Override
-        public ProceduralTubeGenerator<T, N> build(PlatformWorld<T, N> world) {
-            return new ProceduralTubeGenerator<>(world, this);
+        public ProceduralTubeGenerator<T> build() {
+            return new ProceduralTubeGenerator<>(this);
         }
     }
 }

@@ -84,37 +84,95 @@ public class ChunkHeightViewer extends Application {
                                       int chunksX, int chunksZ,
                                       int requestedChunkSize) {
 
-        // query one chunk to figure out what size the provider actually returned
+        // query one chunk to determine canonical per-chunk size
         int[] sample = provider.getChunkHeights(startChunkX, startChunkZ, requestedChunkSize);
         if (sample == null) return null;
+
         int baseChunkSize = (int) Math.round(Math.sqrt(sample.length));
-        int outW = chunksX * baseChunkSize;
-        int outH = chunksZ * baseChunkSize;
-        int[] out = new int[outW * outH];
+        if (baseChunkSize * baseChunkSize != sample.length) {
+            throw new IllegalStateException("Provider returned non-square chunk size: length=" + sample.length);
+        }
+
+        final int outW = chunksX * baseChunkSize;
+        final int outH = chunksZ * baseChunkSize;
+        final int[] out = new int[outW * outH];
 
         for (int rz = 0; rz < chunksZ; rz++) {
             for (int rx = 0; rx < chunksX; rx++) {
                 int cx = startChunkX + rx;
                 int cz = startChunkZ + rz;
                 int[] chunk = provider.getChunkHeights(cx, cz, requestedChunkSize);
+
                 if (chunk == null) {
-                    // Fill with zeros if provider returned null
-                    Arrays.fill(out, (rz * baseChunkSize) * outW + rx * baseChunkSize,
-                            (rz * baseChunkSize) * outW + (rx + 1) * baseChunkSize, 0);
+                    // fill the whole chunk rectangle with zeros (all rows)
+                    for (int row = 0; row < baseChunkSize; row++) {
+                        int dstRowStart = (rz * baseChunkSize + row) * outW + (rx * baseChunkSize);
+                        Arrays.fill(out, dstRowStart, dstRowStart + baseChunkSize, 0);
+                    }
                     continue;
                 }
+
                 int chunkSize = (int) Math.round(Math.sqrt(chunk.length));
-                // if chunkSize differs from baseChunkSize we still copy using its own size,
-                // but this will misalign the grid. Ideally provider should be consistent.
+                if (chunkSize * chunkSize != chunk.length) {
+                    // if provider is broken, attempt best-effort: treat as linear row and copy as much as possible
+                    chunkSize = (int) Math.round(Math.sqrt(chunk.length)); // keep it anyway
+                }
+
+                // if chunk size differs from baseChunkSize, resize it first
+                if (chunkSize != baseChunkSize) {
+                    chunk = resizeChunkArray(chunk, chunkSize, baseChunkSize);
+                    chunkSize = baseChunkSize;
+                }
+
+                // copy rows into the destination mosaic
                 for (int z = 0; z < chunkSize; z++) {
-                    int dstRow = (rz * baseChunkSize + z) * outW + (rx * baseChunkSize);
                     int srcRow = z * chunkSize;
+                    int dstRow = (rz * baseChunkSize + z) * outW + (rx * baseChunkSize);
                     System.arraycopy(chunk, srcRow, out, dstRow, chunkSize);
                 }
             }
         }
         return out;
     }
+
+    private static int[] resizeChunkArray(int[] src, int oldSize, int newSize) {
+        if (oldSize == newSize) return src;
+        int[] out = new int[newSize * newSize];
+
+        // If oldSize==1, just duplicate the single value
+        if (oldSize == 1) {
+            Arrays.fill(out, src[0]);
+            return out;
+        }
+
+        for (int z = 0; z < newSize; z++) {
+            // map target pixel center to source coordinate in [0, oldSize-1]
+            double gz = (z / (double) (newSize - 1)) * (oldSize - 1);
+            int iz = (int) Math.floor(gz);
+            double tz = gz - iz;
+            iz = Math.min(iz, oldSize - 2);
+
+            for (int x = 0; x < newSize; x++) {
+                double gx = (x / (double) (newSize - 1)) * (oldSize - 1);
+                int ix = (int) Math.floor(gx);
+                double tx = gx - ix;
+                ix = Math.min(ix, oldSize - 2);
+
+                // fetch four neighbors
+                int a = src[iz * oldSize + ix];
+                int b = src[iz * oldSize + ix + 1];
+                int c = src[(iz + 1) * oldSize + ix];
+                int d = src[(iz + 1) * oldSize + ix + 1];
+
+                // bilerp each color as integer heights (treat as numbers)
+                double v = bilerp(a, b, c, d, tx, tz);
+                out[z * newSize + x] = (int) Math.round(v);
+            }
+        }
+        return out;
+    }
+
+
 
     // Upsample using bilinear interpolation to size * upsample
     private static int[] upsampleHeights(int[] base, int size, int upsample) {
@@ -552,6 +610,7 @@ public class ChunkHeightViewer extends Application {
     }
 
     private void regenerateAndBuildAsync() {
+
         // Avoid concurrent builds
         if (building) return;
         building = true;
@@ -569,12 +628,17 @@ public class ChunkHeightViewer extends Application {
 
         // Offload generation to background executor
         CompletableFuture.supplyAsync(() -> {
+
             // 1) stitch / call provider to get big heightmap
             int[] heightsBase = stitchChunks(PROVIDER, startChunkX, startChunkZ, regionChunksX, regionChunksZ, requestChunkSize);
             if (heightsBase == null) return null;
 
             // 2) upsample if needed
             int baseSize = (int) Math.round(Math.sqrt(heightsBase.length));
+            if (baseSize * baseSize != heightsBase.length) {
+                System.err.println("ERROR: stitched region produced non-square result: len=" + heightsBase.length);
+                return null;
+            }
             int[] heights = upsample > 1 ? upsampleHeights(heightsBase, baseSize, upsample) : heightsBase;
             int finalSize = baseSize * (Math.max(upsample, 1));
 

@@ -5,18 +5,17 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ChunkHeightP
 
 public class Main {
     public static void main(String[] args) {
-        var provider =
-                new ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.getHeightSampler().getLayers());
 
+        var mapper = new ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.getHeightSampler());
         // Viewer expects a HeightProvider: (chunkX, chunkZ, size) -> int[]
-        ChunkHeightViewer.PROVIDER = (cx, cz, size) -> {
-            // provider.getChunkHeights(cx, cz) returns base array at its internal resolution (e.g. 16)
-            int[] base = provider.getChunkHeights(cx, cz);
+        ChunkHeightViewer.PROVIDER = (chunkX, chunkZ, size) -> {
+            int[] base = mapper.getChunkHeights(chunkX, chunkZ); // e.g. returns 16*16
             if (base == null) return null;
 
             int baseSize = (int) Math.round(Math.sqrt(base.length));
             if (baseSize == size) return base;
 
+            // bilinear up/down-sample
             return resizeHeights(base, baseSize, size);
         };
 

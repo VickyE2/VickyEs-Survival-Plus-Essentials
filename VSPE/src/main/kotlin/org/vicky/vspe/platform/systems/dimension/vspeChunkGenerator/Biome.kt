@@ -10,6 +10,16 @@ import org.vicky.vspe.PrecipitationType
 import java.util.concurrent.*
 import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.math.roundToInt
+
+// New layer type so we can mix HeightMappers and normalized noise samplers
+data class NoiseLayer @JvmOverloads constructor(
+    val sampler: NoiseSampler,
+    val weight: Double,
+    val mode: Mode = Mode.NOISE
+) {
+    enum class Mode { NOISE, HEIGHT }
+}
 
 /**
  * ChunkHeightProvider
@@ -23,7 +33,7 @@ import kotlin.math.floor
  * If you plan to mutate it, either copy it first or call getChunkHeightsCopy(...).
  */
 class ChunkHeightProvider @JvmOverloads constructor(
-    private val noiseLayers: List<Pair<NoiseSampler, Double>>, // (sampler, weight)
+    private val noiseLayers: List<NoiseLayer>,      // (sampler, weight, mode)
     private val maxHeight: Int = 319,
     private val chunkSize: Int = 16,
     private val lowRes: Int = 4,
@@ -37,17 +47,36 @@ class ChunkHeightProvider @JvmOverloads constructor(
         require(lowRes >= 1)
     }
 
+    // pooling for output int arrays (avoid allocations)
     private val maxPool = cacheSize.coerceAtLeast(64)
+    private val samplePool = ConcurrentLinkedDeque<IntArray>()
     private fun borrowIntArray(): IntArray = samplePool.poll() ?: IntArray(chunkSize * chunkSize)
     private fun offerToPool(arr: IntArray) {
-        if (samplePool.size < maxPool) samplePool.offer(arr)
+        if (samplePool.size < maxPool) {
+            arr.fill(0)
+            samplePool.offer(arr)
+        }
     }
-    private val samplePool = ConcurrentLinkedDeque<IntArray>()    // IntArray pooling
+
+    // pool for coarse-grid double arrays (1D)
+    private val gridPool = ConcurrentLinkedDeque<DoubleArray>()
+    private fun borrowGrid(gridSize: Int): DoubleArray {
+        val needed = gridSize * gridSize
+        val existing = gridPool.poll()
+        if (existing != null && existing.size >= needed) return existing
+        return DoubleArray(needed)
+    }
+
+    private fun offerGrid(d: DoubleArray) {
+        if (gridPool.size < maxPool) gridPool.offer(d)
+    }
+
+    // Simple LRU with explicit locking (keeps semantics similar to your previous version).
+    private val cacheLock = Any()
     private val cache = object : LinkedHashMap<Long, IntArray>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, IntArray>): Boolean {
             val shouldRemove = size > cacheSize
             if (shouldRemove) {
-                // put removed array back into pool for reuse
                 val arr = eldest.value
                 arr.fill(0)
                 offerToPool(arr)
@@ -56,42 +85,48 @@ class ChunkHeightProvider @JvmOverloads constructor(
         }
     }
 
-    private val cacheLock = Any()
-    private val executor: ExecutorService = threadPool ?: Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors().coerceAtLeast(2))
-
-    // helper: combine noise layers with weights
-    private inline fun sampleCombined(x: Double, z: Double): Double {
-        var sum = 0.0
-        var total = 0.0
-        for ((sampler, weight) in noiseLayers) {
-            val s = sampler.sample(x, z)
-            sum += s * weight
-            total += weight
-        }
-        return if (total == 0.0) 0.0 else sum / total
-    }
-
-    // default mapping from noise [-1,1] to integer height [0, maxHeight]
-    private inline fun heightMapper(noiseValue: Double): Int {
-        val clamped = when {
-            noiseValue > 1.0 -> 1.0
-            noiseValue < -1.0 -> -1.0
-            else -> noiseValue
-        }
-        return ((clamped + 1.0) * 0.5 * maxHeight).toInt().coerceIn(0, maxHeight)
-    }
-
-    // bilinear interpolation helper
-    private fun bilerp(a: Double, b: Double, c: Double, d: Double, tx: Double, ty: Double): Double {
-        val i1 = a * (1.0 - tx) + b * tx
-        val i2 = c * (1.0 - tx) + d * tx
-        return i1 * (1.0 - ty) + i2 * ty
-    }
+    private val executor: ExecutorService = threadPool ?: Executors.newFixedThreadPool(
+        Runtime.getRuntime().availableProcessors().coerceAtLeast(2)
+    )
 
     // Compose a stable key for (chunkX, chunkZ)
     private fun keyFor(chunkX: Int, chunkZ: Int): Long {
         return (chunkX.toLong() shl 32) or (chunkZ.toLong() and 0xffffffffL)
     }
+
+    // Convert normalized noise [-1,1] -> height in same scale as HeightMapper
+    private inline fun normalizedNoiseToHeight(noiseValue: Double): Double {
+        val clamped = when {
+            noiseValue > 1.0 -> 1.0
+            noiseValue < -1.0 -> -1.0
+            else -> noiseValue
+        }
+        return ((clamped + 1.0) * 0.5 * maxHeight)
+    }
+
+    // combine layers: convert all to height-space and weighted average
+    private inline fun sampleCombinedAsHeight(x: Double, z: Double): Double {
+        var sum = 0.0
+        var totalWeight = 0.0
+        // local copy to avoid repeated field lookups
+        val layers = noiseLayers
+        for (i in layers.indices) {
+            val layer = layers[i]
+            val s = layer.sampler.sample(x, z)
+            val heightVal = if (layer.mode == NoiseLayer.Mode.HEIGHT) {
+                // sampler already returns an absolute height
+                s
+            } else {
+                // normalized noise: map into height range
+                normalizedNoiseToHeight(s)
+            }
+            val w = layer.weight
+            sum += heightVal * w
+            totalWeight += w
+        }
+        return if (totalWeight == 0.0) 0.0 else sum / totalWeight
+    }
+
     // Public synchronous API — returns cached array (do NOT mutate)
     fun getChunkHeights(chunkX: Int, chunkZ: Int): IntArray {
         val key = keyFor(chunkX, chunkZ)
@@ -99,45 +134,41 @@ class ChunkHeightProvider @JvmOverloads constructor(
             cache[key]?.let { return it } // cache hit
         }
 
-        // generate and insert
+        // generate outside lock (avoid blocking other readers)
         val arr = generateChunkHeights(chunkX, chunkZ)
+
         synchronized(cacheLock) {
+            // another thread might have created it while we were generating
+            val existing = cache[key]
+            if (existing != null) {
+                // discard our generated array and reuse existing
+                offerToPool(arr)
+                return existing
+            }
             cache[key] = arr
         }
         return arr
     }
 
-    // If you need to mutate result, call this to get a copy
     fun getChunkHeightsCopy(chunkX: Int, chunkZ: Int): IntArray {
         val src = getChunkHeights(chunkX, chunkZ)
         return src.copyOf()
     }
 
-    // Async API using executor returning Future<IntArray>
     fun getChunkHeightsAsync(chunkX: Int, chunkZ: Int): Future<IntArray> {
         val key = keyFor(chunkX, chunkZ)
         synchronized(cacheLock) {
-            cache[key]?.let { return CompletableFutureDone(it) }
+            cache[key]?.let { return CompletableFuture.completedFuture(it) }
         }
-        return executor.submit(Callable {
+        return executor.submit<IntArray> {
             val arr = generateChunkHeights(chunkX, chunkZ)
             synchronized(cacheLock) {
                 cache[key] = arr
             }
             arr
-        })
+        }
     }
 
-    // Simple finished future impl for immediate cache hits (avoids creating new thread)
-    private class CompletableFutureDone<T>(private val value: T) : Future<T> {
-        override fun cancel(mayInterruptIfRunning: Boolean) = false
-        override fun isCancelled() = false
-        override fun isDone() = true
-        override fun get(): T = value
-        override fun get(timeout: Long, unit: TimeUnit?): T = value
-    }
-
-    // Core generator (highly optimized): coarse-grid sampling + bilerp
     private fun generateChunkHeights(chunkX: Int, chunkZ: Int): IntArray {
         val out = borrowIntArray()
         val baseX = chunkX * chunkSize
@@ -145,42 +176,58 @@ class ChunkHeightProvider @JvmOverloads constructor(
 
         val step = chunkSize.toDouble() / lowRes.toDouble() // e.g. 16 / 4 = 4.0
         val gridSize = lowRes + 1
-        // allocate grid double arrays once per call (small; reuse by stack)
-        val grid = Array(gridSize) { DoubleArray(gridSize) }
+
+        // 1D grid array: index = gx + gz * gridSize
+        val grid = borrowGrid(gridSize)
+        val worldScaleLocal = worldScale
+        val sampleCombinedLocal = ::sampleCombinedAsHeight
 
         // sample coarse grid (world coords * worldScale)
-        for (gz in 0 until gridSize) {
-            val sampleZ = (baseZ + gz * step) * worldScale
-            for (gx in 0 until gridSize) {
-                val sampleX = (baseX + gx * step) * worldScale
-                grid[gx][gz] = sampleCombined(sampleX, sampleZ)
+        var gz = 0
+        while (gz < gridSize) {
+            val sampleZ = (baseZ + gz * step) * worldScaleLocal
+            var gx = 0
+            val baseIndexRow = gz * gridSize
+            while (gx < gridSize) {
+                val sampleX = (baseX + gx * step) * worldScaleLocal
+                grid[baseIndexRow + gx] = sampleCombinedLocal(sampleX, sampleZ)
+                gx++
             }
+            gz++
         }
 
         // interpolate to chunkSize x chunkSize
         var outIdx = 0
         for (lz in 0 until chunkSize) {
-            val fy = (lz.toDouble() / chunkSize.toDouble()) * lowRes.toDouble() // position in coarse coords
+            val fy = (lz.toDouble() / chunkSize.toDouble()) * lowRes.toDouble()
             val gy = floor(fy).toInt().coerceIn(0, lowRes - 1)
             val ty = fy - gy
+            val gyRow = gy * gridSize
             for (lx in 0 until chunkSize) {
                 val fx = (lx.toDouble() / chunkSize.toDouble()) * lowRes.toDouble()
-                val gx = floor(fx).toInt().coerceIn(0, lowRes - 1)
-                val tx = fx - gx
+                val gxIndex = floor(fx).toInt().coerceIn(0, lowRes - 1)
+                val tx = fx - gxIndex
 
-                val a = grid[gx][gy]
-                val b = grid[gx + 1][gy]
-                val c = grid[gx][gy + 1]
-                val d = grid[gx + 1][gy + 1]
+                val a = grid[gyRow + gxIndex]
+                val b = grid[gyRow + gxIndex + 1]
+                val c = grid[(gy + 1) * gridSize + gxIndex]
+                val d = grid[(gy + 1) * gridSize + gxIndex + 1]
 
-                val interpolated = bilerp(a, b, c, d, tx, ty)
-                out[outIdx++] = heightMapper(interpolated)
+                // bilerp on absolute heights
+                val i1 = a * (1.0 - tx) + b * tx
+                val i2 = c * (1.0 - tx) + d * tx
+                val interpolated = i1 * (1.0 - ty) + i2 * ty
+
+                // round and clamp to int height
+                out[outIdx++] = interpolated.roundToInt().coerceIn(0, maxHeight)
             }
         }
+
+        // return grid to pool
+        offerGrid(grid)
         return out
     }
 
-    // optional maintenance helpers
     fun clearCache() {
         synchronized(cacheLock) {
             cache.values.forEach { it.fill(0); offerToPool(it) }
@@ -213,10 +260,10 @@ data class BiomeParameters @JvmOverloads constructor(
     val isHumid: Boolean,
     val precipitation: PrecipitationType = PrecipitationType.RAIN,
     val distributionPalette: BiomeBlockDistributionPalette<*>,
-    val heightSampler: CompositeNoiseLayer = CompositeNoiseLayer.EMPTY,
+    val heightSampler: List<NoiseLayer> = listOf(),
     val features: List<BiomeFeature<*>> = emptyList(),
-    val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
     val biomeStructureData: BiomeStructureData = BiomeStructureData.EMPTY,
+    val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
 )
 
 interface PlatformBiome : Identifiable {
@@ -233,7 +280,7 @@ interface PlatformBiome : Identifiable {
     val elevation: Double     // 0.0 - 1.0
     val rainfall: Double      // 0.0 - 1.0
     val category: BiomeCategory
-    val heightSampler: CompositeNoiseLayer
+    val heightSampler: List<NoiseLayer>
     val precipitation: PrecipitationType
         get() = PrecipitationType.RAIN
     val biomeStructureData: BiomeStructureData
@@ -249,18 +296,10 @@ interface PlatformBiome : Identifiable {
     // val ambientSettings: BiomeAmbientSettings?
 }
 
-data class StructurePlacement(
-    val structureKey: ResourceLocation,
-    val frequencyPerChunk: Double = 0.01, // probability to attempt per chunk
-    val separation: Int = 32, // spacing/separation rules
-    val allowedBiomes: Set<ResourceLocation> = emptySet()
-)
-
 open class BiomeStructureData(
-    val biomeId: ResourceLocation,
-    val structureKeys: List<StructurePlacement>
+    val structureKeys: List<ResourceLocation>
 ) {
-    object EMPTY : BiomeStructureData(ResourceLocation.getEMPTY(), listOf())
+    object EMPTY : BiomeStructureData(listOf())
 }
 
 class SimpleConstructorBasedBiome(
@@ -278,7 +317,7 @@ class SimpleConstructorBasedBiome(
     override val elevation: Double,
     override val rainfall: Double,
     override val category: BiomeCategory,
-    override val heightSampler: CompositeNoiseLayer,
+    override val heightSampler: List<NoiseLayer>,
     override val precipitation: PrecipitationType,
     override val biomeStructureData: BiomeStructureData,
     override val features: List<BiomeFeature<*>> = emptyList(),

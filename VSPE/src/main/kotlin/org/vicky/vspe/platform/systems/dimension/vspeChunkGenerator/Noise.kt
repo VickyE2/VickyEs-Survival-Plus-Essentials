@@ -643,8 +643,12 @@ class RidgedWrapper(private val inner: NoiseSampler) : NoiseSampler {
  * into a world Y integer. Client may also directly use the NoiseSampler produced by
  * buildSampler(...) if they want more control.
  */
-class HeightMapper(private val sampler: NoiseSampler, private val baseY: Int, private val maxY: Int) {
-    fun sampleHeight(x: Double, z: Double): Int {
+class HeightMapper(
+    private val sampler: NoiseSampler,
+    private val baseY: Int,
+    private val maxY: Int
+) : NoiseSampler {
+    override fun sample(x: Double, z: Double): Double {
         val raw = sampler.sample(x, z)
         // try to normalize to 0..1 — account for possible 0..1 outputs too
         val v = when {
@@ -653,8 +657,12 @@ class HeightMapper(private val sampler: NoiseSampler, private val baseY: Int, pr
             else -> (raw + 1.0) / 2.0 // [-1,1] -> [0,1]
         }
         val clamped = v.coerceIn(0.0, 1.0)
-        return baseY + (clamped * (maxY - baseY)).roundToInt()
+        return baseY + (clamped * (maxY - baseY)).roundToInt().toDouble()
     }
+
+    override fun getSeed(): Long = 0L
+
+    override fun sample3D(x: Double, y: Double, z: Double): Double = error("HeightMapper cannot create 3d heights")
 }
 
 /**
