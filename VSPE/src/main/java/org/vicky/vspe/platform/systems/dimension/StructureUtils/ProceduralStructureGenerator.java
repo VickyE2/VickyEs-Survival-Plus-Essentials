@@ -54,7 +54,7 @@ public abstract class ProceduralStructureGenerator<T> {
 
     public abstract BlockVec3i getApproximateSize();
 
-    protected static int decodeX(long key) {
+    public static int decodeX(long key) {
         return (int) ((key >>> (2 * BIT_SIZE)) & MASK) - BIAS;
     }
 
@@ -67,11 +67,11 @@ public abstract class ProceduralStructureGenerator<T> {
                 |  zb;
     }
 
-    protected static int decodeY(long key) {
+    public static int decodeY(long key) {
         return (int) ((key >>> BIT_SIZE) & MASK) - BIAS;
     }
 
-    protected static int decodeZ(long key) {
+    public static int decodeZ(long key) {
         return (int) (key & MASK) - BIAS;
     }
 

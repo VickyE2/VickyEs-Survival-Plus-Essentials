@@ -15,6 +15,8 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockS
 import java.util.List;
 import java.util.Random;
 
+import static org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStructureGenerator.*;
+
 public class HugeCoralGenerator extends BaseStructure {
 
     public HugeCoralGenerator() {
@@ -49,7 +51,7 @@ public class HugeCoralGenerator extends BaseStructure {
     // --- TREE-LIKE CORAL ---
     private static void generateTreeCoral(Random random, TerraPlatformWorld world, Vector3Int origin, int heighto, int span, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan, Platform platform) {
         final var origin2 = origin.mutable().add(0, -10, 0);
-        new ProceduralCrystalShardGenerator.Builder<String, WritableWorld>()
+        final var generated = new ProceduralCrystalShardGenerator.Builder<String>()
             .palette(List.of(
                     SimpleBlockState.Companion.from("minecraft:green_stained_glass", (it) -> it),
                     SimpleBlockState.Companion.from("minecraft:yellow_stained_glass", (it) -> it),
@@ -73,8 +75,30 @@ public class HugeCoralGenerator extends BaseStructure {
                 int idx = (int)(shaped * (palette.size() - 1));
                 return palette.get(idx);
             })
-            .build(world)
+                .build()
             .generate(new SeededRandomSource(random.nextLong() + 5149898959L), new Vec3(origin2.getX(), origin2.getY(), origin2.getZ()));
+
+        generated.placements.forEach(placement -> {
+            if (placement.getNbt() != null) {
+                world.setPlatformBlockState(
+                        new Vec3(placement.getX(), placement.getY(), placement.getZ()),
+                        placement.getState(),
+                        placement.getNbt()
+                );
+            } else {
+                world.setPlatformBlockState(
+                        new Vec3(placement.getX(), placement.getY(), placement.getZ()),
+                        placement.getState()
+                );
+            }
+        });
+        generated.actions.forEach((lonz, plat) -> {
+            int x = decodeX(lonz);
+            int y = decodeY(lonz);
+            int z = decodeZ(lonz);
+            plat.accept(world, new Vec3(x, y, z));
+        });
+
         /*
         new ProceduralTubeGenerator.Builder()
             .heightRange(20, heighto)       // vertical between 30 and 40
