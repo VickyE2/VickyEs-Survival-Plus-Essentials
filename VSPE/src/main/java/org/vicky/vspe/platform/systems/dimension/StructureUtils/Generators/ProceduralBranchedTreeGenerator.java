@@ -666,7 +666,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
                 if (params == null)
                     throw new IllegalArgumentException("Leaf parameters map must be provided");
 
-                if (!params.containsKey("thickness"))
+                if (!params.containsKey("thickness") && leafType != LeafType.DANGLING)
                     throw new IllegalArgumentException("Leaf parameter 'thickness' is required");
 
                 if (leafType == LeafType.DANGLING && !params.containsKey("length"))
