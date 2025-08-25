@@ -31,7 +31,7 @@ public class BukkitBiome implements PlatformBiome {
     private final double humidity;
     private final double elevation;
     private final double rainfall;
-    private final @NotNull CompositeNoiseLayer heightSampler;
+    private final @NotNull List<NoiseLayer> heightSampler;
     private final @NotNull BiomeCategory biomeCategory;
     private final @NotNull PrecipitationType precipitationType;
     private final @NotNull BiomeStructureData structureData;
@@ -44,7 +44,7 @@ public class BukkitBiome implements PlatformBiome {
     private final boolean isCold;
     private final BiomeWrapper_1_20_R4 wrapper;
 
-    private BukkitBiome(Biome bukkitBiome, @NotNull String name, int biomeColor, int fogColor, int waterColor, int waterFogColor, int foliageColor, int skyColor, boolean isOcean, double temperature, double humidity, double elevation, double rainfall, @NotNull CompositeNoiseLayer heightSampler, @NotNull BiomeCategory biomeCategory, @NotNull PrecipitationType precipitationType, @NotNull BiomeStructureData structureData, @NotNull List<BiomeFeature<BlockData>> features, @NotNull BiomeBlockDistributionPalette<?> distributionPalette, @NotNull BiomeSpawnSettings spawnSettings, String identifier, boolean isMountainous, boolean isHumid, boolean isCold) {
+    private BukkitBiome(Biome bukkitBiome, @NotNull String name, int biomeColor, int fogColor, int waterColor, int waterFogColor, int foliageColor, int skyColor, boolean isOcean, double temperature, double humidity, double elevation, double rainfall, @NotNull List<NoiseLayer> heightSampler, @NotNull BiomeCategory biomeCategory, @NotNull PrecipitationType precipitationType, @NotNull BiomeStructureData structureData, @NotNull List<BiomeFeature<BlockData>> features, @NotNull BiomeBlockDistributionPalette<BukkitBlockState> distributionPalette, @NotNull BiomeSpawnSettings spawnSettings, String identifier, boolean isMountainous, boolean isHumid, boolean isCold) {
         this.bukkitBiome = bukkitBiome;
         this.name = name;
         this.biomeColor = biomeColor;
@@ -63,7 +63,7 @@ public class BukkitBiome implements PlatformBiome {
         this.precipitationType = precipitationType;
         this.structureData = structureData;
         this.features = features;
-        this.distributionPalette = (BiomeBlockDistributionPalette<BukkitBlockState>) distributionPalette;
+        this.distributionPalette = distributionPalette;
         this.spawnSettings = spawnSettings;
         this.identifier = identifier;
         this.isMountainous = isMountainous;
@@ -163,7 +163,7 @@ public class BukkitBiome implements PlatformBiome {
                 0.4,                        // humidity
                 0.125,                      // elevation
                 0.4,                        // rainfall
-                CompositeNoiseLayer.EMPTY.INSTANCE,  // stub height sampler
+                new ArrayList<>(),  // stub height sampler
                 BiomeCategory.PLAINS,       // category fallback
                 PrecipitationType.RAIN,     // fallback
                 BiomeStructureData.EMPTY.INSTANCE,   // empty
@@ -198,7 +198,7 @@ public class BukkitBiome implements PlatformBiome {
                 biomeParameters.getFeatures().stream()
                         .map(f -> (BiomeFeature<BlockData>) f)
                         .toList(),
-                biomeParameters.getDistributionPalette(),
+                (BiomeBlockDistributionPalette<BukkitBlockState>) biomeParameters.getDistributionPalette(),
                 biomeParameters.getSpawnSettings(),
                 biomeParameters.getId(),
                 biomeParameters.isMountainous(),
@@ -263,7 +263,7 @@ public class BukkitBiome implements PlatformBiome {
     }
 
     @Override
-    public @NotNull CompositeNoiseLayer getHeightSampler() {
+    public @NotNull List<NoiseLayer> getHeightSampler() {
         return heightSampler;
     }
 
@@ -342,7 +342,7 @@ public class BukkitBiome implements PlatformBiome {
         private double humidity = 0.5;
         private double elevation = 0.5;
         private double rainfall = 0.5;
-        private CompositeNoiseLayer heightSampler = CompositeNoiseLayer.EMPTY.INSTANCE;
+        private List<NoiseLayer> heightSampler = new ArrayList<>();
         private BiomeCategory biomeCategory = BiomeCategory.PLAINS;
         private PrecipitationType precipitationType = PrecipitationType.RAIN;
         private BiomeStructureData structureData = BiomeStructureData.EMPTY.INSTANCE;
@@ -426,8 +426,18 @@ public class BukkitBiome implements PlatformBiome {
             return this;
         }
 
-        public Builder heightSampler(CompositeNoiseLayer sampler) {
+        public Builder heightSampler(List<NoiseLayer> sampler) {
             this.heightSampler = sampler;
+            return this;
+        }
+
+        public Builder addHeightSampler(List<NoiseLayer> sampler) {
+            this.heightSampler.addAll(sampler);
+            return this;
+        }
+
+        public Builder addHeightSampler(NoiseLayer sampler) {
+            this.heightSampler.add(sampler);
             return this;
         }
 

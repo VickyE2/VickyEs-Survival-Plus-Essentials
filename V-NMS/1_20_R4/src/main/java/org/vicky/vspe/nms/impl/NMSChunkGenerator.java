@@ -23,11 +23,9 @@ import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.platform.world.PlatformBlockState;
-import org.vicky.platform.world.PlatformLocation;
 import org.vicky.vspe.nms.BiomeCompatibilityAPI;
 import org.vicky.vspe.paper.BukkitBiome;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
-import org.vicky.vspe.platform.systems.dimension.imagetester.ImageBasedWorld;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 import java.util.*;
@@ -279,17 +277,15 @@ public class NMSChunkGenerator extends ChunkGenerator {
                             pos.x, pos.z,
                             ((NMSBiomeSource) biomeSource).getBiomeProvider(),
                             randomSource, placer,
-                            (x, y, z) ->
-                                    new PlatformLocation(ImageBasedWorld.INSTANCE, x, y, z)
+                            Vec3::new
                     );
 
             try {
                 structurePlacer.placeStructuresInChunk(pos.x, pos.z, chunkGenerateContext, new ChunkData<BlockData, BukkitBiome>() {
                     @Override
                     public void setBiome(int x, int y, int z, @NotNull BukkitBiome bukkitBiome) {
-                        BlockData bukkitData = bukkitBiome.getDistributionPalette().getFor(y).getNative();
-                        BlockState block = ((CraftBlockData) bukkitData).getState();
-                        chunk.setBlockState(new BlockPos(x, y, z), block, false);
+                        chunk.setBiome(x, y, z, BiomeCompatibilityAPI.Companion.getBiomeCompatibility().getRegistry()
+                                .getHolderOrThrow(bukkitBiome.toNativeBiome().getResource()));
                     }
 
                     @Override
@@ -342,7 +338,7 @@ public class NMSChunkGenerator extends ChunkGenerator {
         if (heights != null && idx >= 0 && idx < heights.length) {
             int candidate = heights[idx];
             if (candidate >= minY && candidate < maxY) {
-                BlockData bukkitData = biome.getDistributionPalette().getFor(candidate).getNative();
+                BlockData bukkitData = biome.getDistributionPalette().getFor(localX, candidate, localZ, topY, getSeaLevel()).getNative();
                 BlockState block = ((CraftBlockData) bukkitData).getState();
                 if (heightmap.isOpaque().test(block)) {
                     topY = candidate;
@@ -373,7 +369,7 @@ public class NMSChunkGenerator extends ChunkGenerator {
         if (heights != null && idx >= 0 && idx < heights.length) {
             int topY = heights[idx];
             for (int y = minY; y <= topY && y < minY + total; y++) {
-                PlatformBlockState<BlockData> p = biome.getDistributionPalette().getFor(y);
+                PlatformBlockState<BlockData> p = biome.getDistributionPalette().getFor(localX, y, localZ, topY, getSeaLevel());
                 if (p != null) {
                     BlockData bd = p.getNative();
                     array[y - minY] = ((CraftBlockData) bd).getState();
@@ -403,15 +399,7 @@ public class NMSChunkGenerator extends ChunkGenerator {
      * Implement this to build the provider using the biome's noise layers / parameters.
      */
     private ChunkHeightProvider createProviderFromBiome(BukkitBiome biome) {
-        return new ChunkHeightProvider(
-                biome.getHeightSampler().getLayers(),
-                319,
-                16,
-                4,
-                1.0,
-                512,
-                null
-        );
+        return new ChunkHeightProvider(biome.getHeightSampler());
     }
 
     /*
