@@ -6,6 +6,7 @@ import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
+import org.vicky.vspe.platform.NativeTypeMapper;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
@@ -160,10 +161,10 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 /*BiomeBlockDistributionPalette.Companion.empty()*/
                 new BiomeBlockDistributionPaletteBuilder<>()
                         .addLayer(319, -64,
-                                PlatformPlugin.stateFactory().getBlockState("crymorra:magenta_grass_block")
+                                PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_moss_block"))
                         )
                         .addShoreLayer(3, 5,
-                                PlatformPlugin.stateFactory().getBlockState("vspe:pink_sand")
+                                PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:pink_sand"))
                         )
                         .addUnderwaterLayer(0, 40,
                                 PlatformPlugin.stateFactory().getBlockState("minecraft:mud")
@@ -189,7 +190,7 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 ),
                 List.of(),
                 new BiomeStructureData(List.of(
-                        ResourceLocation.from("crymorra:pink_frost_tree")
+                        ResourceLocation.from("crymorra:magenta_frost_tree")
                 ))
         );
         public static final BiomeParameters FRIGID_SEA = new BiomeParameters(
@@ -214,7 +215,7 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 /*BiomeBlockDistributionPalette.Companion.empty()*/
                 new BiomeBlockDistributionPaletteBuilder<>()
                         .addLayer(319, -64,
-                                PlatformPlugin.stateFactory().getBlockState("crymorra:magenta_grass_block"),
+                                PlatformPlugin.stateFactory().getBlockState("minecraft:sand"),
                                 1.0)
                         .build(),
                 List.of(

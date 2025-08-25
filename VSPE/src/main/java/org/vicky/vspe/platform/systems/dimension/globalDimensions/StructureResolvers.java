@@ -7,6 +7,7 @@ import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.platform.utils.Rotation;
 import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.StructureTag;
+import org.vicky.vspe.platform.NativeTypeMapper;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.ProceduralBranchedTreeGenerator;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ProceduralStructure;
@@ -16,7 +17,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class StructureResolvers<T extends PlatformBlockState<T>> {
+/**
+ * @param <T> the platform block "stated" data
+ */
+public class StructureResolvers<T> {
     public final List<Pair<PlatformStructure<T>, StructureRule>> structures = List.of(
             new Pair<>(
                     new ProceduralStructure<>(
@@ -31,20 +35,20 @@ public class StructureResolvers<T extends PlatformBlockState<T>> {
                                     .qualityFactor(0.7f)
                                     .randomness(0.2259f)
                                     .woodMaterial(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState("minecraft:cherry_wood")
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log"))
                                     )
                                     .addDanglingSequence(new ProceduralBranchedTreeGenerator.Builder.BlockSeqEntry<>(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState("minecraft:cherry_leaves"),
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
                                             0.0,
                                             0.5
                                     ))
                                     .addDanglingSequence(new ProceduralBranchedTreeGenerator.Builder.BlockSeqEntry<>(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState("minecraft:weeping_vines"),
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_vines")),
                                             0.5,
                                             1.0
                                     ))
                                     .setLeaf(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState("minecraft:cherry_leaves"),
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
                                             ProceduralBranchedTreeGenerator.LeafType.DANGLING,
                                             Map.of("length", 20)
                                     )
@@ -52,7 +56,7 @@ public class StructureResolvers<T extends PlatformBlockState<T>> {
                                     .build()
                     ),
                     new StructureRule(
-                            ResourceLocation.from("crymorra:pink_frost_tree"),
+                            ResourceLocation.from("crymorra:magenta_frost_tree"),
                             Set.of(StructureTag.TREELIKE),
                             Rotation.NONE,
                             Mirror.NONE,

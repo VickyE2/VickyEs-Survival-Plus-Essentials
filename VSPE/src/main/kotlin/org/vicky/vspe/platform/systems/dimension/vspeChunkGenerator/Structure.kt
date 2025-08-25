@@ -72,8 +72,7 @@ fun <T> PlatformStructure<T>.placeChunkFallback(
 
 
 class NbtStructure<T>(
-    val nbtFile: File,
-    val transformer: (String) -> T
+    val nbtFile: File
 ) {
     val rootTag: ICompoundTag by lazy {
         val nbt = NBTFileFactory.readNBTFile(nbtFile)

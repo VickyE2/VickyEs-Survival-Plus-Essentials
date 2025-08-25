@@ -28,6 +28,10 @@ public interface VSPEPlatformPlugin {
         }
     }
 
+    static boolean isNative() {
+        return get().platformIsNative();
+    }
+
     /**
      * Only the instance that was registered can unregister itself.
      */
@@ -90,6 +94,8 @@ public interface VSPEPlatformPlugin {
     PlatformStructureManager<?> getPlatformStructureManager();
     PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry();
     PlatformConfig getPlatformConfig();
+
+    boolean platformIsNative();
     File getPlatformDataFolder();
     PlatformLogger getPlatformLogger();
     PlatformDimensionManager<?, ?> getDimensionManager();
