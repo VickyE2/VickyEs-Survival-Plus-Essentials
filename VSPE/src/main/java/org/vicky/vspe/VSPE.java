@@ -693,6 +693,11 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
     }
 
     @Override
+    public boolean platformIsNative() {
+        return true;
+    }
+
+    @Override
     public File getPlatformDataFolder() {
         return getDataFolder();
     }

@@ -26,6 +26,7 @@ import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.nms.BiomeCompatibilityAPI;
 import org.vicky.vspe.paper.BukkitBiome;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 import java.util.*;
@@ -37,10 +38,12 @@ public class NMSChunkGenerator extends ChunkGenerator {
     private static final WeightedStructurePlacer<BlockData> structurePlacer = new WeightedStructurePlacer<>();
     private static final Map<String, ChunkHeightProvider> heightProviderCache = new ConcurrentHashMap<>();
     private final long seed;
+    private final DimensionDescriptor descriptor;
 
-    public NMSChunkGenerator(NMSBiomeSource biomeProvider, long seed) {
+    public NMSChunkGenerator(NMSBiomeSource biomeProvider, long seed, DimensionDescriptor descriptor) {
         super(biomeProvider);
         this.seed = seed;
+        this.descriptor = descriptor;
     }
 
     @Override
@@ -269,8 +272,6 @@ public class NMSChunkGenerator extends ChunkGenerator {
                 }
             }
 
-            // step 5: per-chunk random features (TODO: implement as needed)
-
             // Now create the chunk generate context using the simpleDimension and pass the adapter
             ChunkGenerateContext<BlockData, BukkitBiome> chunkGenerateContext =
                     new ChunkGenerateContext<>(
@@ -306,7 +307,7 @@ public class NMSChunkGenerator extends ChunkGenerator {
     public int getSeaLevel() {
         if (((NMSBiomeSource) biomeSource).getBiomeProvider() instanceof MultiParameterBiomeResolver<BukkitBiome> resolver)
             return (int) (resolver.getSeaLevel() * 319);
-        return 53;
+        return descriptor.oceanLevel();
     }
 
     @Override

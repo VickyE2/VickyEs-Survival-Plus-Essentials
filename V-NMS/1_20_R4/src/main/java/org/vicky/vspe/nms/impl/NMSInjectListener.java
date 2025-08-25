@@ -43,7 +43,7 @@ public class NMSInjectListener implements Listener {
 
             // acquire chunkMap from chunk source (search for a field whose value is a ChunkMap)
             ChunkMap chunkSource = serverWorld.getChunkSource().chunkMap;
-            chunkSource.generator = new NMSChunkGenerator(new NMSBiomeSource(wrapper.getResolver()), serverWorld.getSeed());
+            chunkSource.generator = new NMSChunkGenerator(new NMSBiomeSource(wrapper.getResolver()), serverWorld.getSeed(), wrapper.getDescriptor());
 
             LOGGER.info("Successfully injected NMSChunkGeneratorDelegate into world {}", bukkitWorld.getName());
         } catch (Throwable ex) {

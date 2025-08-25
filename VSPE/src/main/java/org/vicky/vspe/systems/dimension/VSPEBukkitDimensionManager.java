@@ -13,7 +13,6 @@ import org.vicky.vspe.nms.BiomeCompatibility;
 import org.vicky.vspe.nms.BiomeCompatibilityAPI;
 import org.vicky.vspe.nms.impl.v1_20_R3;
 import org.vicky.vspe.nms.impl.v1_20_R4;
-import org.vicky.vspe.paper.BukkitBiome;
 import org.vicky.vspe.paper.BukkitChunkGeneratorWrapper;
 import org.vicky.vspe.platform.systems.dimension.CoreDimensionRegistry;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
@@ -32,7 +31,6 @@ import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Genera
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.NoiseSampler.NoiseSampler;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Palette.Palette;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.progressbar.progressbars.NullProgressBar;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
@@ -361,7 +359,7 @@ public class VSPEBukkitDimensionManager implements PlatformDimensionManager<Bloc
             throw new RuntimeException(e);
         }
         CoreDimensionRegistry.getRegisteredDescriptors().forEach(descriptor -> {
-            BukkitChunkGeneratorWrapper gen = new BukkitChunkGeneratorWrapper((BiomeResolver<BukkitBiome>) descriptor.resolver(), stringToSeed(descriptor.description()));
+            BukkitChunkGeneratorWrapper gen = new BukkitChunkGeneratorWrapper(descriptor, stringToSeed(descriptor.description()));
             GENERATORS.put(cleanNamespace(descriptor.name()).toUpperCase(), gen);
         });
     }

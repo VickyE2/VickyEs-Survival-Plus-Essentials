@@ -6,7 +6,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.block.data.BlockData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.vicky.bukkitplatform.useables.BukkitBlockState;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.platform.PlatformStructureManager;
 import org.vicky.vspe.platform.systems.dimension.globalDimensions.StructureResolvers;
@@ -29,10 +28,8 @@ public class VSPEBukkitStructureManager implements PlatformStructureManager<Bloc
 
     private static Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> initStructures() {
         Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> result = new HashMap<>();
-        new StructureResolvers<BukkitBlockState>().structures.forEach(it -> {
-            @SuppressWarnings("unchecked")
-            Pair<PlatformStructure<BlockData>, StructureRule> casted =
-                    (Pair<PlatformStructure<BlockData>, StructureRule>) (Pair<?, ?>) it;
+        new StructureResolvers<BlockData>().structures.forEach(it -> {
+            Pair<PlatformStructure<BlockData>, StructureRule> casted = it;
             result.put(it.getSecond().getResource(), casted);
         });
         return result;
@@ -46,7 +43,7 @@ public class VSPEBukkitStructureManager implements PlatformStructureManager<Bloc
     @Override
     public @Nullable NbtStructure<BlockData> getNBTStructure(ResourceLocation resourceLocation) {
         var file = Bukkit.getStructureManager().getStructureFile(NamespacedKey.fromString(resourceLocation.asString()));
-        return new NbtStructure<>(file, Bukkit::createBlockData);
+        return new NbtStructure<>(file);
     }
 
     @Override

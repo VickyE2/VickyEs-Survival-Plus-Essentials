@@ -10,7 +10,6 @@ import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
 import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
-import org.vicky.vspe.paper.BukkitPlatformDimension;
 import org.vicky.vspe.platform.defaults.SimpleWorldType;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
@@ -43,9 +42,10 @@ public class BukkitDescriptorBasedDimension extends BukkitBaseDimension {
                 descriptor.shouldGenerateStructures(),
                 descriptor.dimensionTypes(),
                 descriptor.identifier(),
-                descriptor.resolver()
+                descriptor.resolver(),
+                descriptor.oceanLevel()
         );
-        BukkitPlatformDimension platformDim = new BukkitPlatformDimension(descriptor, getWorld().getBukkitWorld());
+        // BukkitPlatformDimension platformDim = new BukkitPlatformDimension(descriptor, getWorld().getBukkitWorld());
         VSPEBukkitDimensionManager.GENERATORS.get(cleanNamespace(descriptor.name())); //.attachDimension(platformDim);
     }
 

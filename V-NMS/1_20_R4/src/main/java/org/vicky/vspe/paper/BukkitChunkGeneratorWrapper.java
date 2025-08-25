@@ -7,7 +7,7 @@ import org.bukkit.generator.ChunkGenerator;
 import org.bukkit.generator.WorldInfo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.vicky.vspe.nms.impl.NMSChunkGenerator;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
 
 import java.util.List;
@@ -20,19 +20,18 @@ import java.util.List;
  */
 public class BukkitChunkGeneratorWrapper extends ChunkGenerator {
     private final BiomeResolver<BukkitBiome> resolver;
+    private final DimensionDescriptor descriptor;
 
     /**
      * Construct wrapper from a resolver + seed (creates the NMS generator)
      */
-    public BukkitChunkGeneratorWrapper(BiomeResolver<BukkitBiome> resolver, long seed) {
-        this.resolver = resolver;
+    public BukkitChunkGeneratorWrapper(DimensionDescriptor resolver, long seed) {
+        this.resolver = (BiomeResolver<BukkitBiome>) resolver.resolver();
+        this.descriptor = resolver;
     }
 
-    /**
-     * Alternative: construct with an already-created NMSChunkGenerator (if you prefer)
-     */
-    public BukkitChunkGeneratorWrapper(BiomeResolver<BukkitBiome> resolver, NMSChunkGenerator delegate) {
-        this.resolver = resolver;
+    public DimensionDescriptor getDescriptor() {
+        return descriptor;
     }
 
     @Override
