@@ -27,7 +27,8 @@ public class ProceduralBranchedTreeGenerator<T> extends
     private final boolean cheapMode;
     private final float qualityFactor;
     private final LeafType type;
-    private final Map<T, Object> params;
+    private final Map<String, Object> params;
+    private final List<Builder.BlockSeqEntry<T>> seq;
 
     public ProceduralBranchedTreeGenerator(Builder<T> b) {
         b.validate();
@@ -49,17 +50,36 @@ public class ProceduralBranchedTreeGenerator<T> extends
         this.branchLengthRatioToHeight = b.branchLengthRatioTOHeight;
         this.maxPitch = b.maxPitch;
         this.minPitch = b.minPitch;
+        this.seq = b.seq;
         this.maxBranchThickness = b.maxBranchThickness;
         this.maxBranchShrink = b.maxBranchShrink;
         this.branchShrinkPerLevel = b.branchShrinkPerLevel;
         this.type = b.leafType;
-        this.params = b.params;
+        this.params = b.params != null ? b.params : Collections.emptyMap();
     }
 
     @Override
     public BlockVec3i getApproximateSize() {
-        return null;
+        // Conservative horizontal radius:
+        // trunk radius + main branch reach + branch thickness + small margin
+        int horizRadius = maxTrunkThickness + maxWidth + maxBranchThickness + 3;
+
+        // Width and depth (square footprint)
+        int width = horizRadius * 2 + 1;
+
+        // Vertical extents:
+        // upward: main trunk height + branch vertical excursion + a margin
+        int up = maxHeight + maxBranchThickness + 3;
+
+        // downward: if roots enabled, roots extend up to ~maxHeight/2 below origin,
+        // plus branch thickness margin; otherwise just a small margin for rooty bits
+        int down = (roots ? (maxHeight / 2) : 0) + maxBranchThickness + 3;
+
+        int height = up + down + 1; // +1 to be safe (inclusive bounds)
+
+        return new BlockVec3i(width, height, width);
     }
+
 
     @Override
     protected void performGeneration(RandomSource rnd, Vec3 origin, List<BlockPlacement<T>> outPlacements, Map<Long, BiConsumer<PlatformWorld<T, ?>, Vec3>> outActions) {
@@ -69,7 +89,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
     public void generateAsync(RandomSource rnd,
                               Vec3 origin) {
         calculateTrunk(origin, rnd);
-        if (roots) calculateRoots(origin);
+        if (roots) calculateRoots(origin, rnd);
     }
 
     private static double clamp(double v, double min, double max) {
@@ -132,7 +152,8 @@ public class ProceduralBranchedTreeGenerator<T> extends
                                double parentR,
                                Vec3 dir) {
         // 1) stop if too thin or too deep
-        if(parentR < 1 || level >= 4) return;
+        // safe upper bound: avoid runaway recursion; use branchThreshold as the main limit
+        if (parentR < 1 || level >= Math.max(4, branchThreshold)) return;
 
         double depthFactor = Math.pow(1.0 - (level / (double)branchThreshold), 1.5);
         double spawnChance = randomness * depthFactor;
@@ -142,14 +163,17 @@ public class ProceduralBranchedTreeGenerator<T> extends
         int branchRadius = (int)Math.round(currR);
 
         // 3) fixed straight-line length (no extra randomness here)
-        int len = (int) (maxWidth / Math.max(1, branchLengthRatioToHeight * level));
+        int denom = Math.max(1, Math.round(branchLengthRatioToHeight * Math.max(1, level)));
+        int len = (int) Math.max(1, Math.round(maxWidth / (double) denom));
+        len = Math.min(len, maxWidth * 2); // arbitrary cap
+
         if(cheapMode) len = (int)(len * qualityFactor);
 
         // 4) march straight out
         int ox = origin.getX(), oy = origin.getY(), oz = origin.getZ();
         int lastDx = 0, lastDy = 0, lastDz = 0;
 
-        int maxChildren = branchThreshold / (level + 2);
+        int maxChildren = Math.max(1, branchThreshold / (level + 2));
         int spawned      = 0;
         boolean placed   = false;
         int minStep = Math.max(1, branchRadius/2);
@@ -171,6 +195,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
             if(j == len || dd >= thresholdSq) {
                 // place the cylinder slice
                 guardAndStore(bx, by, bz, branchRadius, wood, true);
+
                 // decorators…
                 for(var d : decorators) if(rnd.nextFloat() < d.chance) {
                     for(var ori : d.orientations) {
@@ -181,9 +206,18 @@ public class ProceduralBranchedTreeGenerator<T> extends
                             case LEFT   -> tx -= branchRadius + 1;
                             case RIGHT  -> tx += branchRadius + 1;
                         }
-                        guardAndAction(tx, ty, bz, d.action);
+                        // capture coordinate in action wrapper so actions executed later get correct Vec3
+                        int fx = tx, fy = ty, fz = bz;
+                        guardAndAction(fx, fy, fz, (w, v) -> d.action.accept(w, new Vec3(fx, fy, fz)));
                     }
                 }
+
+                // Put dangling leaves at joint locations (where sub-branches may spawn) — makes dangling actually hang from joints.
+                if (addLeaves && type == LeafType.DANGLING) {
+                    // attach a small cluster of dangling chains around this stamp point
+                    attachHangingChain(bx, by, bz, branchRadius, rnd);
+                }
+
                 // **only here** do we optionally spawn a sub-branch
                 boolean inRange = j >= len * 0.6 && j <= len * 0.9;
                 if(!placed
@@ -249,8 +283,10 @@ public class ProceduralBranchedTreeGenerator<T> extends
             lastDz = dz;
         }
         if (level+1 == branchThreshold && addLeaves) {
-            setLeaves(new Vec3(lastDx, lastDy, lastDz));
+            // lastDx/lastDy/lastDz are offsets from the branch's origin (ox,oy,oz)
+            setLeaves(new Vec3(ox + lastDx, oy + lastDy, oz + lastDz));
         }
+
         if(level + 2 == branchThreshold) {
             // 1) Build only the upper hemisphere directions
             List<Vec3> hemiAll = fibonacciHemisphere(branchThreshold * 2);
@@ -303,6 +339,76 @@ public class ProceduralBranchedTreeGenerator<T> extends
 
     }
 
+    /**
+     * Helper — attach several dangling leaf chains around a joint position.
+     */
+    // Convenience: previous call-site compatibility
+    private void attachHangingChain(int bx, int by, int bz, int branchRadius, RandomSource rnd) {
+        // number of strands around the rim: proportional to branch radius (clamped)
+        int strands = Math.max(1, Math.min(8, branchRadius * 2));
+        double angleStep = 2 * Math.PI / strands;
+        int maxLen = Math.max(3, branchRadius * 3); // chain length scale
+        int thickStart = Math.max(0, branchRadius / 2); // fluff at top
+        int thickEnd = 0; // taper at tip
+
+        for (int s = 0; s < strands; s++) {
+            double a = s * angleStep + (rnd.nextDouble() * angleStep * 0.5 - angleStep * 0.25);
+            int ox = bx + (int) Math.round(Math.cos(a) * (branchRadius + 0.5));
+            int oz = bz + (int) Math.round(Math.sin(a) * (branchRadius + 0.5));
+            // small random variation in length
+            int len = (int) Math.max(1, Math.round(maxLen * (0.7 + rnd.nextDouble() * 0.6)));
+            attachHangingChain(ox, by - 1, oz, len, thickStart, thickEnd, rnd);
+        }
+    }
+
+    /**
+     * Attach a hanging chain at (bx,by,bz).
+     * - length: number of vertical steps (int)
+     * - seq: ordered list of BlockSeqEntry describing gradient segments (0.0..1.0)
+     * - thickStart/thickEnd: radii at top(0) and bottom(1) (ints, can be 0..n)
+     * - tipClusterChance: chance to place final cluster (amethyst etc)
+     */
+    private void attachHangingChain(
+            int bx, int by, int bz,
+            int length,
+            int thickStart,
+            int thickEnd,
+            RandomSource rnd
+    ) {
+        if (length <= 0) return;
+        length = Math.max(1, length);
+
+        for (int i = 0; i < length; i++) {
+            // norm: 0 at top/joint, 1 at bottom/tip
+            double norm = length == 1 ? 1.0 : (double) i / (double) (length - 1);
+
+            // pick block by first matching range, otherwise fallback to leaves or last sequence
+            PlatformBlockState<T> chosen = null;
+            if (seq != null && !seq.isEmpty()) {
+                for (Builder.BlockSeqEntry<T> e : seq) {
+                    if (e.contains(norm)) {
+                        chosen = e.state;
+                        break;
+                    }
+                }
+                if (chosen == null) chosen = seq.getLast().state;
+            }
+            if (chosen == null) chosen = leaves; // fallback to configured leaves block
+
+            // thickness interpolation (top -> bottom)
+            int radius = (int) Math.round(thickStart * (1.0 - norm) + thickEnd * norm);
+            radius = Math.max(0, radius);
+
+            int px = bx;
+            int py = by - i; // drop downwards
+            int pz = bz;
+
+            // use sphere/disc when radius>0 for fluff, otherwise single block
+            guardAndStore(px, py, pz, radius, chosen, radius > 0);
+        }
+    }
+
+
     public enum LeafType {
         NORMAL,
         DANGLING,
@@ -315,7 +421,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
      */
     public void setLeaves(Vec3 origin) {
         int tx = origin.getX(), ty = origin.getY(), tz = origin.getZ();
-        int thickness = (int) params.getOrDefault("thickness", 2);
+        int thickness = ((Number) params.getOrDefault("thickness", 2)).intValue();
         switch(type) {
             case NORMAL -> {
                 // filled sphere radius = thickness
@@ -329,7 +435,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
             }
             case DANGLING -> {
                 // vertical chain downwards of length `length`
-                int length = (int) params.getOrDefault("length", 5);
+                int length = ((Number) params.getOrDefault("length", 5)).intValue();
                 for(int d = 0; d < length; d++) {
                     int y = ty - d;
                     guardAndStore(tx, y, tz, leaves, false, thickness);
@@ -349,24 +455,78 @@ public class ProceduralBranchedTreeGenerator<T> extends
         }
     }
 
-    // — Roots as large flat discs —
-    private void calculateRoots(Vec3 o) {
+    // — Roots as radial spokes that drop into the ground —
+    // — Roots as radial spokes that drop into the ground (improved rooting) —
+    private void calculateRoots(Vec3 o, RandomSource rnd) {
         int ox = o.getX(), oy = o.getY(), oz = o.getZ();
-        int h = maxHeight / 2, w3 = maxWidth * 3;
-        for (int dy = 0; dy < h; dy++) {
-            int r = (int) (w3 * (1 - dy / (double) h));
-            guardAndStore(ox, oy - dy, oz, wood, false, r);
+        int maxLen = Math.max(4, maxWidth * 3);
+        int spokes = Math.max(6, maxWidth * 2);
+
+        int maxProbeDepth = Math.max(4, maxHeight / 2); // how far down we search for ground
+
+        for (int s = 0; s < spokes; s++) {
+            double angle = rnd.nextDouble() * TAU;
+            double ax = Math.cos(angle), az = Math.sin(angle);
+
+            // choose an outward extent (not all the way to maxLen every time)
+            int ext = (int) Math.round(maxLen * (0.5 + rnd.nextDouble() * 0.5));
+
+            // compute the final projected endpoint at surface
+            int rx = ox + (int) Math.round(ax * ext);
+            int rz = oz + (int) Math.round(az * ext);
+
+            // scan downwards to find first non-air (queued or previously placed)
+            int groundY = Integer.MIN_VALUE;
+            for (int probe = 0; probe <= maxProbeDepth; probe++) {
+                int testY = oy - probe;
+                PlatformBlockState<T> st = getQueuedState(rx, testY, rz);
+                if (st != null && !st.getId().equals("minecraft:air")) {
+                    groundY = testY;
+                    break;
+                }
+            }
+            // If we didn't find a ground block in the probe range, default to oy - maxProbeDepth
+            if (groundY == Integer.MIN_VALUE) {
+                groundY = oy - maxProbeDepth;
+            }
+
+            // Build the root as a tapering column from trunk base down/out to groundY
+            // We'll step along the line from trunk base (ox,oy,oz) -> (rx,groundY,rz)
+            int dx = rx - ox, dz = rz - oz, dy = groundY - oy;
+            int steps = Math.max(1, (int) Math.ceil(Math.hypot(Math.hypot(dx, dy), dz)));
+            for (int i = 1; i <= steps; i++) {
+                double t = i / (double) steps;
+                int px = ox + (int) Math.round(dx * t);
+                int pz = oz + (int) Math.round(dz * t);
+                int py = oy + (int) Math.round(dy * t);
+
+                // taper radius: thicker near trunk
+                double fracFromBase = 1.0 - t;
+                int r = Math.max(0, (int) Math.round((maxTrunkThickness / 2.0) * fracFromBase));
+
+                guardAndStore(px, py, pz, r, wood, r > 0);
+            }
+
+            // At the ground contact, optionally place a little clamp / rootlet deeper
+            if (rnd.nextDouble() < 0.4) {
+                int probeDown = 1 + rnd.nextInt(0, Math.max(1, maxProbeDepth / 3));
+                for (int k = 1; k <= probeDown; k++) {
+                    guardAndStore(rx, groundY - k, rz, 0, wood, false);
+                }
+            }
         }
     }
 
+
     public static class Builder<T> extends
             BaseBuilder<T, ProceduralBranchedTreeGenerator<T>> {
+        public List<BlockSeqEntry<T>> seq = new ArrayList<>();
         int maxTrunkThickness = 6, maxHeight = 20, maxWidth = 10, branchThreshold = 3, maxBranchThickness = 5;
         boolean roots = false, addLeaves = false, hollow = false, cheapMode = false;
         float randomness = 0.5f, twistiness = 0.2f, qualityFactor = 0.4f, branchStart=0.4f, branchLengthRatioTOHeight=0.3f, maxBranchShrink = 0.2f, minPitch = 0.1f, maxPitch = 0.3f, branchShrinkPerLevel = 0.7f;
         PlatformBlockState<T> woodMaterial, leavesMaterial;
         LeafType leafType;
-        Map<T, Object> params;
+        Map<String, Object> params;
         final List<DecoratorEntry<T>> decoratorEntries = new ArrayList<>();
 
         /**
@@ -376,11 +536,21 @@ public class ProceduralBranchedTreeGenerator<T> extends
          *                  - "thickness": integer radius for NORMAL/BUSHY, thickness for DANGLING
          *                  - "length":    integer length for DANGLING only
          */
-        public Builder<T> setLeaf(PlatformBlockState<T> leafState, LeafType leafType, Map<T, Object> params) {
+        public Builder<T> setLeaf(PlatformBlockState<T> leafState, LeafType leafType, Map<String, Object> params) {
             this.leavesMaterial = leafState;
             this.leafType = leafType;
             this.params = params;
             this.addLeaves = true;
+            return this;
+        }
+
+        public Builder<T> addDanglingSequence(BlockSeqEntry<T> entry) {
+            this.seq.add(entry);
+            return this;
+        }
+
+        public Builder<T> addDanglingSequences(List<BlockSeqEntry<T>> entry) {
+            this.seq.addAll(entry);
             return this;
         }
 
@@ -474,20 +644,15 @@ public class ProceduralBranchedTreeGenerator<T> extends
             this.maxBranchThickness = i;
             return this;
         }
-        /*
-        public Builder<T> branchLengthReduction(float p) {
-            branchLengthRatioTOHeight = p;
-            return this;
-        }
-         */
 
         public Builder<T> addDecoration(float c,
                                         BiConsumer<PlatformWorld<T, ?>, Vec3> a,
-                                     Orientation... o) {
+                                        Orientation... o) {
             decoratorEntries.add(new DecoratorEntry<>(a, c,
                     EnumSet.copyOf(Arrays.asList(o))));
             return this;
         }
+
 
         @Override
         public void validate() {
@@ -549,7 +714,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
             if (minPitch < 0f || maxPitch < 0f || maxPitch < minPitch)
                 throw new IllegalArgumentException("Invalid pitch range: min=" + minPitch + ", max=" + maxPitch);
 
-                        // === Decorations Check (optional) ===
+            // === Decorations Check (optional) ===
             for (DecoratorEntry<T> entry : decoratorEntries) {
                 if (entry == null || entry.action == null || entry.orientations == null || entry.orientations.isEmpty()) {
                     throw new IllegalArgumentException("Invalid decorator entry found");
@@ -575,6 +740,30 @@ public class ProceduralBranchedTreeGenerator<T> extends
                 orientations = o;
             }
         }
+
+        // small helper class (put it inside the generator class or as static nested)
+        public static final class BlockSeqEntry<T> {
+            public final PlatformBlockState<T> state;
+            public final double startNorm; // inclusive
+            public final double endNorm;   // inclusive
+            public final double weight;    // optional, currently unused but handy
+
+            public BlockSeqEntry(PlatformBlockState<T> state, double s, double e) {
+                this(state, s, e, 1.0);
+            }
+
+            public BlockSeqEntry(PlatformBlockState<T> state, double s, double e, double w) {
+                this.state = state;
+                this.startNorm = Math.max(0.0, Math.min(1.0, s));
+                this.endNorm = Math.max(0.0, Math.min(1.0, e));
+                this.weight = w;
+            }
+
+            public boolean contains(double norm) {
+                return norm >= startNorm && norm <= endNorm;
+            }
+        }
+
     }
 
     public enum Orientation {TOP, BOTTOM, LEFT, RIGHT}

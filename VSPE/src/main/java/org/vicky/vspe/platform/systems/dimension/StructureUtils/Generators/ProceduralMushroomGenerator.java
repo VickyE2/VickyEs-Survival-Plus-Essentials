@@ -54,22 +54,42 @@ public class ProceduralMushroomGenerator<T> extends
         this.spotFrequency = b.spotFrequency;
     }
 
+    /**
+     * Conservative bounding box:
+     * - horizontal radius covers cap radius max plus stem radius and a margin for tilt/overhang.
+     * - vertical covers stem max height + cap max height with a small margin.
+     */
     @Override
     public BlockVec3i getApproximateSize() {
-        return null;
+        // horizontal radius: stem + cap + tilt buffer
+        int horizRadius = capRadiusMax + stemRadius + 4 + (int) Math.ceil(stemHeightMax * 0.15);
+        int width = horizRadius * 2 + 1;
+        int depth = width;
+
+        // vertical: stem height (max) + cap height (max) + small margins
+        int up = stemHeightMax + capHeightMax + 4;
+        int down = 2;
+        int height = up + down + 1;
+
+        return new BlockVec3i(width, height, depth);
     }
 
     @Override
     protected void performGeneration(RandomSource rnd, Vec3 origin, List<BlockPlacement<T>> outPlacements, Map<Long, BiConsumer<PlatformWorld<T, ?>, Vec3>> outActions) {
         this.rnd = rnd;
-        this.stemHeight = rnd.nextInt(stemHeightMin, stemHeightMax);
+        // defensive: handle equal min/max ranges gracefully
+        if (stemHeightMax <= stemHeightMin) {
+            this.stemHeight = stemHeightMin;
+        } else {
+            this.stemHeight = rnd.nextInt(stemHeightMin, stemHeightMax);
+        }
         placeStem(origin);
     }
 
     private void placeStem(Vec3 origin) {
         final double maxYawRad = Math.toRadians(stemMaxTiltDeg); // e.g. 24°
-        final double maxPitchRad = Math.toRadians(stemMaxTiltDeg);             // only ±5° pitch
-        final double maxCumulative = Math.toRadians(stemMaxTiltDeg * 1.2);            // never lean more than 30°
+        final double maxPitchRad = Math.toRadians(stemMaxTiltDeg);             // only ±small pitch
+        final double maxCumulative = Math.toRadians(stemMaxTiltDeg * 1.2);            // clamp
         final double straighten = 0.4;
         double stepX = 0, stepZ = 0;
 
@@ -78,12 +98,9 @@ public class ProceduralMushroomGenerator<T> extends
 
         int finalX = 0, finalY = 0, finalZ = 0;
         Vector3 dir = Vector3.at(0, 1, 0);
-        /*
-        VSPEPlatformPlugin.platformLogger().info("📍  Placing stem at " +
-                origin.getX() + " " + origin.getY() + " " + origin.getZ());
-         */
+
         for (int i = 0; i < stemHeight; i++) {
-            double progress = i / (double) stemHeight; // 0 at base → 1 at top
+            double progress = i / (double) stemHeight; // avoid div by zero
             double minR = stemRadius * stemTaperMinPct; // e.g. 0.5
             double curr = stemRadius - (stemRadius - minR) * progress;
             int r = Math.max(1, (int) Math.round(curr));
@@ -106,57 +123,29 @@ public class ProceduralMushroomGenerator<T> extends
 
             // 3) yaw twist always allowed
             if (rnd.nextFloat() < stemTiltChance) {
-                /*
-                VSPEPlatformPlugin.platformLogger().info("Producing yaw twist...");
-                VSPEPlatformPlugin.platformLogger().info(String.format(
-                        "pre dir=(%.2f,%.2f,%.2f)",
-                        dir.x, dir.y, dir.z
-                ));
-                 */
                 double yawOff = (rnd.nextDouble() * 2 - 1) * maxYawRad;
                 dir = rotateAroundY(dir, yawOff).normalize();
-                /*
-                VSPEPlatformPlugin.platformLogger().info(String.format(
-                        "post dir=(%.2f,%.2f,%.2f)",
-                        dir.x, dir.y, dir.z
-                ));
-                 */
             }
 
             // 4) gentle pitch, capped by cumulativeTilt
-            if (rnd.nextFloat() < stemTiltChance * 0.5) {  // half chance for pitch
-                /*
-                VSPEPlatformPlugin.platformLogger().info("Producing pitch twist...");
-                 */
-                // pick a truly horizontal axis, ?OT dir.cross(Y):
+            if (rnd.nextFloat() < stemTiltChance * 0.5) {
                 double theta = rnd.nextDouble() * Math.PI * 2;
                 Vector3 hAxis = Vector3.at(Math.cos(theta), 0, Math.sin(theta));
-                /*
-                VSPEPlatformPlugin.platformLogger().info(String.format(
-                        "  pitch around axis=(%.2f,%.2f,%.2f)", hAxis.x, hAxis.y, hAxis.z
-                ));
-                 */
                 double pitchOff = (rnd.nextDouble() * 2 - 1) * maxPitchRad;
                 if (Math.abs(cumulativeTilt + pitchOff) <= maxCumulative) {
                     dir = rotateAroundAxis(dir, hAxis, pitchOff).normalize();
                     cumulativeTilt += pitchOff;
-                    /*
-                    VSPEPlatformPlugin.platformLogger().info(String.format(
-                            "  new dir=(%.2f,%.2f,%.2f)", dir.x, dir.y, dir.z
-                    ));
-                     */
                 }
             }
 
-            double minHoriz = 0.3; // tweak: 0.3 → ~0.5 block sideways per step
+            double minHoriz = 0.3; // tweak: ensures a little lateral motion otherwise stem would be perfectly vertical
             double hx = dir.getX(), hz = dir.getZ(), hy = dir.getY();
             double horiz = Math.hypot(hx, hz);
-            if(horiz < minHoriz) {
-                // scale XZ up so horiz == minHoriz
+            if (horiz < minHoriz) {
                 double scale = minHoriz / (horiz + 1e-6);
                 hx *= scale;
                 hz *= scale;
-                hy *= scale/2;
+                hy *= Math.max(0.1, scale / 2.0); // keep vertical reasonable
                 dir = Vector3.at(hx, hy, hz).normalize();
             }
 
@@ -171,15 +160,6 @@ public class ProceduralMushroomGenerator<T> extends
             x += dir.getX();
             y += dir.getY();
             z += dir.getZ();
-
-            /*
-            if (i % 5 == 0) {
-                VSPEPlatformPlugin.platformLogger().info(String.format(
-                        "step %d pos=(%.2f,%.2f,%.2f) horiz=(%.2f,%.2f)",
-                        i, x, y, z, stepX, stepZ
-                ));
-            }
-             */
         }
 
         // final cap placement
@@ -188,12 +168,18 @@ public class ProceduralMushroomGenerator<T> extends
 
 
     private void placeCap(Vec3 origin) {
-        /*
-        VSPEPlatformPlugin.platformLogger().info(String.format("Placing at %s %s %s", origin.getX(), origin.getY(), origin.getZ()));
-         */
-        int capMaxR = rnd.nextInt(capRadiusMin, capRadiusMax);
-        int capHeight = rnd.nextInt(capHeightMin, capHeightMax);
-        int startCap = rnd.nextInt((int) (capHeight / 2.5)) + 1;
+        // defensive sampling of ranges (min==max)
+        final int capMaxR;
+        if (capRadiusMax <= capRadiusMin) capMaxR = capRadiusMin;
+        else capMaxR = rnd.nextInt(capRadiusMin, capRadiusMax);
+
+        final int capHeight;
+        if (capHeightMax <= capHeightMin) capHeight = capHeightMin;
+        else capHeight = rnd.nextInt(capHeightMin, capHeightMax);
+
+        final int startCap;
+        if (capHeight <= 2) startCap = 1;
+        else startCap = rnd.nextInt(Math.max(1, capHeight / 4));
 
         Vec3 capBase = new Vec3(
                 origin.getX(),
@@ -213,7 +199,7 @@ public class ProceduralMushroomGenerator<T> extends
                 int gz = origin.getZ() + (int) Math.round(dz * d);
 
                 // interpolate y from origin.y down to capBase.y
-                double t = d / (double) capMaxR;
+                double t = d / (double) Math.max(1, capMaxR);
                 int gy = origin.getY() - (int) Math.round(drop * t);
 
                 guardAndStore(gx, gy, gz, ridgeMaterial, false, 1);
@@ -226,17 +212,17 @@ public class ProceduralMushroomGenerator<T> extends
         if (hasSpots) {
             used = new HashSet<>();
             spotShapes = new ArrayList<>();
-            int spotAttempts = (int) (spotFrequency * capMaxR * capMaxR);  // tune this value
+            int spotAttempts = Math.max(0, (int) (spotFrequency * capMaxR * capMaxR));  // tune this value
 
             for (int i = 0; i < spotAttempts; i++) {
-                int dy = rnd.nextInt(0, capHeight); // pick a vertical level
+                int dy = rnd.nextInt(0, Math.max(1, capHeight)); // pick a vertical level safely
                 int dx = rnd.nextInt(-capMaxR, capMaxR + 1);
                 int dz = rnd.nextInt(-capMaxR, capMaxR + 1);
                 double dist = Math.hypot(dx, dz);
                 if (dist > capMaxR || used.contains(Triplet.of(dx, dy, dz))) continue;
 
-                int radius = rnd.nextInt(1, 5);  // horizontal radius
-                int height = rnd.nextInt(2, 5); // vertical radius
+                int radius = Math.max(1, rnd.nextInt(1, 5));  // horizontal radius
+                int height = Math.max(1, rnd.nextInt(2, 5)); // vertical radius
 
                 spotShapes.add(new SpotShape(dx, dy, dz, radius, height));
                 used.add(Triplet.of(dx, dy, dz));
@@ -246,7 +232,7 @@ public class ProceduralMushroomGenerator<T> extends
         double[][] sliceProfiles = new double[capHeight + 1][];
 
         for (int dy = 0; dy <= capHeight; dy++) {
-            double yNorm = dy / (double) capHeight;
+            double yNorm = dy / (double) Math.max(1, capHeight);
             // 1️⃣ Compute the slice radius once
             double sliceFrac = capEquation.getHeight(0, yNorm, capHeight, rnd);
             int sliceR = (int) Math.round(capMaxR * sliceFrac);
@@ -256,7 +242,6 @@ public class ProceduralMushroomGenerator<T> extends
             double[] profiles = new double[sliceR + 1];
             for (int r = 0; r <= sliceR; r++) {
                 double xNorm = r / (double) sliceR;
-                // getHeight at (xNorm, yNorm)
                 profiles[r] = capEquation.getHeight(xNorm, yNorm, capHeight, rnd);
             }
             sliceProfiles[dy] = profiles;
@@ -276,19 +261,15 @@ public class ProceduralMushroomGenerator<T> extends
                     double profile = sliceProfiles[dy][distInt];
                     if (xNorm > profile) continue;
 
-                    // 5️⃣ Hollow-cap (example: inner 60% of big upper rings)
-                    double rel = sliceR / (double) capMaxR;     // in [0…1]
+                    // 5️⃣ Hollow-cap logic
+                    double rel = sliceR / (double) Math.max(1, capMaxR);     // in [0…1]
                     double hollowStart = 0.4;                   // 40% of max
                     double hollowMax   = 0.6;                   // 60% of that slice
 
-                    // compute how much hollow to apply on *this* slice:
-                    //   0 for rel<hollowStart
-                    //   linearly ramp from 0→hollowMax as rel goes hollowStart→1
                     double hollowFrac = rel <= hollowStart
                             ? 0
                             : hollowMax * ((rel - hollowStart) / (1 - hollowStart));
 
-                    // now your condition becomes:
                     if(hollowCap
                             && dy <= (capHeight * 0.3)                // only on bottom 30% of cap
                             && rel >= hollowStart                     // only on big enough rings
@@ -297,9 +278,9 @@ public class ProceduralMushroomGenerator<T> extends
                         continue;
                     }
 
-                    // 6️⃣ Spot logic as before…
+                    // 6️⃣ Spot logic
                     PlatformBlockState<T> mat = capMaterial;
-                    if (hasSpots) {
+                    if (hasSpots && spotShapes != null) {
                         for (SpotShape spot : spotShapes) {
                             int dxRel = dx - spot.dx,
                                     dyRel = dy - spot.dy,
@@ -325,17 +306,16 @@ public class ProceduralMushroomGenerator<T> extends
         }
     }
 
-
     /** cap height function interface */
     @FunctionalInterface
     public interface CapEquation {
         /**
          * @param xNorm  horizontal distance from cap center, normalized to [0…1]
          * @param yNorm  current vertical slice, normalized to [0…1]
-         * @param rnd    a Random, in case you want noise
+         * @param rnd    a RandomSource, in case you want noise
          * @return       maximum y-fraction that remains inside the cap at this x-slice
          */
-        double getHeight(double xNorm, double yNorm, double height, RandomSource rnd);
+        double getHeight(double xNorm, double yNorm, int height, RandomSource rnd);
     }
     record SpotShape(int dx, int dy, int dz, int r, int h) {}
 

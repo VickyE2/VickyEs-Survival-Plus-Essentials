@@ -33,6 +33,7 @@ public class ProceduralTubeGenerator<T>
     private final PlatformBlockState<T> coralMaterial, waterMaterial;
 
     public ProceduralTubeGenerator(Builder<T> b) {
+        b.validate();
         this.heightMin = b.heightMin;
         this.heightMax = b.heightMax;
         this.tubeRadius = b.tubeRadius;
@@ -46,23 +47,58 @@ public class ProceduralTubeGenerator<T>
         this.waterMaterial = b.waterMaterial;
     }
 
+    /**
+     * Conservative bounding box calculation:
+     * - horizontal: tubeRadius + worst-case flare + reservoir radius (if used) + margin
+     * - vertical: heightMax + small cap/rim margin above, plus reservoir depth below (if used)
+     * <p>
+     * This intentionally overestimates a little so chunk bucketing/placement never runs out of space.
+     */
     @Override
     public BlockVec3i getApproximateSize() {
-        return null;
+        // compute worst-case flare using heightMax
+        int flareStartY = (int) Math.floor(flareStartPercentage * heightMax);
+        int flareHeight = Math.max(0, heightMax - flareStartY);
+        // worst-case extra horizontal due to quadratic flare: slopeCoef * (flareHeight)^2
+        int maxFlare = (int) Math.ceil(slopeCoef * (flareHeight * (double) flareHeight));
+
+        int horizRadius = tubeRadius + maxFlare + wallThickness + 4; // +4 margin for rounding/rotation
+        // If we include reservoir, it can be wider than the flared tube; account for it.
+        if (includeSphereReservoir) {
+            horizRadius = Math.max(horizRadius, reservoirRadius + 4);
+        }
+
+        int width = horizRadius * 2 + 1;
+        int depth = width;
+
+        // vertical: top = heightMax plus rim/cap margin; bottom = reservoir depth (if included)
+        int up = heightMax + 4; // some headroom
+        int down = includeSphereReservoir ? reservoirRadius + 2 : 2; // small margin below
+        int height = up + down + 1;
+
+        return new BlockVec3i(width, height, depth);
     }
 
     @Override
     protected void performGeneration(RandomSource rnd, Vec3 origin, List<BlockPlacement<T>> outPlacements, Map<Long, BiConsumer<PlatformWorld<T, ?>, Vec3>> outActions) {
         this.rnd = rnd;
-        int height = rnd.nextInt(heightMin, heightMax + 1);
-        int flareStartY = (int) (flareStartPercentage * height);
+        // defensive: if bounds degenerate, use min
+        final int height;
+        if (heightMax <= heightMin) {
+            height = heightMin;
+        } else {
+            // RandomSource.nextInt(start, bound) expects bound > start; we pass heightMax+1 to make end inclusive
+            height = rnd.nextInt(heightMin, heightMax + 1);
+        }
+
+        int flareStartY = (int) Math.floor(flareStartPercentage * height);
 
         // Cache scanlines up to maximum needed radius (tube flare or reservoir)
         int maxFlare = (int) Math.round(slopeCoef * (height - flareStartY) * (height - flareStartY));
         int tubeMaxR = tubeRadius + maxFlare;
         int absMax = includeSphereReservoir ? Math.max(tubeMaxR, reservoirRadius) : tubeMaxR;
         Map<Integer, short[]> scanCache = new HashMap<>();
-        for(int r = 0; r <= absMax; r++) {
+        for (int r = 0; r <= absMax; r++) {
             scanCache.put(r, StructureCacheUtils.getDiscScanlineWidths(r));
         }
 
@@ -75,13 +111,13 @@ public class ProceduralTubeGenerator<T>
         }
 
         // Optional rim cap at top
-        if(includeRimCap) {
+        if (includeRimCap) {
             int capY = origin.getY() + height + 1;
-            drawRing(origin.getX(), capY, origin.getZ(), tubeRadius, tubeRadius - wallThickness, scanCache);
+            drawRing(origin.getX(), capY, origin.getZ(), tubeRadius, Math.max(tubeRadius - wallThickness, 0), scanCache);
         }
 
         // Optional spherical reservoir beneath the tube (shell only)
-        if(includeSphereReservoir) {
+        if (includeSphereReservoir) {
             int centerY = origin.getY() - reservoirRadius;
             drawSphereShell(origin.getX(), centerY, origin.getZ(), reservoirRadius);
         }
@@ -97,10 +133,11 @@ public class ProceduralTubeGenerator<T>
         for (int dz = -outerR; dz <= outerR; dz++) {
             int oHalf = outerScan[dz + outerR];
             int iHalf = -1;
-            if(innerScan != null && dz >= -innerR && dz <= innerR) {
+            if (innerScan != null && dz >= -innerR && dz <= innerR) {
                 iHalf = innerScan[dz + innerR];
             }
             for (int dx = -oHalf; dx <= oHalf; dx++) {
+                // place coral only in the ring (outside inner radius)
                 if (dx > iHalf || dx < -iHalf) {
                     guardAndStore(cx + dx, cy, cz + dz, coralMaterial, false);
                 }
@@ -110,28 +147,34 @@ public class ProceduralTubeGenerator<T>
 
     /**
      * Draws a one-block-thick spherical shell of coral material.
+     * Also places water inside the shell (one-block-thick reservoir).
      */
     private void drawSphereShell(int cx, int cy, int cz, int radius) {
+        if (radius <= 0) return;
         // Iterate vertical slices
-        for(int dy = -radius; dy <= radius; dy++) {
+        for (int dy = -radius; dy <= radius; dy++) {
             int y = cy + dy;
-            double sliceRadius = Math.sqrt(radius * radius - dy * dy);
-            int outerR = (int)Math.floor(sliceRadius);
+            double sliceRadius = Math.sqrt(radius * (double) radius - dy * (double) dy);
+            int outerR = (int) Math.floor(sliceRadius);
             int innerR = outerR - 1;
             // Use scanlines dynamically since radius varies per slice
             short[] outerScan = StructureCacheUtils.getDiscScanlineWidths(outerR);
             short[] innerScan = innerR >= 0 ? StructureCacheUtils.getDiscScanlineWidths(innerR) : null;
-            for(int dz = -outerR; dz <= outerR; dz++) {
+            for (int dz = -outerR; dz <= outerR; dz++) {
                 int oHalf = outerScan[dz + outerR];
                 int iHalf = -1;
-                if(innerScan != null && dz >= -innerR && dz <= innerR) {
+                if (innerScan != null && dz >= -innerR && dz <= innerR) {
                     iHalf = innerScan[dz + innerR];
                 }
-                for(int dx = -oHalf; dx <= oHalf; dx++) {
-                    if(dx > iHalf || dx < -iHalf) {
+                for (int dx = -oHalf; dx <= oHalf; dx++) {
+                    if (dx > iHalf || dx < -iHalf) {
+                        // shell block
                         guardAndStore(cx + dx, y, cz + dz, coralMaterial, false);
                     } else {
-                        guardAndStore(cx + dx, y, cz + dz, waterMaterial, false);
+                        // inside the shell — put water (or the configured water material)
+                        if (waterMaterial != null) {
+                            guardAndStore(cx + dx, y, cz + dz, waterMaterial, false);
+                        }
                     }
                 }
             }
@@ -198,10 +241,12 @@ public class ProceduralTubeGenerator<T>
 
         public void validate() {
             Objects.requireNonNull(coralMaterial, "Coral material must be set");
-            if(heightMin > heightMax) throw new IllegalArgumentException("heightMin > heightMax");
-            if(wallThickness < 1) throw new IllegalArgumentException("Wall thickness must be >=1");
-            if(flareStartPercentage < 0 || flareStartPercentage > 1) throw new IllegalArgumentException("flareStartPercentage must be between 0 and 1");
-            if(slopeCoef > 0.5) throw new IllegalArgumentException("Slope coefficient is too large... please use a lower value...");
+            if (heightMin > heightMax) throw new IllegalArgumentException("heightMin > heightMax");
+            if (wallThickness < 1) throw new IllegalArgumentException("Wall thickness must be >=1");
+            if (flareStartPercentage < 0 || flareStartPercentage > 1)
+                throw new IllegalArgumentException("flareStartPercentage must be between 0 and 1");
+            if (slopeCoef > 0.5)
+                throw new IllegalArgumentException("Slope coefficient is too large... please use a lower value...");
         }
 
         @Override

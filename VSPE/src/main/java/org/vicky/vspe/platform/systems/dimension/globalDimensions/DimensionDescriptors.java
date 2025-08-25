@@ -14,7 +14,8 @@ public final class DimensionDescriptors {
                     true,
                     List.of(DimensionType.FROZEN_WORLD, DimensionType.ELEMENTAL_WORLD),
                     "vspe:crymorra",
-                    BiomeResolvers.getInstance().CRYMORRA_BIOME_RESOLVER()
+                    BiomeResolvers.getInstance().CRYMORRA_BIOME_RESOLVER(),
+                    64
             );
 
     static {

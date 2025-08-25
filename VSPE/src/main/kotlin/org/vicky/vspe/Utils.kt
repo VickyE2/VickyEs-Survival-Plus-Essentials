@@ -122,7 +122,7 @@ fun distance(
 }
 
 enum class StructureTag {
-    RUINS, DUNGEON, VILLAGE, OCEAN, SKY, NETHER, FROZEN, ANCIENT
+    RUINS, DUNGEON, VILLAGE, OCEAN, SKY, NETHER, FROZEN, ANCIENT, TREELIKE
 }
 
 typealias PaletteFunction = (

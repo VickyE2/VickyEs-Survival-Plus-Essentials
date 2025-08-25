@@ -10,5 +10,6 @@ public record DimensionDescriptor(
         boolean shouldGenerateStructures,
         List<DimensionType> dimensionTypes,
         String identifier,
-        BiomeResolver<?> resolver) {
+        BiomeResolver<?> resolver,
+        int oceanLevel) {
 }

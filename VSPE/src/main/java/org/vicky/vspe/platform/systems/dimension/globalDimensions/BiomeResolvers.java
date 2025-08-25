@@ -2,6 +2,7 @@ package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
 import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
+import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
@@ -159,13 +160,13 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 /*BiomeBlockDistributionPalette.Companion.empty()*/
                 new BiomeBlockDistributionPaletteBuilder<>()
                         .addLayer(319, -64,
-                                VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("crymorra:magenta_grass_block"))
+                                PlatformPlugin.stateFactory().getBlockState("crymorra:magenta_grass_block")
                         )
                         .addShoreLayer(3, 5,
-                                VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("vspe:pink_sand"))
+                                PlatformPlugin.stateFactory().getBlockState("vspe:pink_sand")
                         )
                         .addUnderwaterLayer(0, 40,
-                                VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("minecraft:mud"))
+                                PlatformPlugin.stateFactory().getBlockState("minecraft:mud")
                         )
                         .build(),
                 List.of(
@@ -213,7 +214,7 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 /*BiomeBlockDistributionPalette.Companion.empty()*/
                 new BiomeBlockDistributionPaletteBuilder<>()
                         .addLayer(319, -64,
-                                VSPEPlatformPlugin.blockStateCreator().getBlockState(ResourceLocation.from("crymorra:magenta_grass_block")),
+                                PlatformPlugin.stateFactory().getBlockState("crymorra:magenta_grass_block"),
                                 1.0)
                         .build(),
                 List.of(

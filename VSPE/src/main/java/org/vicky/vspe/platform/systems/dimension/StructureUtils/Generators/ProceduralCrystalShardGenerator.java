@@ -15,7 +15,7 @@ import org.vicky.vspe.platform.utilities.Math.Vector3;
 import java.util.*;
 import java.util.function.BiConsumer;
 
-import static java.lang.Math.*;
+import static java.lang.Math.PI;
 
 /**
  * Generates crystal shards in different states (NORMAL, SLIGHTLY_BROKEN, CRACKED, CLUSTERED),
@@ -48,6 +48,7 @@ public class ProceduralCrystalShardGenerator<T> extends
     private final double crackFrac, crackThickness, crackChance;
 
     public ProceduralCrystalShardGenerator(Builder<T> b) {
+        b.validate();
         this.state = b.state;
         this.height = b.height;
         this.width = b.width;
@@ -75,9 +76,25 @@ public class ProceduralCrystalShardGenerator<T> extends
         this.crackFrac = b.crackFrac;
         this.crackThickness = b.crackThickness;
     }
+
+    /**
+     * Conservative bounding box:
+     * - horizontal radius covers primary shard width plus cluster children and tip offsets
+     * - vertical includes whole shard height and a bit of margin
+     */
     @Override
     public BlockVec3i getApproximateSize() {
-        return null;
+        // Conservative horizontal radius: shard width plus potential cluster offsets and height
+        int horizRadius = width * 3 + (int) Math.ceil(height * 0.5) + 4;
+        int w = horizRadius * 2 + 1;
+        int d = w;
+
+        // Vertical: account for upward shard height and a small downward root/margin
+        int up = height + 4; // headroom for rotated tip/children
+        int down = 2; // usually shards sit on surface: tiny downward allowance
+        int h = up + down + 1;
+
+        return new BlockVec3i(w, h, d);
     }
 
     @Override
@@ -87,14 +104,14 @@ public class ProceduralCrystalShardGenerator<T> extends
 
         // Clustered children
         if(state == State.CLUSTERED) {
-            int count = rnd.nextInt(1, maxChildren + 1);
+            int count = this.rnd.nextInt(1 + maxChildren); // inclusive 0..maxChildren
             for(int i=0;i<count;i++) {
-                double shrink = minShrink + rnd.nextDouble()*(maxShrink-minShrink);
-                int h2 = (int)(height * shrink);
-                int w2 = max(1, (int)(width * shrink));
-                double angle = rnd.nextDouble()*2*PI;
-                int dx = (int)((width + w2) * cos(angle));
-                int dz = (int)((width + w2) * sin(angle));
+                double shrink = minShrink + this.rnd.nextDouble() * (maxShrink - minShrink);
+                int h2 = Math.max(1, (int) (height * shrink));
+                int w2 = Math.max(1, (int) (width * shrink));
+                double angle = this.rnd.nextDouble() * 2 * PI;
+                int dx = (int) Math.round((width + w2) * Math.cos(angle));
+                int dz = (int) Math.round((width + w2) * Math.sin(angle));
                 Vec3 childOrigin = origin.add(dx, 0, dz);
                 generateShard(rnd, childOrigin, h2, w2, new ArrayList<>());
             }
@@ -131,10 +148,10 @@ public class ProceduralCrystalShardGenerator<T> extends
 
         // 1) fill the shard
         for (int y = 0; y <= h; y++) {
-            double t = (double)y / h;
+            double t = (double) y / (double) h;
             // piecewise radius for tiny tips + full body
             double radiusF;
-            if (y > h - tipHeight) {
+            if (y > h - tipHeight && tipHeight > 0.0) {
                 radiusF = w * ((h - y) / tipHeight);
             } else {
                 radiusF = w;
@@ -199,7 +216,7 @@ public class ProceduralCrystalShardGenerator<T> extends
 
                         PlatformBlockState<T> glowState = (PlatformBlockState<T>) PlatformPlugin.stateFactory()
                                 .getBlockState("minecraft:light[level=" + (int) (glowLightLevel * 15)
-                                                                + ",waterlogged=" + glowUw + "]");
+                                        + ",waterlogged=" + glowUw + "]");
                         guardAndStore(gx, gy, gz, glowState, false);
                     }
                 }
@@ -210,12 +227,19 @@ public class ProceduralCrystalShardGenerator<T> extends
 
     /**
      * Simulates a chunk of the shard breaking off and rotating away.
+     *
+     * Fixed: replaced wrong Random.nextFloat(a,b) usage with correct sampling.
      */
     private void simulateSlightBreak(Vec3 origin,
                                      List<Vec3> placed) {
         VSPEPlatformPlugin.platformLogger().info("🔨 simulateSlightBreak called! placed.size()=" + placed.size());
-        int breakY = (int) (rnd.nextFloat(breakHeightMin, breakHeightMax + 1) * height);
+
+        // sample fractional break height in [breakHeightMin, breakHeightMax]
+        double frac = breakHeightMin + rnd.nextDouble() * (breakHeightMax - breakHeightMin);
+        int breakY = origin.getY() + (int) Math.round(frac * (double) height);
+
         VSPEPlatformPlugin.platformLogger().info("   → breakY = " + breakY);
+
         double yawOff   = Math.toRadians(breakYawMin + rnd.nextDouble() * (breakYawMax - breakYawMin));
         double pitchOff = Math.toRadians(breakPitchMin + rnd.nextDouble() * (breakPitchMax - breakPitchMin));
         double maxShift = Math.max(width, height) * 0.5;
@@ -243,7 +267,7 @@ public class ProceduralCrystalShardGenerator<T> extends
         // 3) split your placed blocks into “base” vs. “to move”
         for (Vec3 pos : new ArrayList<>(placed)) {
             int relY = pos.getY() - origin.getY();
-            if (relY >= breakY) {
+            if (relY >= (breakY - origin.getY())) {
                 // capture its state (fall back to air if null)
                 PlatformBlockState<T> bs = getQueuedState(pos.getX(), pos.getY(), pos.getZ());
                 removedPos.add(pos);
@@ -258,10 +282,10 @@ public class ProceduralCrystalShardGenerator<T> extends
             Vec3 old    = removedPos .get(i);
             PlatformBlockState<T> state  = removedState.get(i);
 
-            // a) local vector from the break plane
+            // a) local vector from the break plane (pivot Y = origin.Y + breakY - origin.Y)
             Vector3 rel = Vector3.at(
                     old.getX() - origin.getX(),
-                    old.getY() - (origin.getY() + breakY),
+                    old.getY() - breakY,
                     old.getZ() - origin.getZ()
             );
 
@@ -275,7 +299,7 @@ public class ProceduralCrystalShardGenerator<T> extends
             // d) back to world coords (pivoted at origin+breakY)
             Vector3 dest = rel.add(Vector3.at(
                     origin.getX(),
-                    origin.getY() + breakY,
+                    breakY,
                     origin.getZ()
             ));
             Vec3 np = new Vec3(
@@ -285,18 +309,15 @@ public class ProceduralCrystalShardGenerator<T> extends
             );
 
             // e) place the original blockstate
-            guardAndStore(np.getX(), np.getY(), np.getZ(), state /*world.createBlockState("minecraft:gold_block")*/, false);
+            guardAndStore(np.getX(), np.getY(), np.getZ(), state, false);
         }
 
-        // 5) in `placed` we still have the base blocks (pos.getY()< breakY),
-        //    so if you need to re-flush or process them further, they are intact.
+        // base (placed) remains intact
     }
 
     /**
      * Simulates a crack by randomly removing blocks in a horizontal band.
-     * @param crackFrac      fraction up the shard where the crack occurs (0–1)
-     * @param crackThickness fraction of total height to use as crack band
-     * @param crackChance    probability [0–1] to remove each block in that band
+     * Fixed: actually removes queued blocks by calling removeAt(...)
      */
     private void simulateCrack(Vec3 origin,
                                List<Vec3> placed,
@@ -311,7 +332,9 @@ public class ProceduralCrystalShardGenerator<T> extends
         for (Vec3 pos : new ArrayList<>(placed)) {
             int dy = pos.getY() - centerY;
             if (Math.abs(dy) <= halfBand && rnd.nextDouble() < crackChance) {
-                guardAndStore(pos.getX(), pos.getY(), pos.getZ(), null, false);
+                // remove the queued placement (if any)
+                removeAt(pos.getX(), pos.getY(), pos.getZ());
+                placed.remove(pos);
             }
         }
     }

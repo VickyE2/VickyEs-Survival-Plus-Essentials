@@ -4,6 +4,7 @@ import de.pauleff.api.ICompoundTag
 import de.pauleff.api.ITag
 import de.pauleff.api.NBTFileFactory
 import net.sandrohc.schematic4j.schematic.Schematic
+import org.vicky.platform.PlatformPlugin
 import org.vicky.platform.utils.Mirror
 import org.vicky.platform.utils.ResourceLocation
 import org.vicky.platform.utils.Rotation
@@ -37,7 +38,7 @@ interface PlatformStructure<T> {
      * Place only blocks that belong to the provided chunk using a resolved structure.
      * Implementations should only attempt to place the subset of blocks that fall in chunkX/chunkZ.
      */
-    fun placeChunk(
+    fun placeInChunk(
         world: BlockPlacer<T>,
         chunkX: Int,
         chunkZ: Int,
@@ -121,7 +122,7 @@ class NbtStructure<T>(
         }
     }
 
-    fun resolveBlockState(stateIndex: Int): SimpleBlockState<T> {
+    fun <T> resolveBlockState(stateIndex: Int): PlatformBlockState<T> {
         val paletteEntry = palette.getOrNull(stateIndex)
             ?: error("Palette index $stateIndex out of bounds")
 
@@ -131,9 +132,8 @@ class NbtStructure<T>(
             "${tag.name}=${tag.data}"
         }
 
-        return SimpleBlockState.from<T>(
-            if (properties.isEmpty()) name else "$name[$properties]", transformer
-        )
+        return PlatformPlugin.stateFactory()
+            .getBlockState(if (properties.isEmpty()) name else "$name[$properties]") as PlatformBlockState<T>
     }
 }
 
@@ -207,7 +207,7 @@ class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
             val by = transformed.y.toInt()
             val bz = transformed.z.toInt()
 
-            val state = structure.resolveBlockState(stateIdx) as PlatformBlockState<T>?
+            val state = structure.resolveBlockState<T>(stateIdx)
 
             // update bounds
             minX = minOf(minX, bx); minY = minOf(minY, by); minZ = minOf(minZ, bz)
@@ -228,7 +228,7 @@ class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
         return resolved
     }
 
-    override fun placeChunk(
+    override fun placeInChunk(
         world: BlockPlacer<T>,
         chunkX: Int,
         chunkZ: Int,
@@ -312,7 +312,7 @@ class SchematicStructure<BST>(
         return ResolvedStructure(finalMap, bounds)
     }
 
-    override fun placeChunk(
+    override fun placeInChunk(
         world: BlockPlacer<BST>,
         chunkX: Int,
         chunkZ: Int,
@@ -407,7 +407,7 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
         return resolved
     }
 
-    override fun placeChunk(
+    override fun placeInChunk(
         world: BlockPlacer<BST>,
         chunkX: Int,
         chunkZ: Int,
@@ -498,10 +498,11 @@ interface RandomSource {
     fun nextBoolean(): Boolean
     fun nextLong(): Long
     fun getSeed(): Long
+    fun setSeed(seed: Long)
     fun fork(seedModifier: Long): RandomSource // useful for per-feature randomness
 }
 
-class SeededRandomSource(private val random: Random, private val seed: Long) : RandomSource {
+class SeededRandomSource(private val random: Random, private var seed: Long) : RandomSource {
 
     constructor(seed: Long) : this(Random(seed), seed)
 
@@ -516,6 +517,9 @@ class SeededRandomSource(private val random: Random, private val seed: Long) : R
 
     override fun nextLong(): Long = random.nextLong()
     override fun getSeed(): Long = seed
+    override fun setSeed(seed: Long) {
+        this.seed = seed
+    }
 
     override fun fork(seedModifier: Long): RandomSource {
         return SeededRandomSource(random.nextLong() xor seedModifier)
@@ -760,7 +764,7 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
             if (structureRaw != null) {
                 val structure = structureRaw.first
                 val origin = context.locationProvider.invoke(p.origin.x.toInt(), p.origin.y.toInt(), p.origin.z.toInt())
-                val success = structure.placeChunk(
+                val success = structure.placeInChunk(
                     context.blockPlacer,
                     chunkX, chunkZ,
                     structure.resolve(
