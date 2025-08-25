@@ -10,10 +10,17 @@ public class NativeTypeMapper {
             "vspe:pink_sand", "minecraft:pink_concrete_powder"
     );
 
-    public static String getFor(String forgifabible) {
+    private static final String DEFAULT_FALLBACK = "minecraft:grass_block";
+
+    public static String getFor(String id) {
         if (VSPEPlatformPlugin.isNative()) {
-            return nativeMaps.getOrDefault(forgifabible, "minecraft:grass");
+            String mapped = nativeMaps.getOrDefault(id, DEFAULT_FALLBACK);
+            if ("minecraft:grass".equals(mapped)) {
+                return DEFAULT_FALLBACK;
+            }
+            return mapped;
         }
-        return forgifabible;
+        return id;
     }
 }
+
