@@ -6,8 +6,10 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.block.data.BlockData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.vicky.bukkitplatform.useables.BukkitBlockState;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.platform.PlatformStructureManager;
+import org.vicky.vspe.platform.systems.dimension.globalDimensions.StructureResolvers;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NBTBasedStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NbtStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
@@ -20,6 +22,21 @@ public class VSPEBukkitStructureManager implements PlatformStructureManager<Bloc
 
     private static final Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> structures
             = new HashMap<>();
+
+    static {
+        structures.putAll(initStructures());
+    }
+
+    private static Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> initStructures() {
+        Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> result = new HashMap<>();
+        new StructureResolvers<BukkitBlockState>().structures.forEach(it -> {
+            @SuppressWarnings("unchecked")
+            Pair<PlatformStructure<BlockData>, StructureRule> casted =
+                    (Pair<PlatformStructure<BlockData>, StructureRule>) (Pair<?, ?>) it;
+            result.put(it.getSecond().getResource(), casted);
+        });
+        return result;
+    }
 
     @Override
     public @NotNull Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> getStructures() {
