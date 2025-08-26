@@ -62,7 +62,6 @@ subprojects {
         )
         archiveClassifier.set("")
         mergeServiceFiles()
-        // minimize()
     }
 }
 
