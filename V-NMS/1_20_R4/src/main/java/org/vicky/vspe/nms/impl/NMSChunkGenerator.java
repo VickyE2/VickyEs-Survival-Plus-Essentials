@@ -115,7 +115,7 @@ public class NMSChunkGenerator extends ChunkGenerator {
             Map<ChunkHeightProvider, int[]> heightsByProvider = new HashMap<>();
             for (ChunkHeightProvider provider : providersNeeded) {
                 // chunk coords (pos.x,pos.z) — provider expects chunk indices (not block coords)
-                heightsByProvider.put(provider, provider.getChunkHeights(pos.x, pos.z));
+                heightsByProvider.put(provider, computeSmoothedHeights(provider, pos.x, pos.z));
             }
 
             // helper: chunk seed function
@@ -185,6 +185,18 @@ public class NMSChunkGenerator extends ChunkGenerator {
                     for (int y = minY; y < maxY; y++) {
                         // chunk#setBiome expects local coords 0..15 for x/z
                         chunk.setBiome(lx, y, lz, nmsBiome);
+                    }
+
+                    int seaLevel = getSeaLevel();
+                    if (topY < seaLevel - 1) {
+                        for (int y = topY + 1; y < seaLevel; y++) {
+                            // only set water where block is air (avoid overwriting placed blocks)
+                            BlockPos p = new BlockPos(worldX, y, worldZ);
+                            if (chunk.getBlockState(p).isAir()) {
+                                // TODO: Use Descriptor#getWaterBlockState
+                                chunk.setBlockState(p, Blocks.WATER.defaultBlockState(), false);
+                            }
+                        }
                     }
                 }
             }
@@ -330,7 +342,7 @@ public class NMSChunkGenerator extends ChunkGenerator {
         // Find the biome from our biome source
         BukkitBiome biome = ((NMSBiomeSource) biomeSource).getBiomeProvider().resolveBiome(x, 0, z, seed);
         ChunkHeightProvider provider = getOrCreateProviderForBiome(biome);
-        int[] heights = provider.getChunkHeights(chunkX, chunkZ);
+        int[] heights = computeSmoothedHeights(provider, chunkX, chunkZ);
 
         int minY = getMinY();
         int maxY = getSeaLevel();
@@ -403,148 +415,58 @@ public class NMSChunkGenerator extends ChunkGenerator {
         return new ChunkHeightProvider(biome.getHeightSampler());
     }
 
-    /*
     /**
-     * Helper that generates into a Bukkit ChunkData + BiomeGrid using our NMS-driven biome/height/palette logic.
-     * This lets the Bukkit generator bridge to our NMS logic without the caller having to handle NMS objects.
-     * <p>
-     * Note: this runs on the server thread (getDefaultWorldGenerator -> generateChunkData) so avoid heavy blocking work.
+     * Smooth a chunk's 16x16 height array by sampling a 3x3 neighborhood of chunks
+     * and applying a small weighted kernel. Returns a new int[256].
+     *
+     * provider.getChunkHeights(chunkX, chunkZ) must return int[256] (localX + localZ*16).
      */
-    /*
-    public void generateToBukkitChunk(World bukkitWorld,
-                                      org.bukkit.generator.ChunkGenerator.ChunkData bukkitChunkData,
-                                      int chunkX, int chunkZ,
-                                      org.bukkit.generator.ChunkGenerator.BiomeGrid biomeGrid) {
-
-        final int CHUNK_SIZE = 16;
-        long worldSeed = bukkitWorld.getSeed();
-
-        // Set seed on biome provider if it expects it
-        if (((NMSBiomeSource) this.biomeSource).getBiomeProvider() instanceof BukkitBiomeProvider bp) {
-            bp.setSeed(worldSeed);
-        }
-
-        // Resolve biomes per-column and collect providers
-        BukkitBiome[] biomeForColumn = new BukkitBiome[CHUNK_SIZE * CHUNK_SIZE];
-        Set<ChunkHeightProvider> providersNeeded = new HashSet<>();
-        for (int lz = 0; lz < CHUNK_SIZE; lz++) {
-            for (int lx = 0; lx < CHUNK_SIZE; lx++) {
-                int worldX = chunkX * CHUNK_SIZE + lx;
-                int worldZ = chunkZ * CHUNK_SIZE + lz;
-
-                BukkitBiome platformBiome = ((NMSBiomeSource) biomeSource).getBiomeProvider().resolveBiome(worldX, 64, worldZ, worldSeed);
-                biomeForColumn[lx + lz * CHUNK_SIZE] = platformBiome;
-
-                ChunkHeightProvider provider = getOrCreateProviderForBiome(platformBiome);
-                providersNeeded.add(provider);
-            }
-        }
-
-        // compute heights per provider
-        Map<ChunkHeightProvider, int[]> heightsByProvider = new HashMap<>();
-        for (ChunkHeightProvider provider : providersNeeded) {
-            int[] heights = provider.getChunkHeights(chunkX, chunkZ);
-            heightsByProvider.put(provider, heights);
-        }
-
-        // helper: blended top per column (index 0..255)
-        java.util.function.IntFunction<Integer> blendedTopY = (idx) -> {
-            BukkitBiome biome = biomeForColumn[idx];
-            if (biome == null) return bukkitChunkData.getMaxHeight() - 1;
-            ChunkHeightProvider provider = getOrCreateProviderForBiome(biome);
-            int[] heights = heightsByProvider.get(provider);
-            if (heights == null) return bukkitChunkData.getMaxHeight() - 1;
-            return heights[idx];
+    private int[] computeSmoothedHeights(ChunkHeightProvider provider, int chunkX, int chunkZ) {
+        // kernel weights:
+        // [1 2 1]
+        // [2 4 2]
+        // [1 2 1]  -> sum = 16
+        final int[] weights = new int[]{
+                1, 2, 1,
+                2, 4, 2,
+                1, 2, 1
         };
 
-        int minY = bukkitChunkData.getMinHeight();
-        int maxY = bukkitChunkData.getMaxHeight();
-
-        // fill blocks & set biomes
-        for (int lz = 0; lz < CHUNK_SIZE; lz++) {
-            for (int lx = 0; lx < CHUNK_SIZE; lx++) {
-                int idx = lx + lz * CHUNK_SIZE;
-                BukkitBiome platformBiome = biomeForColumn[idx];
-                if (platformBiome == null) continue;
-
-                ChunkHeightProvider provider = getOrCreateProviderForBiome(platformBiome);
-                int[] heights = heightsByProvider.get(provider);
-                if (heights == null) continue;
-
-                int topY = blendedTopY.apply(idx);
-                if (topY < minY) topY = minY;
-                if (topY >= maxY) topY = maxY - 1;
-
-                // bedrock
-                bukkitChunkData.setBlock(lx, minY, lz, org.bukkit.Material.BEDROCK.createBlockData());
-
-                // fill column with palette (PlatformBlockState -> Bukkit BlockData)
-                for (int y = minY + 1; y <= topY; y++) {
-                    PlatformBlockState<org.bukkit.block.data.BlockData> platformBlock = platformBiome.getDistributionPalette().getFor(y);
-                    org.bukkit.block.data.BlockData bstate = platformBlock.getNative();
-                    bukkitChunkData.setBlock(lx, y, lz, bstate);
+        // gather 3x3 neighbor heights (if provider returns null, substitute an all-minY array)
+        int[][] neigh = new int[9][];
+        int idx = 0;
+        for (int dz = -1; dz <= 1; dz++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int cx = chunkX + dx;
+                int cz = chunkZ + dz;
+                int[] arr = provider.getChunkHeights(cx, cz);
+                if (arr == null) {
+                    // fallback: fill with minY so missing neighbor won't produce extreme jumps
+                    arr = new int[16 * 16];
+                    Arrays.fill(arr, getMinY());
                 }
-
-                // set Bukkit-visible biome (safe enum) so Bukkit API callers don't break
-                BiomeWrapper nativeBiome = platformBiome.toNativeBiome();
-                biomeGrid.setBiome(lx, lz, nativeBiome.getBase());
-
-                // Also set the NMS biome inside the chunk by using the wrapper's setBiome (which writes to NMS chunk)
-                // We need a Block to pass to BiomeWrapper#setBiome — create a Location pointing at surface
-                int worldX = chunkX * CHUNK_SIZE + lx;
-                int worldZ = chunkZ * CHUNK_SIZE + lz;
-                int worldY = topY; // surface
-                try {
-                    nativeBiome.setBiome(bukkitWorld.getBlockAt(worldX, worldY, worldZ));
-                } catch (Exception ex) {
-                    VSPEPlatformPlugin.platformLogger().warn("Failed to call nativeBiome.setBiome at " + worldX + "," + worldY + "," + worldZ + ": " + ex.getMessage());
-                }
+                neigh[idx++] = arr;
             }
         }
 
-        // feature placement per-column (keeps your original pipeline)
-        SeededRandomSource randomSource = new SeededRandomSource(worldSeed);
-        java.util.function.LongFunction<Long> seedForChunk = (salt) -> {
-            long h = worldSeed;
-            h ^= (chunkX * 0x9E3779B97F4A7C15L);
-            h ^= (chunkZ * 0xC6BC279692B5CC83L);
-            h = Long.rotateLeft(h, 31);
-            h ^= salt;
-            return h;
-        };
+        int[] out = new int[16 * 16];
 
-        for (int lz = 0; lz < CHUNK_SIZE; lz++) {
-            for (int lx = 0; lx < CHUNK_SIZE; lx++) {
-                int idx = lx + lz * CHUNK_SIZE;
-                BukkitBiome platformBiome = biomeForColumn[idx];
-                if (platformBiome == null) continue;
-
-                int topY = blendedTopY.apply(idx);
-
-                FeatureContext ctx = new FeatureContext(
-                        worldSeed,
-                        chunkX,
-                        chunkZ,
-                        randomSource.fork(seedForChunk.apply(0xF00D_1L)),
-                        null, // if your features need a real world, pass one (avoid Bukkit main-thread calls here)
-                        null
-                );
-
-                for (BiomeFeature<?> feature : platformBiome.getFeatures()) {
-                    if (feature.getPlacement() == FeaturePlacement.PER_COLUMN) {
-                        if (feature.shouldPlace(chunkX * CHUNK_SIZE + lx, topY, chunkZ * CHUNK_SIZE + lz, ctx)) {
-                            try {
-                                feature.place(chunkX * CHUNK_SIZE + lx, topY, chunkZ * CHUNK_SIZE + lz, ctx);
-                            } catch (Exception ex) {
-                                VSPEPlatformPlugin.platformLogger().error("Feature placement error: " + ex.getMessage(), ex);
-                            }
-                        }
-                    }
+        // for each local cell, combine same local coords from neighbors
+        for (int lz = 0; lz < 16; lz++) {
+            for (int lx = 0; lx < 16; lx++) {
+                int cellIndex = lx + lz * 16;
+                int sum = 0;
+                for (int k = 0; k < 9; k++) {
+                    int w = weights[k];
+                    int[] a = neigh[k];
+                    // using same local index in neighbor chunk (no sub-chunk offset)
+                    sum += a[cellIndex] * w;
                 }
+                out[cellIndex] = Math.floorDiv(sum, 16); // normalize kernel sum
             }
         }
 
-        // NOTE: structure placement handled by your caller (or add here if you prefer)
+        return out;
     }
-     */
+
 }
