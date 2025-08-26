@@ -43,7 +43,7 @@ public class StructureResolvers<T> {
                                             0.5
                                     ))
                                     .addDanglingSequence(new ProceduralBranchedTreeGenerator.Builder.BlockSeqEntry<>(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_vines")),
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_vine")),
                                             0.5,
                                             1.0
                                     ))
@@ -61,7 +61,7 @@ public class StructureResolvers<T> {
                             Rotation.NONE,
                             Mirror.NONE,
                             1,
-                            0.5,
+                            1.2,
                             20
                     )
             )
