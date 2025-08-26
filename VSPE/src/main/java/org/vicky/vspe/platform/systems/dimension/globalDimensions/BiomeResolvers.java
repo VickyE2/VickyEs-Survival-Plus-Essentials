@@ -182,7 +182,7 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                                         .setGentleWeight(0.7)
                                         .setGentleFrequency(0.0067)
                                         .setBaseHeight(64)
-                                        .setMaxHeight(164)
+                                        .setMaxHeight(80)
                                         .buildHeightMapper(true),
                                 1,
                                 NoiseLayer.Mode.HEIGHT

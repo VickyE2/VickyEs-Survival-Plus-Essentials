@@ -94,7 +94,7 @@ public abstract class ProceduralStructureGenerator<T> {
      * This sets up the flush handler and returns a GenerationResult containing all queued placements
      * and actions. Subclasses should implement performGeneration(...) not this method.
      */
-    public GenerationResult<T> generate(RandomSource rnd, Vec3 origin) {
+    public final synchronized GenerationResult<T> generate(RandomSource rnd, Vec3 origin) {
         this.rnd = rnd;
         // result holders
         List<BlockPlacement<T>> placements = new ArrayList<>();

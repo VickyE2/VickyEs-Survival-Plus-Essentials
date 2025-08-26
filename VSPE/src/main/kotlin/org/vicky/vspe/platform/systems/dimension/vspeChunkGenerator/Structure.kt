@@ -160,6 +160,7 @@ class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
         return true
     }
 
+    @Synchronized
     override fun resolve(origin: Vec3, context: StructurePlacementContext): ResolvedStructure<T> {
         val seed = context.random.getSeed()
         val key = ResolvedKey(
@@ -222,7 +223,12 @@ class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
             Vec3(maxX.toDouble(), maxY.toDouble(), maxZ.toDouble()),
             id
         )
-        val resolved = ResolvedStructure(placementsByChunk.mapValues { it.value.toList() }, bounds)
+
+        val finalMap: ConcurrentHashMap<ChunkCoord, List<BlockPlacement<T>>> =
+            ConcurrentHashMap<ChunkCoord, List<BlockPlacement<T>>>()
+        placementsByChunk.mapValues { it.value.toList() }
+            .forEach { finalMap.put(it.key, it.value) }
+        val resolved = ResolvedStructure(finalMap, bounds)
         resolvedCache.put(key, resolved)
         return resolved
     }
@@ -260,6 +266,7 @@ class SchematicStructure<BST>(
         return true
     }
 
+    @Synchronized
     override fun resolve(
         origin: Vec3,
         context: StructurePlacementContext
@@ -305,8 +312,10 @@ class SchematicStructure<BST>(
         )
 
         // convert lists to immutable lists
-        val finalMap: Map<ChunkCoord, List<BlockPlacement<BST>>> =
+        val finalMap: ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>> =
+            ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>>()
             placementsByChunk.mapValues { it.value.toList() }
+                .forEach { finalMap.put(it.key, it.value) }
 
         return ResolvedStructure(finalMap, bounds)
     }
@@ -347,6 +356,7 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
         return true
     }
 
+    @Synchronized
     override fun resolve(
         origin: Vec3,
         context: StructurePlacementContext
@@ -398,8 +408,11 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
             resource
         )
 
-        val finalMap: Map<ChunkCoord, List<BlockPlacement<BST>>> =
-            placementsByChunk.mapValues { it.value.toList() }
+
+        val finalMap: ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>> =
+            ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>>()
+        placementsByChunk.mapValues { it.value.toList() }
+            .forEach { finalMap.put(it.key, it.value) }
 
         val resolved = ResolvedStructure(finalMap, bounds)
         resolvedCache.put(key, resolved)
@@ -451,7 +464,7 @@ data class BlockPlacement<T>(
  * This is the thing you cache and then reuse to place into multiple chunks.
  */
 data class ResolvedStructure<T>(
-    val placementsByChunk: Map<ChunkCoord, List<BlockPlacement<T>>>,
+    val placementsByChunk: ConcurrentHashMap<ChunkCoord, List<BlockPlacement<T>>>,
     val bounds: StructureBox // optional bounding box for quick tests
 )
 
@@ -619,7 +632,6 @@ data class StructureBox(val min: Vec3, val max: Vec3, val resource: ResourceLoca
     }
 }
 
-
 class WeightedStructurePlacer<T> : StructurePlacer<T> {
 
     // reuse a single cache instance; if you want a per-world per-run cache, create per-world.
@@ -633,6 +645,7 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
         return transformed
     }
 
+    @Synchronized
     override fun placeStructuresInChunk(
         chunkX: Int,
         chunkZ: Int,
@@ -648,27 +661,24 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
         val candidates = mutableListOf<PlacementInfo>()
         val structureBoxes = mutableListOf<StructureBox>()
 
+        // copy rules out (avoid concurrent-mod issues)
         val allRules = VSPEPlatformPlugin.structureManager().structures.values.map { it.second }
 
-        for (rule in allRules) {
-            // quick biome check (leave as you had it)
+        for (rule in allRules.toList()) {
+            // quick biome check
             val biome = context.biomeResolver.resolveBiome(chunkX * 16, 64, chunkZ * 16, context.random.getSeed())
             if (biome.biomeStructureData.structureKeys.contains { it == rule.resource }) continue
 
             val structurePair = VSPEPlatformPlugin.structureManager().getStructures()[rule.resource] ?: continue
             val structure = structurePair.first
-            // compute transformed size once for this structure+rotation+mirror combination
             val size = structure.getSize().toVec3()
 
-            // cell size (in blocks) defines grid for deterministic placement
             val cellSizeBlocks = rule.spacing * 16
 
-            // we want to check every "cell" whose potential structure box might touch this chunk.
-            // compute a conservative margin: half the structure diagonal (max extents)
-            val maxStructureHalfExtentX = size.getX() // conservative (not halved) to be safe
-            val maxStructureHalfExtentZ = size.getZ()
+            // conservative margins (safe over-approximation)
+            val maxStructureHalfExtentX = size.getX().toInt()
+            val maxStructureHalfExtentZ = size.getZ().toInt()
 
-            // convert to cell ranges that could influence this chunk
             val minPossibleOriginBlockX = chunkMinX - maxStructureHalfExtentX
             val maxPossibleOriginBlockX = chunkMaxX + maxStructureHalfExtentX
             val minPossibleOriginBlockZ = chunkMinZ - maxStructureHalfExtentZ
@@ -679,58 +689,66 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
             val minCellZ = floorDiv(minPossibleOriginBlockZ, cellSizeBlocks)
             val maxCellZ = floorDiv(maxPossibleOriginBlockZ, cellSizeBlocks)
 
-            // iterate relevant cells only
             cellLoop@ for (cellX in minCellX..maxCellX) {
                 for (cellZ in minCellZ..maxCellZ) {
                     val key = CellKey(worldSeed, rule.resource, cellX, cellZ)
-                    val placement = placementCache.computeIfAbsent(key) {
-                        // compute whether this cell produces a structure
+                    var placement: PlacementInfo? = placementCache.get(key)
+                    if (placement == null) {
+                        // decide deterministically for this cell
                         val seed = placementSeed(worldSeed, rule.resource, cellX, cellZ)
                         val rng = Random(seed)
 
-                        // frequency check: deterministic per cell
-                        if (rng.nextDouble() > rule.frequency) return@computeIfAbsent null
+                        if (rng.nextDouble() <= rule.frequency) {
+                            // build PlacementInfo only when this cell actually contains a structure
+                            val rot = when (rng.nextInt(4)) {
+                                0 -> Rotation.NONE
+                                1 -> Rotation.CLOCKWISE_90
+                                2 -> Rotation.CLOCKWISE_180
+                                else -> Rotation.COUNTERCLOCKWISE_90
+                            }
+                            val mir = if (rng.nextBoolean()) rule.mirror else Mirror.NONE
 
-                        // pick rotation deterministically (example: 4 cardinal rotations)
-                        val rotation = when (rng.nextInt(4)) {
-                            0 -> Rotation.NONE
-                            1 -> Rotation.CLOCKWISE_90
-                            2 -> Rotation.CLOCKWISE_180
-                            else -> Rotation.COUNTERCLOCKWISE_90
+                            val transformedSize =
+                                transformSize(Vec3(0.0, 0.0, 0.0), structure.getSize().toVec3(), rot, mir)
+                            val tSizeX = transformedSize.getX().toInt()
+                            val tSizeZ = transformedSize.getZ().toInt()
+
+                            val maxOffsetX = (cellSizeBlocks - tSizeX).coerceAtLeast(0)
+                            val maxOffsetZ = (cellSizeBlocks - tSizeZ).coerceAtLeast(0)
+                            val offsetX = if (maxOffsetX > 0) rng.nextInt(maxOffsetX + 1) else 0
+                            val offsetZ = if (maxOffsetZ > 0) rng.nextInt(maxOffsetZ + 1) else 0
+
+                            val originBlockX = cellX * cellSizeBlocks + offsetX
+                            val originBlockZ = cellZ * cellSizeBlocks + offsetZ
+                            val originBlockY = 64 // or deterministic height provider
+
+                            val originVec =
+                                Vec3(originBlockX.toDouble(), originBlockY.toDouble(), originBlockZ.toDouble())
+                            val min = originVec
+                            val max = originVec.offset(
+                                (transformedSize.getX() - 1).toInt(),
+                                (transformedSize.getY() - 1).toInt(),
+                                (transformedSize.getZ() - 1).toInt()
+                            )
+                            val sBox = StructureBox(min, max, rule.resource)
+
+                            // make the PlacementInfo (add ownerChunkX/Z if needed)
+                            placement = PlacementInfo(
+                                origin = originVec,
+                                rotation = rot,
+                                mirror = mir,
+                                box = sBox,
+                                rule = rule,
+                                ownerChunkX = Math.floorDiv(originBlockX, 16),
+                                ownerChunkZ = Math.floorDiv(originBlockZ, 16),
+                                resolved = null // if your PlacementInfo has resolved field
+                            )
+
+                            // store into cache (only non-null placements are cached)
+                            placementCache.put(key, placement)
+                        } else {
+                            // rng test failed -> no placement for this cell -> leave placement==null
                         }
-                        // pick mirror deterministically (adjust to your Mirror enum)
-                        val mirror = if (rng.nextBoolean()) rule.mirror else Mirror.NONE
-
-                        // compute transformed structure size for rotation/mirror
-                        val transformedSize = transformSize(Vec3(0.0, 0.0, 0.0), size, rotation, mirror)
-                        val tSizeX = transformedSize.getX().toInt()
-                        val tSizeZ = transformedSize.getZ().toInt()
-
-                        // choose an origin within the cell so structures don't all align to cell corner
-                        val maxOffsetX = (cellSizeBlocks - tSizeX).coerceAtLeast(0)
-                        val maxOffsetZ = (cellSizeBlocks - tSizeZ).coerceAtLeast(0)
-                        val offsetX = if (maxOffsetX > 0) rng.nextInt(0, maxOffsetX + 1) else 0
-                        val offsetZ = if (maxOffsetZ > 0) rng.nextInt(0, maxOffsetZ + 1) else 0
-
-                        val originBlockX = cellX * cellSizeBlocks + offsetX
-                        val originBlockZ = cellZ * cellSizeBlocks + offsetZ
-                        // choose Y using your locationProvider or keep baseline (64)
-                        val originBlockY = 64 // you can also query context.locationProvider for terrain height
-
-                        val originVec = Vec3(originBlockX.toDouble(), originBlockY.toDouble(), originBlockZ.toDouble())
-
-                        // compute box for collision testing
-                        val min = originVec
-                        val max = originVec.offset(
-                            (transformedSize.getX() - 1).toInt(),
-                            (transformedSize.getY() - 1).toInt(),
-                            (transformedSize.getZ() - 1).toInt()
-                        )
-                        val structureBox = StructureBox(min, max, rule.resource)
-
-                        // Also do a spacing/overlap check here if you want to avoid conflict with already decided placements
-                        // For now we just return PlacementInfo; caller will check for overlaps in-chunk
-                        return@computeIfAbsent PlacementInfo(originVec, rotation, mirror, structureBox, rule)
                     }
 
                     if (placement != null) {
@@ -740,10 +758,8 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
                             placement.box.max.z >= chunkMinZ &&
                             placement.box.min.z <= chunkMaxZ
                         ) {
-
-                            // do not allow overlapping same-pass placements if you want: check structureBoxes list
+                            // avoid overlapping placements in this same-pass candidate list
                             if (structureBoxes.any { it.intersects(placement.box) }) {
-                                // skip overlapping placements (optional; previously you filtered overlaps earlier)
                                 continue@cellLoop
                             }
 
@@ -755,36 +771,68 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
             }
         } // end rules loop
 
-        // sort candidates by priority (use rule.priority if you have such), then by weight
-        // I keep your getPlacementPriority() logic; use it to sort
+        // sort by priority, then weight (weight descending)
         candidates.sortedWith(compareBy({ getPlacementPriority(it.rule) }, { -it.rule.weight })).forEach { p ->
-            val structureRaw = VSPEPlatformPlugin.structureManager()
-                .getStructures()[p.rule.resource] as Pair<PlatformStructure<T>, StructureRule>?
-            if (structureRaw != null) {
-                val structure = structureRaw.first
-                val origin = context.locationProvider.invoke(p.origin.x.toInt(), p.origin.y.toInt(), p.origin.z.toInt())
-                val success = structure.placeInChunk(
-                    context.blockPlacer,
-                    chunkX, chunkZ,
-                    structure.resolve(
-                        origin,
-                        StructurePlacementContext(
-                            random = context.random.fork(p.origin.hashCode().toLong()),
-                            rotation = p.rotation,
-                            mirror = p.mirror
-                        )
-                    ),
-                    StructurePlacementContext(
-                        random = context.random.fork(p.origin.hashCode().toLong()),
-                        rotation = p.rotation,
-                        mirror = p.mirror
-                    )
+            // assume tuple: Pair<PlatformStructure<*>, StructureRule>
+            val tuple = VSPEPlatformPlugin.structureManager().getStructures()[p.rule.resource] ?: return@forEach
+
+// treat structure as PlatformStructure<Any?>
+            @Suppress("UNCHECKED_CAST")
+            val structureAny = tuple.first as PlatformStructure<Any?>
+
+            if (p.ownerChunkX == chunkX && p.ownerChunkZ == chunkZ) {
+                val seed = placementSeed(
+                    worldSeed, p.rule.resource,
+                    (p.origin.x.toInt() / (p.rule.spacing * 16)),
+                    (p.origin.z.toInt() / (p.rule.spacing * 16))
                 )
-                if (!success) {
-                    VSPEPlatformPlugin.platformLogger()
-                        .warn("Failed to place structure ${p.rule.resource} at cell placement ${p.origin} ")
+                val seededRand = Random(seed)
+                val placementContext = StructurePlacementContext(
+                    random = SeededRandomSource(seededRand.nextLong()),
+                    rotation = p.rotation,
+                    mirror = p.mirror
+                )
+
+                val platformOrigin = context.locationProvider.invoke(
+                    p.origin.x.toInt(), p.origin.y.toInt(), p.origin.z.toInt()
+                )
+
+                // resolve -> returns ResolvedStructure<*>, cast to ResolvedStructure<Any?>
+                @Suppress("UNCHECKED_CAST")
+                val resolvedAny = structureAny.resolve(platformOrigin, placementContext) as ResolvedStructure<Any?>
+
+                // store into cache slot (make sure PlacementInfo.resolved is typed ResolvedStructure<Any?>?)
+                p.resolved = resolvedAny
+
+                // Cast the BlockPlacer to BlockPlacer<Any?> and call placeInChunk
+                @Suppress("UNCHECKED_CAST")
+                val placerAny = context.blockPlacer as BlockPlacer<Any?>
+
+                structureAny.placeInChunk(placerAny, chunkX, chunkZ, resolvedAny, placementContext)
+            } else {
+                // non-owner chunk: try to fetch cached resolved structure
+                val cellSizeBlocks = p.rule.spacing * 16
+                val cellX = floorDiv(p.origin.x.toInt(), cellSizeBlocks)
+                val cellZ = floorDiv(p.origin.z.toInt(), cellSizeBlocks)
+
+                val cached = placementCache.get(CellKey(worldSeed, p.rule.resource, cellX, cellZ))?.resolved
+                if (cached != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    val cachedAny = cached as ResolvedStructure<Any?>
+
+                    val ctxRand = context.random.fork(p.origin.hashCode().toLong())
+                    val placementContext =
+                        StructurePlacementContext(random = ctxRand, rotation = p.rotation, mirror = p.mirror)
+
+                    @Suppress("UNCHECKED_CAST")
+                    val placerAny = context.blockPlacer as BlockPlacer<Any?>
+
+                    structureAny.placeInChunk(placerAny, chunkX, chunkZ, cachedAny, placementContext)
+                } else {
+                    // owner will compute and cache later — skip for now
                 }
             }
+
         }
     }
 
@@ -800,31 +848,52 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
 }
 
 // Deterministic placement info for a structure instance inside a "cell".
+data class CellKey(val worldSeed: Long, val resource: ResourceLocation, val cellX: Int, val cellZ: Int) {
+    override fun equals(other: Any?): Boolean {
+        if (other !is CellKey) return false
+        if (other.worldSeed != this.worldSeed) return false
+        if (this.resource != other.resource) return false
+        if (this.cellX != other.cellX) return false
+        return this.cellZ == other.cellZ
+    }
+
+    override fun hashCode(): Int {
+        var result = worldSeed.hashCode()
+        result = 31 * result + cellX
+        result = 31 * result + cellZ
+        result = 31 * result + resource.hashCode()
+        return result
+    }
+}
+
 data class PlacementInfo(
     val origin: Vec3,                // absolute block origin in world blocks (min corner)
     val rotation: Rotation,
     val mirror: Mirror,
     val box: StructureBox,
-    val rule: StructureRule
+    val rule: StructureRule,
+    // canonical owner chunk (so only owner resolves the heavy work)
+    val ownerChunkX: Int,
+    val ownerChunkZ: Int,
+    // volatile so other threads may see it after owner sets it
+    @Volatile var resolved: ResolvedStructure<Any?>? = null
 )
 
-// Cache key for per-cell placement decisions
-data class CellKey(val worldSeed: Long, val resource: ResourceLocation, val cellX: Int, val cellZ: Int)
-
-// Simple cache. You may replace with an LRU map if you want to bound memory.
 class StructurePlacementCache {
-    private val cache = ConcurrentHashMap<CellKey, PlacementInfo?>()
-    fun get(key: CellKey): PlacementInfo? = cache[key]
-    fun put(key: CellKey, value: PlacementInfo?) {
-        cache[key] = value
+    private val map = ConcurrentHashMap<CellKey, PlacementInfo>()
+
+    fun computeIfAbsent(key: CellKey, supplier: () -> PlacementInfo): PlacementInfo {
+        // computeIfAbsent on ConcurrentHashMap provides atomic first-writer semantics
+        return map.computeIfAbsent(key) { supplier() }
     }
 
-    // compute-if-absent convenience
-    fun computeIfAbsent(key: CellKey, supplier: () -> PlacementInfo?): PlacementInfo? {
-        return cache.computeIfAbsent(key) { supplier() }
+    fun get(key: CellKey): PlacementInfo? = map[key]
+
+    fun put(key: CellKey, value: PlacementInfo) {
+        map[key] = value
     }
 
-    fun clear() = cache.clear()
+    fun clear() = map.clear()
 }
 
 private const val PRIME1 = 341873128712L

@@ -35,10 +35,10 @@ repositories {
 
 dependencies {
     api("net.sf.trove4j:core:3.1.0")
-    api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    api("org.reflections:reflections:0.10.2")
-    api("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
-    api("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    compileOnly("org.reflections:reflections:0.10.2")
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
+    compileOnly("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
     api(project(":structure_loader"))
     api("net.sandrohc:schematic4j:1.1.0")
     api(files("libs/jNBT-1.6.0.jar"))
@@ -75,7 +75,7 @@ tasks.register<Jar>("javadocJar") {
 }
 
 tasks.named<Jar>("jar") {
-    enabled = true
+    enabled = false
 }
 
 publishing {
