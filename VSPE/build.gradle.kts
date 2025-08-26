@@ -19,7 +19,7 @@ dependencies {
 
     compileOnly("org.hibernate.orm:hibernate-core:6.4.1.Final")
     compileOnly("io.github.vickye2:vicky-utils-bukkit:1.20.4-0.0.1-BETA")
-    compileOnly("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
+    // compileOnly("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
     compileOnly("org.betonquest:betonquest:2.2.1")
     compileOnly("me.clip:placeholderapi:2.10.10")
     compileOnly("io.lumine:Mythic-Dist:5.6.1")

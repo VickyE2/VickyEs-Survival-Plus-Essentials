@@ -29,8 +29,7 @@ public class VSPEBukkitStructureManager implements PlatformStructureManager<Bloc
     private static Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> initStructures() {
         Map<ResourceLocation, Pair<PlatformStructure<BlockData>, StructureRule>> result = new HashMap<>();
         new StructureResolvers<BlockData>().structures.forEach(it -> {
-            Pair<PlatformStructure<BlockData>, StructureRule> casted = it;
-            result.put(it.getSecond().getResource(), casted);
+            result.put(it.getSecond().getResource(), it);
         });
         return result;
     }
