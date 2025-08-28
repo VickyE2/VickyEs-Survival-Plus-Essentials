@@ -1,6 +1,5 @@
 package org.vicky.vspe.features.CharmsAndTrinkets.gui.CharnsNTrinkets;
 
-import org.bukkit.inventory.ItemStack;
 import org.vicky.guiparent.GuiCreator;
 
 public record EquippedRawTrinket(GuiCreator.ItemConfig item, int slot) {

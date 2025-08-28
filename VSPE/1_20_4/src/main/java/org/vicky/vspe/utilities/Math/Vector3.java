@@ -33,7 +33,7 @@ public final class Vector3 {
     }
 
     public static Comparator<Vector3> sortByCoordsYzx() {
-        return Vector3.YzxOrderComparator.YZX_ORDER;
+        return YzxOrderComparator.YZX_ORDER;
     }
 
     private Vector3(double x, double y, double z) {
@@ -195,9 +195,9 @@ public final class Vector3 {
     public Vector3 clampY(int min, int max) {
         Preconditions.checkArgument(min <= max, "minimum cannot be greater than maximum");
         if (this.y < (double)min) {
-            return at(this.x, (double)min, this.z);
+            return at(this.x, min, this.z);
         } else {
-            return this.y > (double)max ? at(this.x, (double)max, this.z) : this;
+            return this.y > (double)max ? at(this.x, max, this.z) : this;
         }
     }
 
@@ -257,10 +257,9 @@ public final class Vector3 {
         return new Vector3(Math.max(this.x, v2.x), Math.max(this.y, v2.y), Math.max(this.z, v2.z));
     }
     public boolean equals(Object obj) {
-        if (!(obj instanceof Vector3)) {
+        if (!(obj instanceof Vector3 other)) {
             return false;
         } else {
-            Vector3 other = (Vector3)obj;
             return other.x == this.x && other.y == this.y && other.z == this.z;
         }
     }

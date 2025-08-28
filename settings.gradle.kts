@@ -15,5 +15,8 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 include("V-NMS:1_20_R4")
 findProject(":V-NMS:1_20_R4")?.name = "1_20_R4"
+include("VSPE:1_20_4")
+findProject(":VSPE:1_20_4")?.name = "1_20_4"
