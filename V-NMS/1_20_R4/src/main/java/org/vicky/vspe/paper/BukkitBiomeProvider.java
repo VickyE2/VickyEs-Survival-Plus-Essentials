@@ -6,9 +6,11 @@ import org.bukkit.generator.WorldInfo;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.vspe.nms.BiomeWrapper;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.InvertedPalette;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.Palette;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 public class BukkitBiomeProvider extends BiomeProvider implements BiomeResolver<BukkitBiome> {
     private final BiomeResolver<BukkitBiome> biomeProvider;
@@ -25,9 +27,13 @@ public class BukkitBiomeProvider extends BiomeProvider implements BiomeResolver<
 
     @Override
     public @NotNull List<Biome> getBiomes(@NotNull WorldInfo worldInfo) {
-        return biomeProvider.getBiomePalette().getPaletteMap()
-                .values().stream()
-                .map(BukkitBiome::toNativeBiome)
+        Stream<BukkitBiome> val;
+        if (biomeProvider.getBiomePalette() instanceof InvertedPalette<BukkitBiome> i) {
+            val = i.getInvertedPaletteMap().keySet().stream();
+        } else {
+            val = biomeProvider.getBiomePalette().getPaletteMap().values().stream();
+        }
+        return val.map(BukkitBiome::toNativeBiome)
                 .map(BiomeWrapper::getBase)
                 .toList();
     }

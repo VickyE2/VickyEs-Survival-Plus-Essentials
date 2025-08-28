@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.vicky.vspe.nms.BiomeCompatibilityAPI;
 import org.vicky.vspe.paper.BukkitBiome;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.InvertedPalette;
 
 import java.util.stream.Stream;
 
@@ -25,9 +26,17 @@ public class NMSBiomeSource extends BiomeSource {
 
     @Override
     protected @NotNull Stream<Holder<net.minecraft.world.level.biome.Biome>> collectPossibleBiomes() {
-        return biomeProvider.getBiomePalette().getPaletteMap().values().stream()
-                .map(biome -> BiomeCompatibilityAPI.Companion.getBiomeCompatibility().getRegistry()
-                        .getHolderOrThrow(biome.toNativeBiome().getResource()));
+        Stream<Holder<net.minecraft.world.level.biome.Biome>> val;
+        if (biomeProvider.getBiomePalette() instanceof InvertedPalette<BukkitBiome> i) {
+            val = i.getInvertedPaletteMap().keySet().stream()
+                    .map(biome -> BiomeCompatibilityAPI.Companion.getBiomeCompatibility().getRegistry()
+                            .getHolderOrThrow(biome.toNativeBiome().getResource()));
+        } else {
+            val = biomeProvider.getBiomePalette().getPaletteMap().values().stream()
+                    .map(biome -> BiomeCompatibilityAPI.Companion.getBiomeCompatibility().getRegistry()
+                            .getHolderOrThrow(biome.toNativeBiome().getResource()));
+        }
+        return val;
     }
 
     @Override

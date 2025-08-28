@@ -22,7 +22,6 @@ public class GlobalResources {
     public static PluginCommunicator pluginCommunicator;
     public static VSPEBukkitDimensionManager dimensionManager;
     public static AdvancementManager advancementManager;
-    public static CnTManager trinketsManager;
     public static HibernateDatabaseManager databaseManager;
     public static SQLManager sqlManager;
     public static MVWorldManager worldManager;

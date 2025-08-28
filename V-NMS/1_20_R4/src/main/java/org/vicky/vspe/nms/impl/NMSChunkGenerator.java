@@ -167,8 +167,10 @@ public class NMSChunkGenerator extends ChunkGenerator {
                         for (int y = topY + 1; y < seaLevel; y++) {
                             BlockPos p = new BlockPos(worldX, y, worldZ);
                             if (chunk.getBlockState(p).isAir()) {
-                                // TODO: Use Descriptor#getWaterBlockState
-                                chunk.setBlockState(p, Blocks.WATER.defaultBlockState(), false);
+                                PlatformBlockState<?> water = descriptor.water();
+                                if (water.getNative() instanceof BlockData bukkitData) {
+                                    chunk.setBlockState(p, ((CraftBlockData) bukkitData).getState(), false);
+                                }
                             }
                         }
                     }

@@ -68,10 +68,10 @@ import static org.vicky.vspe.platform.systems.dimension.DimensionType.AQUATIC_WO
 import static org.vicky.vspe.utilities.global.GlobalResources.*;
 
 public abstract class BukkitBaseDimension implements PlatformBaseDimension<BlockData, World>, Listener {
-    private final static DimensionService service = DimensionService.getInstance();
+    protected final static DimensionService service = DimensionService.getInstance();
     private final String name;
     private final String mainName;
-    private BukkitWorldAdapter world;
+    private final BukkitWorldAdapter world;
     private final List<DimensionType> dimensionTypes;
     private final Environment environmentType;
     private final String seed;
@@ -124,6 +124,10 @@ public abstract class BukkitBaseDimension implements PlatformBaseDimension<Block
 
     public String getName() {
         return this.name;
+    }
+
+    public String getMainName() {
+        return mainName;
     }
 
     public BukkitWorldAdapter checkWorld() throws WorldNotExistsException, NoGeneratorException {

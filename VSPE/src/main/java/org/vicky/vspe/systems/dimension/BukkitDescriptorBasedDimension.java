@@ -10,11 +10,13 @@ import org.vicky.bukkitplatform.useables.BukkitWorldAdapter;
 import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
+import org.vicky.utilities.UUIDGenerator;
 import org.vicky.vspe.platform.defaults.SimpleWorldType;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
+import org.vicky.vspe.utilities.Hibernate.DBTemplates.Dimension;
 
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -27,8 +29,8 @@ public class BukkitDescriptorBasedDimension extends BukkitBaseDimension {
 
     public BukkitDescriptorBasedDimension(DimensionDescriptor descriptor, String seed) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
         super(
-                cleanNamespace(descriptor.name()),
                 descriptor.name(),
+                cleanNamespace(descriptor.name()),
                 descriptor.dimensionTypes(),
                 World.Environment.NORMAL,
                 seed,
@@ -43,7 +45,8 @@ public class BukkitDescriptorBasedDimension extends BukkitBaseDimension {
                 descriptor.dimensionTypes(),
                 descriptor.identifier(),
                 descriptor.resolver(),
-                descriptor.oceanLevel()
+                descriptor.oceanLevel(),
+                descriptor.water()
         );
         // BukkitPlatformDimension platformDim = new BukkitPlatformDimension(descriptor, getWorld().getBukkitWorld());
         VSPEBukkitDimensionManager.GENERATORS.get(cleanNamespace(descriptor.name())); //.attachDimension(platformDim);
@@ -72,6 +75,19 @@ public class BukkitDescriptorBasedDimension extends BukkitBaseDimension {
         if (created == null) {
             throw new RuntimeException("Bukkit returned null while creating world " + getName());
         }
+
+        Dimension context;
+        if (service.getDimensionById(UUIDGenerator.generateUUIDFromString(getName()).toString()) != null) {
+            context = service.getDimensionById(UUIDGenerator.generateUUIDFromString(getName()).toString());
+            context.setState(true);
+        } else {
+            context = new Dimension();
+            context.setId(UUIDGenerator.generateUUIDFromString(getName()));
+            context.setName(getMainName());
+            context.setState(true);
+        }
+
+        service.createDimension(context);
         return new BukkitWorldAdapter(created);
     }
 

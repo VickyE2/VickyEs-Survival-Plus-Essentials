@@ -160,10 +160,6 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
             registerCommands();
             kraterosGenerationEngine.generateStructurePacks();
             getServer().getPluginManager().registerEvents(new GlobalListeners(), this);
-
-            dimensionManager.processDimensions();
-            processPendingDimensions();
-
         } else if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") == null) {
             getLogger().severe(ANSIColor.colorize("red[Could not find PlaceholderAPI! This plugin is required.]"));
             Bukkit.getPluginManager().disablePlugin(this);
@@ -524,6 +520,8 @@ public final class VSPE extends JavaPlugin implements Listener, VSPEPlatformPlug
     @EventHandler
     public void onItemsAdderLoaded(ItemsAdderLoadDataEvent event) {
         if (event.getCause() != ItemsAdderLoadDataEvent.Cause.FIRST_LOAD) return;
+        dimensionManager.processDimensions();
+        processPendingDimensions();
         advancementManager = new AdvancementManager(this);
         try {
             advancementManager.processAdvancements();
