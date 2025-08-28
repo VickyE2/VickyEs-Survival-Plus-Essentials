@@ -98,49 +98,61 @@ public class ProceduralBranchedTreeGenerator<T> extends
 
     // — Trunk via scanlines and ring‐skipping —
     private void calculateTrunk(Vec3 origin, RandomSource rnd) {
-        final double alpha = 0.05;  // controls trunk taper speed
+        double baseTaperPower = 1.0;
+        double aspect = (double) maxTrunkThickness / Math.max(1, maxHeight);
+        double taperPower = Math.max(0.5, baseTaperPower + aspect * 1.5);
+        double hollowFactor = 0.45;
 
-        // 1) Build the trunk itself
-        for(int y = 0; y < maxHeight; y++) {
-            double curr = (double) maxTrunkThickness / Math.sqrt(1 + alpha * y);
-            int r = Math.max(1, (int)Math.round(curr));
+        // lateral drift state for trunk (coherent)
+        double driftX = 0.0;
+        double driftZ = 0.0;
+        double perStepDriftScale = twistiness / 1.12; // tune: higher -> more lateral movement per block
+
+        for (int y = 0; y < maxHeight; y++) {
+            double yf = (double) y / Math.max(1, (maxHeight - 1));
+            double curr = (double) maxTrunkThickness * Math.pow(1.0 - yf, taperPower);
+            curr = Math.max(0.25, curr);
+            int rIter = (int) Math.ceil(curr + 0.5);
             int worldY = origin.getY() + y;
-            short[] scan = StructureCacheUtils.getDiscScanlineWidths(r);
 
-            for(int dz = -r; dz <= r; dz++) {
-                int half = scan[dz + r];
-                for(int dx = -half; dx <= half; dx++) {
-                    guardAndStore(origin.getX() + dx,
-                            worldY,
-                            origin.getZ() + dz,
-                            r, wood, false);
+            // update drift by a smooth random delta (coherent)
+            // small gaussian-like via sum of two uniform deltas
+            double dx = (rnd.nextDouble() - rnd.nextDouble()) * randomness * perStepDriftScale;
+            double dz = (rnd.nextDouble() - rnd.nextDouble()) * randomness * perStepDriftScale;
+            // apply twistiness as small rotation to drift
+            double twist = (rnd.nextDouble() * 2.0 - 1.0) * twistiness * 0.03;
+            double c = Math.cos(twist), s = Math.sin(twist);
+            double newDriftX = driftX * c - driftZ * s + dx;
+            double newDriftZ = driftX * s + driftZ * c + dz;
+            driftX = newDriftX;
+            driftZ = newDriftZ;
+
+            // center for this slice
+            int cx = origin.getX() + (int) Math.round(driftX);
+            int cz = origin.getZ() + (int) Math.round(driftZ);
+
+            double innerRadius = hollow ? Math.max(0.0, curr * hollowFactor) : -1.0;
+
+            for (int dz2 = -rIter; dz2 <= rIter; dz2++) {
+                for (int dx2 = -rIter; dx2 <= rIter; dx2++) {
+                    double dist = Math.sqrt(dx2 * dx2 + dz2 * dz2);
+                    if (dist <= curr - 0.5) {
+                        guardAndStore(cx + dx2, worldY, cz + dz2, 0, wood, false);
+                        continue;
+                    }
+                    if (hollow && innerRadius >= 0 && dist < innerRadius) continue;
+                    if (dist <= curr + 0.5) {
+                        double p = (curr + 0.5 - dist);
+                        if (rnd.nextDouble() < p) {
+                            guardAndStore(cx + dx2, worldY, cz + dz2, 0, wood, false);
+                        }
+                    }
                 }
             }
         }
 
-        generateSpaceColonizationBranches(rnd, origin.add(0.0, (double) ((maxHeight - 1) * branchStart), 0.0));
-    }
-
-    /**
-     * Helper — attach several dangling leaf chains around a joint position.
-     */
-    // Convenience: previous call-site compatibility
-    private void attachHangingChain(int bx, int by, int bz, int branchRadius, RandomSource rnd) {
-        // number of strands around the rim: proportional to branch radius (clamped)
-        int strands = Math.max(1, Math.min(8, branchRadius * 2));
-        double angleStep = 2 * Math.PI / strands;
-        int maxLen = Math.max(3, branchRadius * 3); // chain length scale
-        int thickStart = Math.max(0, branchRadius / 2); // fluff at top
-        int thickEnd = 0; // taper at tip
-
-        for (int s = 0; s < strands; s++) {
-            double a = s * angleStep + (rnd.nextDouble() * angleStep * 0.5 - angleStep * 0.25);
-            int ox = bx + (int) Math.round(Math.cos(a) * (branchRadius + 0.5));
-            int oz = bz + (int) Math.round(Math.sin(a) * (branchRadius + 0.5));
-            // small random variation in length
-            int len = (int) Math.max(1, Math.round(maxLen * (0.7 + rnd.nextDouble() * 0.6)));
-            attachHangingChain(ox, by - 1, oz, len, thickStart, thickEnd, rnd);
-        }
+        Vec3 trunkTop = origin.add(driftX, (double) ((maxHeight - 1) * branchStart), driftZ);
+        generateSpaceColonizationBranches(rnd, trunkTop);
     }
 
     /**
@@ -381,24 +393,56 @@ public class ProceduralBranchedTreeGenerator<T> extends
                 BranchNode base = e.getKey();
                 Vec3 avg = e.getValue();
                 int count = sumCount.getOrDefault(base, 1);
-                // average direction
-                Vec3 dir = avg.multiply(1.0 / count).normalize();
-                // new position
+
+                // average direction (toward attractors)
+                Vec3 rawDir = avg.multiply(1.0 / count).normalize();
+
+                // Smooth with parent's dir to avoid sudden swings (blend factor)
+                double blendFactor = 0.6; // how much we trust parent dir vs new target (0..1)
+                if (base.dir != null) {
+                    rawDir = base.dir.multiply(blendFactor).add(rawDir.multiply(1.0 - blendFactor)).normalize();
+                }
+
+                // Apply randomness perturbation (coherent): create a small random unit vector
+                // scale it by randomness parameter and reduce with depth a bit so near-trunk is less wiggly
+                double depthFactor = Math.max(0.25, 1.0 - base.depth * 0.06); // tune: deeper nodes slightly less/more wiggly
+                double perturbScale = randomness * 0.8 * depthFactor; // global scale; tweak 0.8 if too strong
+
+                Vec3 rndVec = new Vec3(rnd.nextDouble() * 2.0 - 1.0, rnd.nextDouble() * 2.0 - 1.0, rnd.nextDouble() * 2.0 - 1.0)
+                        .normalize().multiply(perturbScale);
+
+                // apply twistiness as a mild yaw rotation around Y: small angle per step
+                double twistAngle = (rnd.nextDouble() * 2.0 - 1.0) * twistiness * 0.25; // small angle (radians)
+                // rotate rawDir around Y by twistAngle (simple yaw)
+                double cos = Math.cos(twistAngle), sin = Math.sin(twistAngle);
+                double dx = rawDir.getX(), dz = rawDir.getZ();
+                double rotatedX = dx * cos - dz * sin;
+                double rotatedZ = dx * sin + dz * cos;
+                Vec3 twisted = new Vec3(rotatedX, rawDir.getY(), rotatedZ).normalize();
+
+                // final direction = twisted + random perturbation; renormalize
+                Vec3 dir = twisted.add(rndVec).normalize();
+
+                // new position step
                 Vec3 newPos = base.pos.add(dir.multiply(stepSize));
-                // ensure not too close to existing nodes (min spacing)
+
+                // ensure not too close (same as before)
                 double minSpacing = Math.max(0.5, stepSize * 0.6);
                 boolean tooClose = false;
                 for (BranchNode n : nodes) {
-                    double dx = newPos.getX() - n.pos.getX();
-                    double dy = newPos.getY() - n.pos.getY();
-                    double dz = newPos.getZ() - n.pos.getZ();
-                    if (dx * dx + dy * dy + dz * dz < minSpacing * minSpacing) {
+                    double dx2 = newPos.getX() - n.pos.getX();
+                    double dy2 = newPos.getY() - n.pos.getY();
+                    double dz2 = newPos.getZ() - n.pos.getZ();
+                    if (dx2 * dx2 + dy2 * dy2 + dz2 * dz2 < minSpacing * minSpacing) {
                         tooClose = true;
                         break;
                     }
                 }
                 if (tooClose) continue;
+
+                // create new node and set its dir for coherent next steps
                 BranchNode nn = new BranchNode(newPos, base, base.depth + 1);
+                nn.dir = dir; // store the coherent direction
                 nodes.add(nn);
                 newNodes.add(nn);
                 edges.add(new Edge(base, nn));
@@ -443,19 +487,48 @@ public class ProceduralBranchedTreeGenerator<T> extends
             double dz = b.getZ() - a.getZ();
             double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (len <= 0.001) continue;
+
             int steps = Math.max(1, (int) Math.ceil(len / 0.5)); // sample every 0.5 blocks
+
+            // choose thickness by child depth
+            int depth = e.b.depth;
+            double radius = Math.max(0.5, thicknessBase * Math.pow(branchShrinkPerLevel, depth));
+            int rIter = (int) Math.ceil(radius + 0.5);
+
             for (int s = 0; s <= steps; s++) {
                 double t = s / (double) steps;
+                // pos = a + (b-a)*t but also add small lateral perturbation for curvature (lerp node dirs)
                 double px = a.getX() + dx * t;
                 double py = a.getY() + dy * t;
                 double pz = a.getZ() + dz * t;
 
-                // thickness falloff by depth: deeper (larger depth number) => thinner
-                int depth = e.b.depth; // use child depth as thickness indicator
-                double radius = Math.max(0.5, thicknessBase * Math.pow(branchShrinkPerLevel, depth));
-                int rInt = (int) Math.round(radius);
+                // place disk using fractional raster (anti-alias)
+                int ix = (int) Math.round(px);
+                int iy = (int) Math.round(py);
+                int iz = (int) Math.round(pz);
 
-                guardAndStore((int) Math.round(px), (int) Math.round(py), (int) Math.round(pz), rInt, wood, rInt > 0);
+                for (int dz2 = -rIter; dz2 <= rIter; dz2++) {
+                    for (int dx2 = -rIter; dx2 <= rIter; dx2++) {
+                        double dist = Math.sqrt(dx2 * dx2 + dz2 * dz2);
+                        if (dist <= radius - 0.5) {
+                            guardAndStore(ix + dx2, iy, iz + dz2, 0, wood, false);
+                        } else if (dist <= radius + 0.5) {
+                            double pEdge = (radius + 0.5 - dist);
+                            if (rnd.nextDouble() < pEdge) {
+                                guardAndStore(ix + dx2, iy, iz + dz2, 0, wood, false);
+                            }
+                        }
+                    }
+                }
+
+                // ---- dangling leaves spawn along branches (sample density tuned by length)
+                // probability per sample = randomness * 0.25 (tweakable)
+                double leafSpawnChance = randomness * 0.25;
+                if (addLeaves && type == LeafType.DANGLING && rnd.nextDouble() < leafSpawnChance) {
+                    // compute a radius for this location (proportional to branch radius)
+                    int spawnRadius = Math.max(0, (int) Math.round(radius * 0.6));
+                    attachHangingChain(ix, iy - 1, iz, Math.max(1, spawnRadius), /*thickStart*/spawnRadius / 2, /*thickEnd*/0, rnd);
+                }
             }
         }
     }
@@ -487,6 +560,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
         for (Edge ed : skeleton) {
             // find nodes with no children - naive: child nodes that are never a parent in any edge
         }
+
         // simple way: collect all child nodes and find child nodes that don't appear as parent in any edge
         Set<BranchNode> parents = new HashSet<>();
         Set<BranchNode> children = new HashSet<>();
@@ -506,11 +580,13 @@ public class ProceduralBranchedTreeGenerator<T> extends
         final Vec3 pos;
         final BranchNode parent;
         final int depth; // depth from trunk root
+        Vec3 dir;
 
         BranchNode(Vec3 pos, BranchNode parent, int depth) {
             this.pos = pos;
             this.parent = parent;
             this.depth = depth;
+            this.dir = parent != null ? parent.dir : new Vec3(0.0, 1.0, 0.0);
         }
     }
 
@@ -528,7 +604,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
         public List<BlockSeqEntry<T>> seq = new ArrayList<>();
         int maxTrunkThickness = 6, maxHeight = 20, maxWidth = 10, branchThreshold = 3, maxBranchThickness = 5;
         boolean roots = false, addLeaves = false, hollow = false, cheapMode = false;
-        float randomness = 0.5f, twistiness = 0.2f, qualityFactor = 0.4f, branchStart=0.4f, branchLengthRatioTOHeight=0.3f, maxBranchShrink = 0.2f, minPitch = 0.1f, maxPitch = 0.3f, branchShrinkPerLevel = 0.7f;
+        float randomness = 0.5f, twistiness = 0.2f, qualityFactor = 1.0f, branchStart = 0.4f, branchLengthRatioTOHeight = 0.3f, maxBranchShrink = 0.2f, minPitch = 0.1f, maxPitch = 0.3f, branchShrinkPerLevel = 0.7f;
         PlatformBlockState<T> woodMaterial, leavesMaterial;
         LeafType leafType;
         Map<String, Object> params;

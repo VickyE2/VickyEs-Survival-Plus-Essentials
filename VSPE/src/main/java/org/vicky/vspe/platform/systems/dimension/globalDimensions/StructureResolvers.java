@@ -12,6 +12,7 @@ import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.Proce
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ProceduralStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRule;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.VerticalPlacement;
 
 import java.util.List;
 import java.util.Map;
@@ -25,14 +26,16 @@ public class StructureResolvers<T> {
             new Pair<>(
                     new ProceduralStructure<>(
                             new ProceduralBranchedTreeGenerator.Builder<T>()
-                                    .branchStart(0.5f)
+                                    .branchStart(0.8f)
                                     .trunkThickness(10)
                                     .height(20)
                                     .branchDepth(2)
                                     .branchShrinkPerLevel(0.3f)
+                                    .branchLengthReduction(0.7f)
                                     .maxBranchShrink(0.7f)
-                                    .branchThickness(5)
-                                    .qualityFactor(0.7f)
+                                    .branchThickness(7)
+                                    .cheapMode(false)
+                                    .twistiness(0.34f)
                                     .randomness(0.2259f)
                                     .woodMaterial(
                                             (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log"))
@@ -62,7 +65,9 @@ public class StructureResolvers<T> {
                             Mirror.NONE,
                             1,
                             1.2,
-                            20
+                            20,
+                            0,
+                            VerticalPlacement.SURFACE
                     )
             )
     );

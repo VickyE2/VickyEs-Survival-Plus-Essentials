@@ -1,5 +1,6 @@
 package org.vicky.vspe.platform.systems.dimension;
 
+import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
 
 import java.util.List;
@@ -11,5 +12,6 @@ public record DimensionDescriptor(
         List<DimensionType> dimensionTypes,
         String identifier,
         BiomeResolver<?> resolver,
-        int oceanLevel) {
+        int oceanLevel,
+        PlatformBlockState<?> water) {
 }

@@ -1,11 +1,13 @@
 package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
+import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.NativeTypeMapper;
+import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 import java.util.List;
@@ -32,8 +34,8 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 createHumiditySampler(8628368682L),
                 createElevationSampler(0xAC87574CL),
                 new InvertedPaletteBuilder<B>()
-                        // .add(new Pair<>(0.01, 0.07), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.MAGENTA_FOREST))
-                        // .add(new Pair<>(0.07, 0.4), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.FRIGID_SEA))
+                        .add(new Pair<>(0.01, 0.07), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.MAGENTA_FOREST))
+                        .add(new Pair<>(0.07, 0.4), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.FRIGID_SEA))
                         .build()
         );
     }
