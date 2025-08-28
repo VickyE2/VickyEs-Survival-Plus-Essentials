@@ -1,16 +1,16 @@
 package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
-import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.NativeTypeMapper;
-import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 import java.util.List;
+
+import static org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NoiseKt.*;
 
 public final class BiomeResolvers<B extends PlatformBiome> {
     private static BiomeResolvers<?> INSTANCE;
@@ -27,113 +27,13 @@ public final class BiomeResolvers<B extends PlatformBiome> {
     }
 
     public BiomeResolver<@NotNull B> CRYMORRA_BIOME_RESOLVER() {
-        return new MultiParameterBiomeResolver<>(
-                new JNoiseNoiseSampler(
-                        NoiseSamplerFactory.INSTANCE.create(
-                                NoiseSamplerFactory.Type.PERLIN,
-                                b -> {
-                                    b.addModule(
-                                            AdditionModuleBuilder.Companion.newBuilder()
-                                                    .withSecondary(
-                                                            NoiseSamplerFactory.INSTANCE.create(
-                                                                    NoiseSamplerFactory.Type.PERLIN,
-                                                                    b2 -> b2, // same as `{ it }` in Kotlin
-                                                                    0L,
-                                                                    0.03,
-                                                                    2,
-                                                                    2.0
-                                                            )
-                                                    )
-                                                    .build()
-                                    );
-                                    return b;
-                                },
-                                0L,
-                                0.005,
-                                4,
-                                3.0
-                        )
-                ),
-                new JNoiseNoiseSampler(
-                        NoiseSamplerFactory.INSTANCE.create(
-                                NoiseSamplerFactory.Type.PERLIN,
-                                b -> {
-                                    b.addModule(
-                                            AdditionModuleBuilder.Companion.newBuilder()
-                                                    .withSecondary(
-                                                            NoiseSamplerFactory.INSTANCE.create(
-                                                                    NoiseSamplerFactory.Type.PERLIN,
-                                                                    b2 -> b2,
-                                                                    0L,
-                                                                    0.07,
-                                                                    2,
-                                                                    2.0
-                                                            )
-                                                    )
-                                                    .build()
-                                    );
-                                    return b;
-                                },
-                                0L,
-                                0.01,
-                                2,
-                                5.0
-                        )
-                ),
-                new JNoiseNoiseSampler(
-                        NoiseSamplerFactory.INSTANCE.create(
-                                NoiseSamplerFactory.Type.PERLIN,
-                                b -> {
-                                    b.addModule(
-                                            AdditionModuleBuilder.Companion.newBuilder()
-                                                    .withSecondary(
-                                                            NoiseSamplerFactory.INSTANCE.create(
-                                                                    NoiseSamplerFactory.Type.PERLIN,
-                                                                    b2 -> b2,
-                                                                    0L,
-                                                                    0.3,
-                                                                    2,
-                                                                    2.0
-                                                            )
-                                                    )
-                                                    .build()
-                                    );
-                                    return b;
-                                },
-                                0L,
-                                0.001,
-                                4,
-                                3.4
-                        )
-                ), new JNoiseNoiseSampler(
-                NoiseSamplerFactory.INSTANCE.create(
-                        NoiseSamplerFactory.Type.PERLIN,
-                        b -> {
-                            b.addModule(
-                                    AdditionModuleBuilder.Companion.newBuilder()
-                                            .withSecondary(
-                                                    NoiseSamplerFactory.INSTANCE.create(
-                                                            NoiseSamplerFactory.Type.PERLIN,
-                                                            b2 -> b2,
-                                                            0L,
-                                                            0.005,
-                                                            2,
-                                                            2.0
-                                                    )
-                                            )
-                                            .build()
-                            );
-                            return b;
-                        },
-                        0L,
-                        0.01,
-                        2,
-                        1.5
-                )
-        ),
-                new PaletteBuilder<B>()
-                        .add(new Pair<>(0.01, 0.07), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.MAGENTA_FOREST))
-                        .add(new Pair<>(0.07, 0.4), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.FRIGID_SEA))
+        return new VickyMapGen<>(
+                createTemperatureSampler(20397239723L),
+                createHumiditySampler(8628368682L),
+                createElevationSampler(0xAC87574CL),
+                new InvertedPaletteBuilder<B>()
+                        // .add(new Pair<>(0.01, 0.07), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.MAGENTA_FOREST))
+                        // .add(new Pair<>(0.07, 0.4), VSPEPlatformPlugin.<B>biomeFactory().createBiome(BiomeDetailHolder.FRIGID_SEA))
                         .build()
         );
     }
@@ -207,7 +107,7 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                 1.0,
                 0.0,
                 0.5,
-                BiomeCategory.COLD_OCEAN,
+                BiomeCategory.OCEAN,
                 false,
                 true,
                 false,

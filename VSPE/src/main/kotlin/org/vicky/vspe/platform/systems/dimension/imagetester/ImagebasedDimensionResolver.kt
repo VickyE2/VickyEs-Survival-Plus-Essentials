@@ -9,6 +9,7 @@ import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.*
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.PrecipitationType
+import org.vicky.vspe.platform.systems.dimension.globalDimensions.DimensionDescriptors
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*
 import java.awt.BorderLayout
 import java.awt.Color
@@ -21,6 +22,8 @@ import java.io.File
 import javax.imageio.ImageIO
 import javax.swing.*
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.pow
 
 object BlockRegistry {
@@ -230,218 +233,6 @@ fun SimpleConstructorBasedBiome.withChanges(
     }
 }
 
-object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
-    override fun getBiomePalette(): Palette<SimpleConstructorBasedBiome> {
-        // define your eight biomes up front
-        val plains = SimpleConstructorBasedBiome(
-            "plains",
-            "test",
-            0x88CC00,
-            0x000000,
-            0x00AAEE,
-            0x00AAEE,
-            0x00AAEE,
-            0x00AAEE,
-            false,
-            0.6,
-            0.8,
-            0.4,
-            rainfall = 0.5,
-            category = BiomeCategory.PLAINS,
-            heightSampler = listOf(),
-            precipitation = PrecipitationType.RAIN,
-            biomeStructureData = BiomeStructureData(listOf())
-        )
-        val forest = plains.withChanges(
-            name       = "forest",
-            biomeColor    = 0x228B22,
-            fogColor  = 0x006400,
-            rainfall      = 0.6,
-            category   = BiomeCategory.FOREST,
-            elevation = 0.4,
-            biomeStructureData = BiomeStructureData(emptyList())
-        )
-        val rainforest = plains.withChanges(
-            name       = "rainforest",
-            biomeColor    = 0x228B88,
-            fogColor  = 0x006400,
-            rainfall      = 1.0,
-            category   = BiomeCategory.RAINFOREST,
-            elevation = 0.45,
-            biomeStructureData = BiomeStructureData(emptyList())
-        )
-        val jungle = forest.withChanges(
-            name       = "jungle",
-            biomeColor    = 0x006600,
-            fogColor  = 0x006400,
-            rainfall      = 0.7,
-            category   = BiomeCategory.JUNGLE,
-            elevation = 0.3,
-            biomeStructureData = BiomeStructureData(emptyList())
-        )
-        val taiga = forest.withChanges(
-            name = "taiga",
-            biomeColor = 0x01796F,
-            fogColor = 0x006D5E,
-            temperature = 0.3,
-            rainfall = 0.3,
-            elevation = 0.6,
-            precipitation = PrecipitationType.SNOW,
-            category = BiomeCategory.TAIGA // <-- Add this category to your enum if missing
-        )
-
-        val desert = plains.withChanges(
-            name       = "desert",
-            biomeColor    = 0xFAFAD2,
-            fogColor  = 0xC2B280,
-            waterColor    = 0xE0FFFF,
-            waterFogColor = 0xE0FFFF,
-            isOcean     = false,
-            elevation = 0.3,
-            precipitation = PrecipitationType.NONE,
-            category    = BiomeCategory.DESERT,
-            rainfall       = 0.0
-        )
-
-        val swamp = plains.withChanges(
-            name       = "swamp",
-            biomeColor    = 0x3F7942,
-            fogColor  = 0x2E8B57,
-            waterColor    = 0x617B64,
-            waterFogColor = 0x324B3F,
-            rainfall       = 0.7,
-            elevation = 0.3,
-            category    = BiomeCategory.SWAMP
-        )
-
-        val mountains = plains.withChanges(
-            name       = "mountains",
-            biomeColor    = 0xA9A9A9,
-            fogColor  = 0x808080,
-            rainfall       = 0.2,
-            elevation = 0.9,
-            category    = BiomeCategory.MOUNTAIN
-        )
-
-        val tundra = forest.withChanges(
-            name       = "tundra",
-            biomeColor    = 0x0000AA,
-            fogColor  = 0x006D5E,
-            temperature   = 0.3,
-            rainfall = 0.3,
-            elevation = 0.6,
-            precipitation = PrecipitationType.SNOW,
-            category    = BiomeCategory.TUNDRA
-        )
-
-        val snowy = taiga.withChanges(
-            name       = "snowy",
-            biomeColor    = 0xFFFFFF,
-            fogColor  = 0xE0FFFF,
-            isOcean     = false,
-            rainfall = 0.4,
-            elevation = 0.3,
-            category    = BiomeCategory.ICY
-        )
-
-        val ocean = plains.withChanges(
-            name       = "ocean",
-            biomeColor    = 0x00AAFF,
-            fogColor  = 0xE0FFFF,
-            isOcean     = true,
-            rainfall = 1.0,
-            elevation = 0.0,
-            category    = BiomeCategory.OCEAN
-        )
-
-        val deep = ocean.withChanges(
-            name       = "deep",
-            biomeColor    = 0x004488,
-            fogColor  = 0xE0FFFF,
-            isOcean     = true,
-            rainfall = 1.0,
-            elevation = 0.0,
-            category    = BiomeCategory.DEEP_OCEAN
-        )
-
-        val mesa = plains.withChanges(
-            name       = "mesa",
-            biomeColor    = 0xCD853F,
-            fogColor  = 0x8B4513,
-            rainfall = 0.1,
-            elevation = 0.7,
-            precipitation = PrecipitationType.NONE,
-            category    = BiomeCategory.MESA
-        )
-
-        val savanna = desert.withChanges(
-            name       = "savanna",
-            biomeColor    = 0xead4ad,
-            fogColor  = 0x8B4513,
-            rainfall = 0.2,
-            elevation = 0.2,
-            precipitation = PrecipitationType.NONE,
-            category    = BiomeCategory.SAVANNA
-        )
-
-        val coast = desert.withChanges(
-            name       = "coast",
-            biomeColor    = 0xeadf93,
-            fogColor  = 0x8B4513,
-            rainfall = 0.2,
-            elevation = 0.2,
-            precipitation = PrecipitationType.NONE,
-            category    = BiomeCategory.COAST
-        )
-        return NoiseBiomeDistributionPaletteBuilder<SimpleConstructorBasedBiome>(
-            CompositeNoiseLayer(listOf<Pair<NoiseSampler, Double>>(FBMCache.get(87263626382632, frequency = 0.01f * scale) to 1.0)),
-            CompositeNoiseLayer(listOf<Pair<NoiseSampler, Double>>(FBMCache.get(87263626382632, frequency = 0.01f * scale) to 1.0)),
-            CompositeNoiseLayer(listOf<Pair<NoiseSampler, Double>>(FBMCache.get(87263626382632, frequency = 0.01f * scale) to 1.0))
-        )
-            .add(0.000000000 to 0.05, ocean)
-            .add(0.05 to 0.1000, deep)
-            .add(0.1000  to 0.130, rainforest)
-            .add(0.130 to 0.155, plains)
-            .add(0.155  to 0.210, forest)
-            .add(0.215  to 0.310, savanna)
-            .add(0.310 to 0.345, desert)
-            .add(0.340 to 0.375, coast)
-            .add(0.375  to 0.500, swamp)
-            .add(0.500 to 0.600, mountains)
-            .add(0.600 to 0.685, jungle)
-            .add(0.685  to 0.720, taiga)
-            .add(0.725  to 0.800, tundra)
-            .add(0.800 to 0.875, snowy)
-            .add(0.875 to 1.0000000, mesa)
-            .build()
-    }
-
-    fun fbm(x: Double, z: Double, seed: Long): Double {
-        var value = 0.0
-        var amplitude = 3.0
-        var frequency = 0.001
-        repeat(4) {
-            value += FBMCache.get(seed + it, octaves = 8).sample(x * frequency, z * frequency) * amplitude
-            frequency *= 2.0
-            amplitude *= 0.5
-        }
-        return value.coerceIn(-1.0, 1.0)
-    }
-
-    override fun resolveBiome(x: Int, y: Int, z: Int, seed: Long): SimpleConstructorBasedBiome {
-        val freqX = 0.001
-        val freqZ = 0.001
-        val rawX  = FBMCache.get(seed).sample(x * freqX, z * freqX)
-        val rawZ  = FBMCache.get(seed+1).sample(x * freqZ, z * freqZ)
-        val normX = ((rawX + 1)/2).coerceIn(0.0, 1.0)
-        val normZ = ((rawZ + 1)/2).coerceIn(0.0, 1.0)
-
-        // calls your 2D lookup
-        return getBiomePalette().get(normX, normZ)
-    }
-
-}
-
 val continentNoise = NoiseSamplerFactory.create(
     NoiseSamplerFactory.Type.PERLIN,
     seed = seedBase,
@@ -457,26 +248,30 @@ val worldPx = imageSize * scale // or however big the world is
 // val continents = ContinentGenerator(seedBase, 4096, 4096, targetCount = 5, minDist = 4096.0 / 3, radiusRange = 300.0 to 800.0)
 
 // low-frequency "shape" noise (gives coastline roughness)
-val baseShapeNoise = JNoiseNoiseSampler(NoiseSamplerFactory.create(
-    NoiseSamplerFactory.Type.PERLIN,
-    seed = seedBase,
-    frequency = 0.000008, // ~1-2 big features per 1000 blocks
-    octaves = 3,
-    lacunarity = 2.0,
-    gain = 2.0,
-    fbm = true,
-    interpolation = Interpolation.COSINE
-))
-val localElevationNoise = JNoiseNoiseSampler(NoiseSamplerFactory.create(
-    NoiseSamplerFactory.Type.PERLIN,
-    seed = seedBase,
-    frequency = 0.000008, // ~1-2 big features per 1000 blocks
-    octaves = 3,
-    lacunarity = 2.0,
-    gain = 2.0,
-    fbm = true,
-    interpolation = Interpolation.COSINE
-))
+val baseShapeNoise = JNoiseNoiseSampler(
+    NoiseSamplerFactory.create(
+        NoiseSamplerFactory.Type.PERLIN,
+        seed = seedBase,
+        frequency = 0.000008, // ~1-2 big features per 1000 blocks
+        octaves = 3,
+        lacunarity = 2.0,
+        gain = 2.0,
+        fbm = true,
+        interpolation = Interpolation.COSINE
+    )
+)
+val localElevationNoise = JNoiseNoiseSampler(
+    NoiseSamplerFactory.create(
+        NoiseSamplerFactory.Type.PERLIN,
+        seed = seedBase,
+        frequency = 0.000008, // ~1-2 big features per 1000 blocks
+        octaves = 3,
+        lacunarity = 2.0,
+        gain = 2.0,
+        fbm = true,
+        interpolation = Interpolation.COSINE
+    )
+)
 
 /*
 fun maskedElevation(x: Double, z: Double): Double {
@@ -506,14 +301,6 @@ val detailedContinentNoise = CompositeNoiseLayer(
     )
 )
 
-val landBiomeResolver = MultiParameterBiomeResolver<SimpleConstructorBasedBiome>(
-    FBMCache.get(seedBase + 1, frequency = 0.45f),         // Very low frequency for large elevation zones
-    FBMCache.get(seedBase + 2, frequency = 0.045f),       // Medium frequency
-    FBMCache.get(seedBase + 3, frequency = 0.025f) ,         // Slightly higher
-    FBMCache.get(seedBase + 4, frequency = 0.07f),
-    ImageBiomeResolver.getBiomePalette()
-)
-
 /*
 val continentResolver = ContinentBiomeResolver(
     detailedContinentNoise,
@@ -530,23 +317,58 @@ val continentResolver = ContinentBiomeResolver(
 )
  */
 
-const val seedBase = 87263626382632L
+const val seedBase = 787538661816L
 
-/*
 class ImageBasedDimension(
     override val id: String = "test:image_dimension",
     override val world: PlatformWorld<String, *> = ImageBasedWorld,
     override val chunkGenerator: PlatformChunkGenerator<String, SimpleConstructorBasedBiome> = ImageBasedChunkGenerator,
-    override val biomeResolver: BiomeResolver<SimpleConstructorBasedBiome> = /*ImageBiomeResolver*/ continentResolver,
+    override val biomeResolver: BiomeResolver<SimpleConstructorBasedBiome> = ImageBiomeResolver,
     override val structurePlacer: StructurePlacer<String> = WeightedStructurePlacer(),
     override val random: RandomSource = SeededRandomSource(seedBase)
-) : PlatformDimension<String, SimpleConstructorBasedBiome>
- */
-const val imageSize = 256 // output image size
-const val scale = 2      // how many blocks per pixel (change this to zoom in/out)\
+) : PlatformDimension<String, SimpleConstructorBasedBiome> // output image size
+
+// how many blocks per pixel (change this to zoom in/out)\
 const val size = 16
 
-/*
+object placer : BlockPlacer<String> {
+    override fun placeBlock(
+        x: Int,
+        y: Int,
+        z: Int,
+        data: PlatformBlockState<String>?
+    ) = ImageBasedWorld.setPlatformBlockState(
+        Vec3(x.toDouble(), y.toDouble(), z.toDouble()),
+        data as PlatformBlockState<String?>?
+    )
+
+    override fun placeBlock(
+        x: Int,
+        y: Int,
+        z: Int,
+        data: PlatformBlockState<String>?,
+        nbt: ICompoundTag
+    ) = ImageBasedWorld.setPlatformBlockState(
+        Vec3(x.toDouble(), y.toDouble(), z.toDouble()),
+        data as PlatformBlockState<String?>?,
+        nbt
+    )
+
+    override fun placeBlock(
+        vec: Vec3,
+        data: PlatformBlockState<String>?
+    ) = ImageBasedWorld.setPlatformBlockState(vec, data as PlatformBlockState<String?>?)
+
+    override fun placeBlock(
+        vec: Vec3,
+        data: PlatformBlockState<String>?,
+        nbt: ICompoundTag
+    ) = ImageBasedWorld.setPlatformBlockState(vec, data as PlatformBlockState<String?>?, nbt)
+
+    override fun getHighestBlockAt(x: Int, z: Int): Int = 64
+
+}
+
 fun generateImageTestWorld() {
     val dim = ImageBasedDimension()
     val worldSize = imageSize * scale
@@ -559,7 +381,13 @@ fun generateImageTestWorld() {
 
     for (chunkX in 0 until chunkCount) {
         for (chunkZ in 0 until chunkCount) {
-            val context = object : ChunkGenerateContext<String, SimpleConstructorBasedBiome>(chunkX, chunkZ, b) {}
+            val context = object : ChunkGenerateContext<String, SimpleConstructorBasedBiome>(
+                chunkX,
+                chunkZ,
+                ImageBiomeResolver,
+                SeededRandomSource(seedBase),
+                placer,
+                { x, y, z -> Vec3(x.toDouble(), y.toDouble(), z.toDouble()) }) {}
             dim.chunkGenerator.generateChunk(context)
             done++
 
@@ -579,16 +407,30 @@ fun generateImageTestWorld() {
     // make sure any buffered pixels are flushed and final PNG saved
     ChunkFlusher.finalizeAndSave()
 }
-*/
 
 object FBMCache {
     private val cache = mutableMapOf<Long, FBMGenerator>()
-    fun get(seed: Long, octaves: Int = 4, amplitude: Float = 1f, frequency: Float = 0.01f, lacunarity: Float = 2f, gain: Float = 0.5f): FBMGenerator {
+    fun get(
+        seed: Long,
+        octaves: Int = 4,
+        amplitude: Float = 1f,
+        frequency: Float = 0.01f,
+        lacunarity: Float = 2f,
+        gain: Float = 0.5f
+    ): FBMGenerator {
         return cache.getOrPut(seed) {
-            FBMGenerator(seed, octaves = octaves, amplitude = amplitude, frequency = frequency, lacunarity = lacunarity, gain = gain)
+            FBMGenerator(
+                seed,
+                octaves = octaves,
+                amplitude = amplitude,
+                frequency = frequency,
+                lacunarity = lacunarity,
+                gain = gain
+            )
         }
     }
 }
+
 fun showBiomeViewer(image: BufferedImage, biomeMap: Array<Pair<Int, String>>) {
     val frame = JFrame("Biome Viewer")
     val label = JLabel(ImageIcon(image))
@@ -635,185 +477,349 @@ fun colorsAreClose(c1: Int, c2: Int, tolerance: Int = 10): Boolean {
             abs(b1 - b2) < tolerance)
 }
 
+
+object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
+    // define your eight biomes up front
+    val plains = SimpleConstructorBasedBiome(
+        "plains",
+        "test",
+        0x88CC00,
+        0x000000,
+        0x00AAEE,
+        0x00AAEE,
+        0x00AAEE,
+        0x00AAEE,
+        false,
+        0.6,
+        0.8,
+        0.4,
+        rainfall = 0.5,
+        category = BiomeCategory.PLAINS,
+        heightSampler = listOf(),
+        precipitation = PrecipitationType.RAIN,
+        biomeStructureData = BiomeStructureData(listOf())
+    )
+    val forest = plains.withChanges(
+        name = "forest",
+        biomeColor = 0x228B22,
+        fogColor = 0x006400,
+        rainfall = 0.6,
+        category = BiomeCategory.FOREST,
+        elevation = 0.4,
+        biomeStructureData = BiomeStructureData(emptyList())
+    )
+    val rainforest = plains.withChanges(
+        name = "rainforest",
+        biomeColor = 0x228B88,
+        fogColor = 0x006400,
+        rainfall = 1.0,
+        category = BiomeCategory.RAINFOREST,
+        elevation = 0.45,
+        biomeStructureData = BiomeStructureData(emptyList())
+    )
+    val jungle = forest.withChanges(
+        name = "jungle",
+        biomeColor = 0x006600,
+        fogColor = 0x006400,
+        rainfall = 0.7,
+        category = BiomeCategory.JUNGLE,
+        elevation = 0.3,
+        biomeStructureData = BiomeStructureData(emptyList())
+    )
+    val taiga = forest.withChanges(
+        name = "taiga",
+        biomeColor = 0x01796F,
+        fogColor = 0x006D5E,
+        temperature = 0.3,
+        rainfall = 0.3,
+        elevation = 0.6,
+        precipitation = PrecipitationType.SNOW,
+        category = BiomeCategory.TAIGA // <-- Add this category to your enum if missing
+    )
+
+    val desert = plains.withChanges(
+        name = "desert",
+        biomeColor = 0xFAFAD2,
+        fogColor = 0xC2B280,
+        waterColor = 0xE0FFFF,
+        waterFogColor = 0xE0FFFF,
+        isOcean = false,
+        elevation = 0.3,
+        precipitation = PrecipitationType.NONE,
+        category = BiomeCategory.DESERT,
+        rainfall = 0.0
+    )
+
+    val swamp = plains.withChanges(
+        name = "swamp",
+        biomeColor = 0x3F7942,
+        fogColor = 0x2E8B57,
+        waterColor = 0x617B64,
+        waterFogColor = 0x324B3F,
+        rainfall = 0.7,
+        elevation = 0.3,
+        category = BiomeCategory.SWAMP
+    )
+
+    val mountains = plains.withChanges(
+        name = "mountains",
+        biomeColor = 0xA9A9A9,
+        fogColor = 0x808080,
+        rainfall = 0.2,
+        elevation = 0.9,
+        category = BiomeCategory.MOUNTAIN
+    )
+
+    val tundra = forest.withChanges(
+        name = "tundra",
+        biomeColor = 0x0000AA,
+        fogColor = 0x006D5E,
+        temperature = 0.3,
+        rainfall = 0.3,
+        elevation = 0.6,
+        precipitation = PrecipitationType.SNOW,
+        category = BiomeCategory.TUNDRA
+    )
+
+    val snowy = taiga.withChanges(
+        name = "snowy",
+        biomeColor = 0xFFFFFF,
+        fogColor = 0xE0FFFF,
+        isOcean = false,
+        rainfall = 0.4,
+        elevation = 0.3,
+        category = BiomeCategory.ICY
+    )
+
+    val ocean = plains.withChanges(
+        name = "ocean",
+        biomeColor = 0x00AAFF,
+        fogColor = 0xE0FFFF,
+        isOcean = true,
+        rainfall = 1.0,
+        elevation = 0.0,
+        category = BiomeCategory.OCEAN
+    )
+
+    val warmocean = ocean.withChanges(
+        name = "ocean",
+        biomeColor = 0x00CCAA,
+        fogColor = 0xE0FFFF,
+        isOcean = true,
+        rainfall = 1.0,
+        elevation = 0.0,
+        category = BiomeCategory.WARM_OCEAN
+    )
+
+    val deep = ocean.withChanges(
+        name = "deep",
+        biomeColor = 0x001144,
+        fogColor = 0xE0FFFF,
+        isOcean = true,
+        rainfall = 1.0,
+        elevation = 0.0,
+        category = BiomeCategory.DEEP_OCEAN
+    )
+
+    val mesa = plains.withChanges(
+        name = "mesa",
+        biomeColor = 0xCD853F,
+        fogColor = 0x8B4513,
+        rainfall = 0.1,
+        elevation = 0.7,
+        precipitation = PrecipitationType.NONE,
+        category = BiomeCategory.MESA
+    )
+
+    val savanna = desert.withChanges(
+        name = "savanna",
+        biomeColor = 0xead4ad,
+        fogColor = 0x8B4513,
+        rainfall = 0.2,
+        elevation = 0.2,
+        precipitation = PrecipitationType.NONE,
+        category = BiomeCategory.SAVANNA
+    )
+
+    val coast = desert.withChanges(
+        name = "coast",
+        biomeColor = 0xeadf93,
+        fogColor = 0x8B4513,
+        rainfall = 0.2,
+        elevation = 0.2,
+        precipitation = PrecipitationType.NONE,
+        category = BiomeCategory.COAST
+    )
+
+    // Oceans & Deep Oceans
+    val frozenOcean = ocean.withChanges(
+        name = "frozen_ocean",
+        biomeColor = 0xB0E0E6,
+        fogColor = 0xD8F0FF,
+        isOcean = true,
+        rainfall = 0.9,
+        temperature = 0.0,
+        category = BiomeCategory.FROZEN_OCEAN
+    )
+
+    val coldOcean = ocean.withChanges(
+        name = "cold_ocean",
+        biomeColor = 0x225577,
+        fogColor = 0x99BBCC,
+        isOcean = true,
+        rainfall = 0.8,
+        temperature = 0.3,
+        category = BiomeCategory.COLD_OCEAN
+    )
+
+    val lukewarmOcean = ocean.withChanges(
+        name = "lukewarm_ocean",
+        biomeColor = 0x337799,
+        fogColor = 0x88AACC,
+        isOcean = true,
+        rainfall = 0.7,
+        temperature = 0.7,
+        category = BiomeCategory.LUKEWARM_OCEAN
+    )
+
+    // Coasts
+    val icyCoast = coast.withChanges(
+        name = "icy_coast",
+        biomeColor = 0xDDEEFF,
+        fogColor = 0xBBDDFF,
+        rainfall = 0.9,
+        temperature = 0.0,
+        category = BiomeCategory.ICY
+    )
+
+    val coldCoast = coast.withChanges(
+        name = "cold_coast",
+        biomeColor = 0xAACCCC,
+        fogColor = 0x88AAAA,
+        rainfall = 0.8,
+        temperature = 0.3,
+        category = BiomeCategory.COLD_COAST
+    )
+
+    val warmCoast = coast.withChanges(
+        name = "warm_coast",
+        biomeColor = 0xFFD580,
+        fogColor = 0xFFCC99,
+        rainfall = 0.5,
+        temperature = 0.9,
+        category = BiomeCategory.WARM_COAST
+    )
+
+    // Deserts & Drylands
+    val coldDesert = desert.withChanges(
+        name = "cold_desert",
+        biomeColor = 0xC2B280,
+        fogColor = 0xC0C0A0,
+        rainfall = 0.1,
+        temperature = 0.2,
+        precipitation = PrecipitationType.NONE,
+        category = BiomeCategory.COLD_DESERT
+    )
+
+    // Mountains & Highlands
+    val mountain = plains.withChanges(
+        name = "mountain",
+        biomeColor = 0x888888,
+        fogColor = 0xCCCCCC,
+        rainfall = 0.5,
+        elevation = 1.0,
+        category = BiomeCategory.MOUNTAIN
+    )
+
+    // Wet biomes
+    val coldSwamp = swamp.withChanges(
+        name = "cold_swamp",
+        biomeColor = 0x556B2F,
+        fogColor = 0x445533,
+        rainfall = 0.8,
+        temperature = 0.3,
+        category = BiomeCategory.COLD_SWAMP
+    )
+
+    val wetland = swamp.withChanges(
+        name = "wetland",
+        biomeColor = 0x4A7023,
+        fogColor = 0x335533,
+        rainfall = 0.9,
+        temperature = 0.6,
+        category = BiomeCategory.WETLAND
+    )
+
+    val lushCaves = swamp.withChanges(
+        name = "lush_caves",
+        biomeColor = 0x228B22,
+        fogColor = 0x336633,
+        rainfall = 0.9,
+        temperature = 0.7,
+        elevation = -0.3,
+        category = BiomeCategory.LUSH_CAVES
+    )
+
+    val resolver = VickyMapGen(
+        createTemperatureSampler(seed = seedBase.xor(20397239723L)),
+        createHumiditySampler(seed = seedBase.xor(8628368682L)),
+        createElevationSampler(bias = -0.3, amplitude = 0.005, seed = seedBase.xor(2039455472397239L)),
+        palette = InvertedPaletteBuilder<SimpleConstructorBasedBiome>()
+            .add(Pair(0.0, 1.0), ocean)
+            .add(Pair(0.0, 1.0), warmocean)
+            .add(Pair(0.25, 1.0), coast)
+            .add(Pair(0.35, 1.0), plains)
+            .add(Pair(0.55, 0.7), tundra)
+            .add(Pair(0.7, 0.8), taiga)
+            .add(Pair(0.8, 1.0), jungle)
+            .add(Pair(0.8, 1.0), savanna)
+            .add(Pair(0.8, 1.0), mesa)
+            .add(Pair(0.8, 1.0), deep)
+            .add(Pair(0.8, 1.0), snowy)
+            .add(Pair(0.8, 1.0), swamp)
+            .add(Pair(0.8, 1.0), rainforest)
+            .add(Pair(0.7, 0.8), frozenOcean)
+            .add(Pair(0.8, 1.0), coldOcean)
+            .add(Pair(0.8, 1.0), lukewarmOcean)
+            .add(Pair(0.8, 1.0), coldCoast)
+            .add(Pair(0.8, 1.0), warmCoast)
+            .add(Pair(0.8, 1.0), icyCoast)
+            .add(Pair(0.8, 1.0), coldDesert)
+            .add(Pair(0.8, 1.0), mountain)
+            .add(Pair(0.8, 1.0), coldSwamp)
+            .add(Pair(0.8, 1.0), wetland)
+            .add(Pair(0.8, 1.0), lushCaves)
+            .build()
+    )
+
+    override fun getBiomePalette(): Palette<SimpleConstructorBasedBiome> = resolver.palette
+
+    override fun resolveBiome(x: Int, y: Int, z: Int, seed: Long): SimpleConstructorBasedBiome =
+        resolver.resolveBiome(x, y, z, seed)
+}
+
+const val imageSize = 512
+const val scale = 10
+const val startChX = 100 // world offset (chunk origin offset in blocks)
+const val startChZ = 0 // world offset (chunk origin offset in blocks)
 fun main() {
-    /*
-    val c = continents.centers.first()
-    println("DEBUG center = $c")
-    println("mask at center = ${continents.maskAt(c.x, c.z)}")
-    println("mask at radius*0.9 = ${continents.maskAt(c.x + c.radius*0.9, c.z)}")
-    println("mask at radius*1.1 = ${continents.maskAt(c.x + c.radius*1.1, c.z)}")
-    for (i in -5..5) {
-        for (j in -5..5) {
-            val v = (detailedContinentNoise.sample(i * 100.0, j * 100.0) + 1) / 2.0
-            print("%.2f ".format(v))
-        }
-        println()
-    }
-    debugNoiseStats(detailedContinentNoise)
-    debugNoiseStats(object : NoiseSampler {
-        override fun getSeed() = seedBase + 1
-        override fun sample(x: Double, z: Double) = maskedElevation(x, z)
-        override fun sample3D(x: Double, y: Double, z: Double) = maskedElevation(x, z)
-    })
+    val size = imageSize
+    val scaledSize = size.toDouble() * scale // use Double for ceil
+    val chunkCount = ceil(scaledSize / 16.0).toInt()
+    val totalChunks = chunkCount * chunkCount
 
-    saveChannelImage(256, 256, scale,
-        { x,z -> CompositeNoiseLayer(listOf(
-            JNoiseNoiseSampler(NoiseSamplerFactory.create(
-                NoiseSamplerFactory.Type.PERLIN,
-                { b ->
-                    b.addModule(
-                        AdditionModuleBuilder.newBuilder()
-                            .withSecondary(
-                                NoiseSamplerFactory.create(
-                                    NoiseSamplerFactory.Type.PERLIN,
-                                    { it },
-                                    0L,
-                                    0.03,
-                                    2,
-                                    2.0
-                                )
-                            )
-                            .build()
-                    )
-                    b
-                },
-                0L,
-                0.005,
-                4,
-                3.0
-            )) to 0.25,
-            JNoiseNoiseSampler(NoiseSamplerFactory.create(
-                NoiseSamplerFactory.Type.PERLIN,
-                { b ->
-                    b.addModule(
-                        AdditionModuleBuilder.newBuilder()
-                            .withSecondary(
-                                NoiseSamplerFactory.create(
-                                    NoiseSamplerFactory.Type.PERLIN,
-                                    { it },
-                                    0L,
-                                    0.07,
-                                    2,
-                                    2.0
-                                )
-                            )
-                            .build()
-                    )
-                    b
-                },
-                0L,
-                0.01,
-                2,
-                5.0
-            )) to 0.25,
-            JNoiseNoiseSampler(NoiseSamplerFactory.create(
-                NoiseSamplerFactory.Type.PERLIN,
-                { b ->
-                    b.addModule(
-                        AdditionModuleBuilder.newBuilder()
-                            .withSecondary(
-                                NoiseSamplerFactory.create(
-                                    NoiseSamplerFactory.Type.PERLIN,
-                                    { it },
-                                    0L,
-                                    0.3,
-                                    2,
-                                    2.0
-                                )
-                            )
-                            .build()
-                    )
-                    b
-                },
-                0L,
-                0.001,
-                4,
-                3.4
-            )) to 0.25,
-            JNoiseNoiseSampler(NoiseSamplerFactory.create(
-                NoiseSamplerFactory.Type.PERLIN,
-                { b ->
-                    b.addModule(
-                        AdditionModuleBuilder.newBuilder()
-                            .withSecondary(
-                                NoiseSamplerFactory.create(
-                                    NoiseSamplerFactory.Type.PERLIN,
-                                    { it },
-                                    0L,
-                                    0.005,
-                                    2,
-                                    2.0
-                                )
-                            )
-                            .build()
-                    )
-                    b
-                },
-                0L,
-                0.01,
-                2,
-                1.5
-            )) to 0.25
-        )).sample(x,z) }, "debug_continent.png")
-    /*
-    saveChannelImage(256, 256, scale,
-        { x,z -> FBMCache.get(seedBase + 1).sample(x*0.005, z*0.005) }, "debug_temp.png")
-     */
-    /*
-    saveChannelImage(4096, 4096, 1,
-        { x, z -> JNoiseNoiseSampler(NoiseSamplerFactory.create(
-            NoiseSamplerFactory.Type.PERLIN,
-            { b ->
-                b.addModule(
-                    AdditionModuleBuilder.newBuilder()
-                        .withSecondary(
-                            NoiseSamplerFactory.create(
-                                NoiseSamplerFactory.Type.OPEN_SIMPLEX,
-                                { it },
-                                frequency = 0.0003,
-                                octaves = 2,
-                                gain = 2.0,
-                                fbm = false,
-                                ridged = true,
-                                interpolation = Interpolation.COSINE
-                            )
-                        )
-                        .build()
-                )
-                b
-            },
-            frequency = 0.0009,
-            gain = 3.0,
-            fbm = false,
-            ridged = true,
-            interpolation = Interpolation.COSINE
-        )).sample(x, z) }, "debug_continents.png")
-     */
-    /*
-    generateImageTestWorld()
-    val image = ImageIO.read(File("generated_world.png"))
-    // you still need a biomeMap (or pass an empty/placeholder map) — e.g.:
-    val biomeMap: Array<Pair<Int, String>> = biomeCache.map {
-        it.value.biomeColor to it.key
-    }.toTypedArray()
-
-
-    SwingUtilities.invokeLater {
-        showBiomeViewer(image, biomeMap)
-    }
-     */
-     */
-    fun printChunkGrid(heights: IntArray, chunkSize: Int = 16) {
-        require(heights.size == chunkSize * chunkSize) { "Array size must be chunkSize^2" }
-
-        for (z in 0 until chunkSize) {
-            val row = (0 until chunkSize).joinToString(" ") { x ->
-                "%3d".format(heights[z * chunkSize + x])
-            }
-            println("[ $row ]")
-        }
+    if (totalChunks == 0) {
+        println("Nothing to generate (chunkCount=0).")
+        return
     }
 
+    val mainStep = max(1, totalChunks / 1)   // every ~10%
+    val miniStep = max(1, totalChunks / 10)  // every ~1%
+    var done = 0
+    var start = System.currentTimeMillis()
+    // biomeResolverTest(done, start, chunkCount, mainStep, totalChunks, miniStep)
+    // showBiomeViewer(ImageIO.read(File("colored.png")), (ImageBiomeResolver.getBiomePalette() as InvertedPalette).invertedMap.map{ it -> Pair(it.key.biomeColor, it.key.name) }.toTypedArray())
+    testUtilNoiseFuns(chunkCount, done, mainStep, totalChunks, start, miniStep)
     /*
     val provider =
         ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.heightSampler.buildSampler().getLayers())
@@ -826,9 +832,195 @@ fun main() {
     println()
     printChunkGrid(heights2)
     println()
-
      */
+
 }
+
+private fun biomeResolverTest(
+    done: Int,
+    start: Long,
+    chunkCount: Int,
+    mainStep: Int,
+    totalChunks: Int,
+    miniStep: Int
+) {
+    var done1 = done
+    var start1 = start
+    ChunkFlusher.setImagePath("colored.png")
+    for (cx in 0 until chunkCount) {
+        for (cz in 0 until chunkCount) {
+            // Apply startCh offset here so all world coords are consistent
+            val worldX = (startChX * scale) + cx * 16
+            val worldZ = (startChZ * scale) + cz * 16
+
+            // iterate local block coords inside the chunk [worldX .. worldX+15]
+            val endX = worldX + 16
+            val endZ = worldZ + 16
+            for (localX in worldX until endX) {
+                for (localZ in worldZ until endZ) {
+                    // resolveBiome expects world coords (x,z)
+                    // val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
+                    val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
+                    ChunkFlusher.add(localX - (startChX * scale), localZ - (startChZ * scale), color, null)
+                }
+            }
+
+            done1++
+            when {
+                done1 % mainStep == 0 -> {
+                    val percent = (done1.toDouble() * 100.0 / totalChunks).toInt()
+                    val elapsed = System.currentTimeMillis() - start1
+                    println("World gen: $percent% complete (${elapsed}ms)")
+                }
+
+                done1 % miniStep == 0 -> print(".")
+            }
+        }
+    }
+    var totalTime = System.currentTimeMillis() - start1
+    println("Colored generation completed in ${totalTime}ms\n")
+    ChunkFlusher.finalizeAndSave()
+}
+
+private fun testUtilNoiseFuns(
+    chunkCount: Int,
+    done: Int,
+    mainStep: Int,
+    totalChunks: Int,
+    start: Long,
+    miniStep: Int
+) {
+    var done1 = done
+    var start1 = start
+
+    var sampler = (DimensionDescriptors.CRYMORRA.resolver as VickyMapGen).elevNoise
+    println("${sampler.getSeed()}")
+    ChunkFlusher.setImagePath("elevation.png")
+    for (cx in 0 until chunkCount) {
+        for (cz in 0 until chunkCount) {
+            // Apply startCh offset here so all world coords are consistent
+            val worldX = (startChX * scale) + cx * 16
+            val worldZ = (startChZ * scale) + cz * 16
+
+            // iterate local block coords inside the chunk [worldX .. worldX+15]
+            val endX = worldX + 16
+            val endZ = worldZ + 16
+            for (localX in worldX until endX) {
+                for (localZ in worldZ until endZ) {
+                    // resolveBiome expects world coords (x,z)
+                    // val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
+                    val color = sampler.sample(localX * 1.0, localZ * 1.0).toGrayrh()
+                    ChunkFlusher.add(localX - (startChX * scale), localZ - (startChZ * scale), color, null)
+                }
+            }
+
+            done1++
+            when {
+                done1 % mainStep == 0 -> {
+                    val percent = (done1.toDouble() * 100.0 / totalChunks).toInt()
+                    val elapsed = System.currentTimeMillis() - start1
+                    println("World gen: $percent% complete (${elapsed}ms)")
+                }
+
+                done1 % miniStep == 0 -> print(".")
+            }
+        }
+    }
+    var totalTime = System.currentTimeMillis() - start1
+    println("Elevation generation completed in ${totalTime}ms\n")
+    ChunkFlusher.finalizeAndSave()
+
+    done1 = 0
+    start1 = System.currentTimeMillis()
+    sampler = (DimensionDescriptors.CRYMORRA.resolver as VickyMapGen).tempNoise
+    println("${sampler.getSeed()}")
+    ChunkFlusher.setImagePath("temperature.png")
+    for (cx in 0 until chunkCount) {
+        for (cz in 0 until chunkCount) {
+            // Apply startCh offset here so all world coords are consistent
+            val worldX = (startChX * scale) + cx * 16
+            val worldZ = (startChZ * scale) + cz * 16
+
+            // iterate local block coords inside the chunk [worldX .. worldX+15]
+            val endX = worldX + 16
+            val endZ = worldZ + 16
+            for (localX in worldX until endX) {
+                for (localZ in worldZ until endZ) {
+                    // resolveBiome expects world coords (x,z)
+                    // val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
+                    val color = sampler.sample(localX * 1.0, localZ * 1.0).toGrayrh()
+                    ChunkFlusher.add(localX - (startChX * scale), localZ - (startChZ * scale), color, null)
+                }
+            }
+
+            done1++
+            when {
+                done1 % mainStep == 0 -> {
+                    val percent = (done1.toDouble() * 100.0 / totalChunks).toInt()
+                    val elapsed = System.currentTimeMillis() - start1
+                    println("World gen: $percent% complete (${elapsed}ms)")
+                }
+
+                done1 % miniStep == 0 -> print(".")
+            }
+        }
+    }
+    totalTime = System.currentTimeMillis() - start1
+    println("Temperature generation completed in ${totalTime}ms\n")
+    ChunkFlusher.finalizeAndSave()
+
+    done1 = 0
+    start1 = System.currentTimeMillis()
+    sampler = (DimensionDescriptors.CRYMORRA.resolver as VickyMapGen).rainNoise
+    println("${sampler.getSeed()}")
+    ChunkFlusher.setImagePath("humidity.png")
+    for (cx in 0 until chunkCount) {
+        for (cz in 0 until chunkCount) {
+            // Apply startCh offset here so all world coords are consistent
+            val worldX = (startChX * scale) + cx * 16
+            val worldZ = (startChZ * scale) + cz * 16
+
+            // iterate local block coords inside the chunk [worldX .. worldX+15]
+            val endX = worldX + 16
+            val endZ = worldZ + 16
+            for (localX in worldX until endX) {
+                for (localZ in worldZ until endZ) {
+                    // resolveBiome expects world coords (x,z)
+                    // val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
+                    val color = sampler.sample(localX * 1.0, localZ * 1.0).toGrayrh()
+                    ChunkFlusher.add(localX - (startChX * scale), localZ - (startChZ * scale), color, null)
+                }
+            }
+
+            done1++
+            when {
+                done1 % mainStep == 0 -> {
+                    val percent = (done1.toDouble() * 100.0 / totalChunks).toInt()
+                    val elapsed = System.currentTimeMillis() - start1
+                    println("World gen: $percent% complete (${elapsed}ms)")
+                }
+
+                done1 % miniStep == 0 -> print(".")
+            }
+        }
+    }
+    totalTime = System.currentTimeMillis() - start1
+    println("Humidity generation completed in ${totalTime}ms\n")
+    ChunkFlusher.finalizeAndSave()
+}
+
+fun toGray(value: Double): Int {
+    val clamped = value.coerceIn(0.0, 1.0)      // keep between 0 and 1
+    val gray = (clamped * 255).toInt()          // scale to 0–255
+    return (gray shl 16) or (gray shl 8) or gray // pack into RGB int
+}
+
+fun Double.toGrayrh(): Int {
+    val clamped = this.coerceIn(0.0, 1.0)      // keep between 0 and 1
+    val gray = (clamped * 255).toInt()          // scale to 0–255
+    return (gray shl 16) or (gray shl 8) or gray // pack into RGB int
+}
+
 
 /**
  * Ridged multifractal derived from a base sampler.
@@ -983,10 +1175,14 @@ fun debugNoiseStats(noise: NoiseSampler, cx: Int = 0, cz: Int = 0, step: Int = 1
 }
 
 object ChunkFlusher {
-    private const val IMAGE_FILENAME = "generated_world.png"
+    private var IMAGE_FILENAME = "generated_world.png"
     private const val FLUSH_THRESHOLD = 256     // flush when buffered pixels >= this (tune)
     private const val imageWidth = imageSize
     private const val imageHeight = imageSize
+
+    fun setImagePath(path: String) {
+        this.IMAGE_FILENAME = path
+    }
 
     // Buffered image kept in memory — small and OK (imageSize x imageSize)
     private val image = BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_RGB)

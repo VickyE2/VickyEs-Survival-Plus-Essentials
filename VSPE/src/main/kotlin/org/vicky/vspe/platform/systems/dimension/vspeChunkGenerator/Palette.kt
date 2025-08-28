@@ -12,7 +12,7 @@ import kotlin.random.Random
 open class Palette<T> {
     internal val map: MutableMap<Pair<Double, Double>, T> = mutableMapOf()
 
-    fun getPaletteMap(): Map<Pair<Double, Double>, T>  {
+    open fun getPaletteMap(): Map<Pair<Double, Double>, T> {
         return map
     }
 
@@ -468,6 +468,67 @@ open class PaletteBuilder<T> {
     open fun build(): Palette<T> {
         return Palette<T>().apply {
             map.putAll(this@PaletteBuilder.map)
+        }
+    }
+}
+
+open class InvertedPalette<T> : Palette<T>() {
+    internal val invertedMap: MutableMap<T, Pair<Double, Double>> = mutableMapOf()
+
+    override fun get(x: Double, z: Double?): T {
+        error("Inverted palette has no use of Palette methods")
+    }
+
+    override fun getPaletteMap(): Map<Pair<Double, Double>, T> {
+        error("Inverted palette has no use of Palette methods")
+    }
+
+    fun getInvertedPaletteMap(): Map<T, Pair<Double, Double>> {
+        return invertedMap
+    }
+
+    open fun getInv(x: Double, @Nullable z: Double?): T {
+        for ((result, range) in invertedMap) {
+            if (x in range.first..range.second) {
+                return result
+            }
+        }
+        throw IllegalArgumentException("No matching palette entry for value $x")
+    }
+}
+
+open class InvertedPaletteBuilder<T> {
+    companion object {
+        fun <B> EMPTY(): InvertedPaletteBuilder<B> = object : InvertedPaletteBuilder<B>() {
+            override fun add(key: Pair<Double, Double>, value: B): InvertedPaletteBuilder<B> {
+                throw UnsupportedOperationException("Cannot add to EMPTY PaletteBuilder")
+            }
+
+            override fun add(min: Double, max: Double, value: B): InvertedPaletteBuilder<B> {
+                throw UnsupportedOperationException("Cannot add to EMPTY PaletteBuilder")
+            }
+
+            override fun build(): InvertedPalette<B> {
+                return InvertedPalette<B>() // Assuming Palette can be empty
+            }
+        }
+    }
+
+    val map: MutableMap<T, Pair<Double, Double>> = mutableMapOf()
+
+    open fun add(key: Pair<Double, Double>, value: T): InvertedPaletteBuilder<T> {
+        map[value] = key
+        return this
+    }
+
+    open fun add(min: Double, max: Double, value: T): InvertedPaletteBuilder<T> {
+        map[value] = min to max
+        return this
+    }
+
+    open fun build(): InvertedPalette<T> {
+        return InvertedPalette<T>().apply {
+            invertedMap.putAll(this@InvertedPaletteBuilder.map)
         }
     }
 }

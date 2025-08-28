@@ -408,12 +408,33 @@ class JNoiseWrapper(
     override fun getSeed(): Long = noise.getSeed()
 }
 
-class JNoiseNoiseSampler(
-    val noise: NoiseGenerator<DefaultedNoiseResult>
-): NoiseSampler {
-    override fun getSeed(): Long = noise.seed
-    override fun sample(x: Double, z: Double): Double = noise.evaluateNoise(x, z)
-    override fun sample3D(x: Double, y: Double, z: Double): Double = noise.evaluateNoise(x, y, z)
+class JNoiseNoiseSampler @JvmOverloads constructor(
+    val base: NoiseGenerator<DefaultedNoiseResult>,
+    sampleRegion: Int = 1024
+) : NoiseSampler {
+    private var min = Double.POSITIVE_INFINITY
+    private var max = Double.NEGATIVE_INFINITY
+
+    init {
+        // Sample some points to estimate range
+        for (i in 0 until sampleRegion) {
+            val v = base.evaluateNoise(i.toDouble(), i.toDouble())
+            if (v < min) min = v
+            if (v > max) max = v
+        }
+    }
+
+    override fun getSeed(): Long = base.seed
+
+    override fun sample(x: Double, z: Double): Double {
+        val v = base.evaluateNoise(x, z)
+        return ((v - min) / (max - min)).coerceIn(0.0, 1.0)
+    }
+
+    override fun sample3D(x: Double, y: Double, z: Double): Double {
+        val v = base.evaluateNoise(x, y, z)
+        return ((v - min) / (max - min)).coerceIn(0.0, 1.0)
+    }
 }
 
 open class CompositeNoiseLayer(
@@ -473,7 +494,8 @@ object NoiseSamplerFactory {
         VALUE,
         CELLULAR,
         WHITE,
-        VORONOI
+        VORONOI,
+        CONSTANT
     }
 
     @JvmOverloads
@@ -496,6 +518,7 @@ object NoiseSamplerFactory {
             Type.CELLULAR -> JNoise.newBuilder().worley().setSeed(seed).setFrequency(frequency)
             Type.WHITE -> JNoise.newBuilder().white().setSeed(seed).setFrequency(frequency)
             Type.VORONOI -> VoronoiBuilder().frequency(frequency).seed(seed).jitter(lacunarity).normalized(true)
+            Type.CONSTANT -> ConstantModuleBuilder().withValue(frequency)
         }
 
         if (fbm) {
@@ -522,16 +545,37 @@ object NoiseSamplerFactory {
         val noise = baseGenerator.build()
 
         return object : NoiseGenerator<DefaultedNoiseResult> {
+            private var minVal = Double.MAX_VALUE
+            private var maxVal = -Double.MAX_VALUE
+
+            init {
+                val rng = java.util.Random(1337)
+                repeat(2048) {
+                    val x = rng.nextDouble() * 1000
+                    val y = rng.nextDouble() * 1000
+                    val v = noise.getNoise(x, y)
+                    minVal = minOf(minVal, v)
+                    maxVal = maxOf(maxVal, v)
+                }
+            }
+
+            private fun normalize(v: Double): Double {
+                return if (maxVal != minVal) {
+                    (v - minVal) / (maxVal - minVal)
+                } else 0.5 // degenerate case: noise constant everywhere
+            }
+
             override fun getSeed(): Long = seed
-            override fun evaluateNoise(p0: Double): Double = noise.getNoise(p0)
-            override fun evaluateNoise(p0: Double, p1: Double): Double = noise.getNoise(p0, p1)
-            override fun evaluateNoise(p0: Double, p1: Double, p2: Double): Double = noise.getNoise(p0, p2, p2)
+            override fun evaluateNoise(p0: Double): Double = normalize(noise.getNoise(p0))
+            override fun evaluateNoise(p0: Double, p1: Double): Double = normalize(noise.getNoise(p0, p1))
+            override fun evaluateNoise(p0: Double, p1: Double, p2: Double): Double =
+                normalize(noise.getNoise(p0, p2, p2))
             override fun evaluateNoise(
                 p0: Double,
                 p1: Double,
                 p2: Double,
                 p3: Double
-            ): Double = noise.getNoise(p0, p1, p2, p3)
+            ): Double = normalize(noise.getNoise(p0, p1, p2, p3))
 
             override fun evaluateNoiseResult(
                 x: Double,
@@ -595,6 +639,12 @@ object NoiseSamplerFactory {
                 p4: Long
             ): Double = noise.getNoise(p0, p1, p2, p3)
         }
+    }
+
+    fun normalizeNoise(value: Double, octaves: Int, persistence: Double): Double {
+        // Theoretical max amplitude = 1 + p + p^2 + ... p^(octaves-1)
+        val maxAmplitude = (1 - persistence.pow(octaves.toDouble())) / (1 - persistence)
+        return value / maxAmplitude
     }
 }
 
@@ -1062,6 +1112,95 @@ class AdditionModule(
     }
 }
 
+class ConstantModule private constructor(
+    var value: Double
+) : NoiseGenerator<DefaultedNoiseResult> {
+
+    companion object {
+        fun of(value: Double): ConstantModule = ConstantModule(value)
+    }
+
+    override fun evaluateNoise(x: Double, seed: Long): Double = value
+
+    override fun evaluateNoise(x: Double, y: Double, seed: Long): Double = value
+
+    override fun evaluateNoise(x: Double, y: Double, z: Double, seed: Long): Double = value
+
+    override fun evaluateNoise(
+        x: Double,
+        y: Double,
+        z: Double,
+        w: Double,
+        seed: Long
+    ): Double = value
+
+    override fun evaluateNoise(x: Double): Double = value
+
+    override fun evaluateNoise(x: Double, y: Double): Double = value
+
+    override fun evaluateNoise(x: Double, y: Double, z: Double): Double = value
+
+    override fun evaluateNoise(x: Double, y: Double, z: Double, w: Double): Double = value
+
+    override fun evaluateNoiseResult(
+        x: Double,
+        seed: Long
+    ): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun evaluateNoiseResult(
+        x: Double,
+        y: Double,
+        seed: Long
+    ): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun evaluateNoiseResult(
+        x: Double,
+        y: Double,
+        z: Double,
+        seed: Long
+    ): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun evaluateNoiseResult(
+        x: Double,
+        y: Double,
+        z: Double,
+        w: Double,
+        seed: Long
+    ): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun evaluateNoiseResult(x: Double): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun evaluateNoiseResult(
+        x: Double,
+        y: Double
+    ): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun evaluateNoiseResult(
+        x: Double,
+        y: Double,
+        z: Double
+    ): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun evaluateNoiseResult(
+        x: Double,
+        y: Double,
+        z: Double,
+        w: Double
+    ): DefaultedNoiseResult = DefaultedNoiseResult(value)
+
+    override fun getSeed(): Long = 0L
+}
+
+class ConstantModuleBuilder : NoiseBuilder<DefaultedNoiseResult, ConstantModuleBuilder>() {
+    var value = 1.0
+    fun withValue(value: Double): ConstantModuleBuilder {
+        this.value = value
+        return this
+    }
+
+    override fun createGenerator(): NoiseGenerator<DefaultedNoiseResult> = ConstantModule.of(value)
+}
+
 class AdditionModuleBuilder private constructor(): NoiseModuleBuilder<AdditionModuleBuilder>
 {
     companion object {
@@ -1323,4 +1462,98 @@ class VoronoiBuilder(): NoiseBuilder<DefaultedNoiseResult, VoronoiBuilder>() {
     fun normalized(n: Boolean) = apply { this.normalized = n }
 
     override fun createGenerator(): NoiseGenerator<DefaultedNoiseResult?> = VoronoiSampler(seed, frequency, jitter, distanceMetric, returnMode, normalized)
+}
+
+@JvmOverloads
+fun createElevationSampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: Long = 0L): JNoiseNoiseSampler {
+    val base = NoiseSamplerFactory.create(
+        NoiseSamplerFactory.Type.PERLIN,
+        { b ->
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(amplitude))
+                    .build()
+            )
+            b.addModule(
+                AdditionModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(bias))
+                    .build()
+            )
+            b
+        },
+        seed,
+        0.00076, // continental scale
+        8
+    )
+    return JNoiseNoiseSampler(base)
+}
+
+@JvmOverloads
+fun createTemperatureSampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: Long = 0L): JNoiseNoiseSampler {
+    val base = NoiseSamplerFactory.create(
+        NoiseSamplerFactory.Type.PERLIN,
+        { b ->
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(amplitude))
+                    .build()
+            )
+            b.addModule(
+                AdditionModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(bias))
+                    .build()
+            )
+            b.addModule(
+                AdditionModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(1.0))
+                    .build()
+            )
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(0.5))
+                    .build()
+            )
+            b
+        },
+        seed,
+        0.00098, // continental scale
+        4,
+        0.4
+    )
+    return JNoiseNoiseSampler(base)
+}
+
+@JvmOverloads
+fun createHumiditySampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: Long = 0L): JNoiseNoiseSampler {
+    val base = NoiseSamplerFactory.create(
+        NoiseSamplerFactory.Type.PERLIN,
+        { b ->
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(amplitude))
+                    .build()
+            )
+            b.addModule(
+                AdditionModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(bias))
+                    .build()
+            )
+            b.addModule(
+                AdditionModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(1.0))
+                    .build()
+            )
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(0.5))
+                    .build()
+            )
+            b
+        },
+        seed,
+        0.00088, // continental scale
+        4,
+        0.6
+    )
+    return JNoiseNoiseSampler(base)
 }

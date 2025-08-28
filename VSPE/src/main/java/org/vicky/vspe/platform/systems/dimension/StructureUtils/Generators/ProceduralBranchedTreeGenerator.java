@@ -118,225 +118,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
             }
         }
 
-        // 2) Generate an even hemisphere of directions
-        List<Vec3> hemisphereDirs = fibonacciHemisphere(branchThreshold);
-
-        // 3) Spawn one primary branch for each direction
-        int yTop = (int) (origin.getY() + ((maxHeight - 1) * branchStart));
-        double topR = maxTrunkThickness / Math.sqrt(1 + alpha * (maxHeight - 1));
-
-        for(Vec3 dir : hemisphereDirs) {
-            // project onto trunk rim for start point:
-            int startX = origin.getX() + (int)Math.round(dir.x * topR);
-            int startZ = origin.getZ() + (int)Math.round(dir.z * topR);
-
-            // branch thickness & length bounds
-            recurseBranch(
-                    rnd,
-                    new Vec3(startX, yTop, startZ),
-                    0,
-                    maxBranchThickness,
-                    dir
-            );
-        }
-    }
-
-
-    // new recurseBranch signature:
-    /**
-     * @param dir  Unit‐direction vector (x=dx/length, y=dy/length, z=dz/length)
-     */
-    private void recurseBranch(RandomSource rnd,
-                               Vec3 origin,
-                               int level,
-                               double parentR,
-                               Vec3 dir) {
-        // 1) stop if too thin or too deep
-        // safe upper bound: avoid runaway recursion; use branchThreshold as the main limit
-        if (parentR < 1 || level >= Math.max(4, branchThreshold)) return;
-
-        double depthFactor = Math.pow(1.0 - (level / (double)branchThreshold), 1.5);
-        double spawnChance = randomness * depthFactor;
-
-        // 2) shrink per-level
-        double currR = Math.max(1, parentR * branchShrinkPerLevel);
-        int branchRadius = (int)Math.round(currR);
-
-        // 3) fixed straight-line length (no extra randomness here)
-        int denom = Math.max(1, Math.round(branchLengthRatioToHeight * Math.max(1, level)));
-        int len = (int) Math.max(1, Math.round(maxWidth / (double) denom));
-        len = Math.min(len, maxWidth * 2); // arbitrary cap
-
-        if(cheapMode) len = (int)(len * qualityFactor);
-
-        // 4) march straight out
-        int ox = origin.getX(), oy = origin.getY(), oz = origin.getZ();
-        int lastDx = 0, lastDy = 0, lastDz = 0;
-
-        int maxChildren = Math.max(1, branchThreshold / (level + 2));
-        int spawned      = 0;
-        boolean placed   = false;
-        int minStep = Math.max(1, branchRadius/2);
-        int thresholdSq = minStep*minStep;
-
-        for(int j = 0; j <= len; j++) {
-            // current offset along dir
-            int dx = (int)Math.round(dir.x * j);
-            int dy = (int)Math.round(dir.y * j);
-            int dz = (int)Math.round(dir.z * j);
-
-            int bx = ox + dx, by = oy + dy, bz = oz + dz;
-
-            // stamp only when we've moved ~1.2× radius or at the tip
-            int dd = (dx-lastDx)*(dx-lastDx)
-                    + (dy-lastDy)*(dy-lastDy)
-                    + (dz-lastDz)*(dz-lastDz);
-
-            if(j == len || dd >= thresholdSq) {
-                // place the cylinder slice
-                guardAndStore(bx, by, bz, branchRadius, wood, true);
-
-                // decorators…
-                for(var d : decorators) if(rnd.nextFloat() < d.chance) {
-                    for(var ori : d.orientations) {
-                        int tx = bx, ty = by;
-                        switch(ori) {
-                            case TOP    -> ty += branchRadius + 1;
-                            case BOTTOM -> ty -= branchRadius + 1;
-                            case LEFT   -> tx -= branchRadius + 1;
-                            case RIGHT  -> tx += branchRadius + 1;
-                        }
-                        // capture coordinate in action wrapper so actions executed later get correct Vec3
-                        int fx = tx, fy = ty, fz = bz;
-                        guardAndAction(fx, fy, fz, (w, v) -> d.action.accept(w, new Vec3(fx, fy, fz)));
-                    }
-                }
-
-                // Put dangling leaves at joint locations (where sub-branches may spawn) — makes dangling actually hang from joints.
-                if (addLeaves && type == LeafType.DANGLING) {
-                    // attach a small cluster of dangling chains around this stamp point
-                    attachHangingChain(bx, by, bz, branchRadius, rnd);
-                }
-
-                // **only here** do we optionally spawn a sub-branch
-                boolean inRange = j >= len * 0.6 && j <= len * 0.9;
-                if(!placed
-                        && inRange
-                        && level + 2 < branchThreshold
-                        && level+1 != branchThreshold
-                        && rnd.nextFloat() < spawnChance) {
-                    // 5a) find a perp vector to dir
-                    // 1) Parent direction (unit vector)
-                    Vec3 axis = dir.normalize();
-
-                    // 2) Build an orthonormal basis {U,V} perpendicular to axis
-                    Vec3 U = axis.crossProduct(new Vec3(0, 1, 0));
-                    if(U.lengthSq() < 1e-6) {
-                        // axis was (nearly) vertical—use another fallback
-                        U = axis.crossProduct(new Vec3(1, 0, 0));
-                    }
-                    U = U.normalize();
-                    Vec3 V = axis.crossProduct(U).normalize();
-
-                    // 3) Pick a random angle around the circle
-                    double step    = TAU / maxChildren;
-                    double baseAz  = spawned * step;
-                    double jitter  = step * 0.1 * depthFactor;  // 20%
-                    double azim    = baseAz + (rnd.nextDouble()*2 - 1) * jitter;
-
-                    // 4) Your lateral offset direction on that circle:
-                    Vec3 lateral = U.multiply(Math.cos(azim))
-                            .add(V.multiply(Math.sin(azim)))
-                            .normalize();
-
-                    double raw = randomness * twistiness;            // [0..1]
-                    double skew = Math.pow(raw, 0.5);         // tweak exponent for stronger bias
-                    double pitch = minPitch + skew*(maxPitch-minPitch); // always positive
-                    if (level+2 == branchThreshold && rnd.nextFloat() < twistiness)
-                        pitch = -pitch;
-
-                    // 6) Build child direction
-                    Vec3 childDir = lateral.multiply(Math.cos(pitch))
-                            .add(axis.multiply(Math.sin(pitch)))
-                            .normalize();
-
-                    // 7) If it somehow went downward, flip its vertical component
-                    if (childDir.y < 0) {
-                        childDir = new Vec3(childDir.x,
-                                -childDir.y,
-                                childDir.z).normalize();
-                    }
-
-                    // 6) Recurse from this exact stamp point:
-                    recurseBranch(
-                            rnd,
-                            new Vec3(bx, by, bz),
-                            level + 1,
-                            currR,
-                            childDir
-                    );
-                    spawned++;
-                }
-            }
-            lastDx = dx;
-            lastDy = dy;
-            lastDz = dz;
-        }
-        if (level+1 == branchThreshold && addLeaves) {
-            // lastDx/lastDy/lastDz are offsets from the branch's origin (ox,oy,oz)
-            setLeaves(new Vec3(ox + lastDx, oy + lastDy, oz + lastDz));
-        }
-
-        if(level + 2 == branchThreshold) {
-            // 1) Build only the upper hemisphere directions
-            List<Vec3> hemiAll = fibonacciHemisphere(branchThreshold * 2);
-            List<Vec3> hemiUp = hemiAll.stream()
-                    .filter(v -> v.y > 0)  // keep only upward‐pointing
-                    .toList();
-
-            // 2) Compute world‐space rim height
-            int worldDy = oy + lastDy;
-            int yTop    = (int)(worldDy + ((maxHeight - 1) * branchStart));
-            double topR = maxTrunkThickness / Math.sqrt(1 + 0.04 * (maxHeight - 1));
-
-            for(Vec3 rimDir : hemiUp) {
-                // project start point around that rim vector
-                int startX = ox + lastDx + (int)Math.round(rimDir.x * topR);
-                int startZ = oz + lastDz + (int)Math.round(rimDir.z * topR);
-
-                // now build a perfect U,V ⟂ parent axis = rimDir
-                Vec3 N = rimDir.normalize();
-                Vec3 up = new Vec3(0,1,0);
-                Vec3 U = N.crossProduct(up);
-                if(U.lengthSq() < 1e-6) U = N.crossProduct(new Vec3(1,0,0));
-                U = U.normalize();
-                Vec3 V = N.crossProduct(U).normalize();
-
-                // random around the circle
-                double w = rnd.nextDouble() * TAU;
-
-                // tilt by exactly 90° ± pitch
-                double o = minPitch + rnd.nextDouble() * (maxPitch - minPitch);
-                if(rnd.nextBoolean()) o = -o;
-                double t = Math.PI/2 + o;
-
-                // assemble child direction
-                Vec3 childDir = U.multiply(Math.cos(w)*Math.sin(t))
-                        .add(V.multiply(Math.sin(w)*Math.sin(t)))
-                        .add(N.multiply(Math.cos(t)))
-                        .normalize();
-
-                // spawn that secondary branch
-                recurseBranch(
-                        rnd,
-                        new Vec3(startX, yTop, startZ),
-                        level + 1,
-                        currR,
-                        childDir
-                );
-            }
-        }
-
+        generateSpaceColonizationBranches(rnd, origin.add(0.0, (double) ((maxHeight - 1) * branchStart), 0.0));
     }
 
     /**
@@ -517,6 +299,229 @@ public class ProceduralBranchedTreeGenerator<T> extends
         }
     }
 
+    // ---- Space Colonization helpers ----
+
+    /**
+     * Generate attraction points in an ellipsoid above the trunk top.
+     */
+    private List<Vec3> generateAttractionPoints(RandomSource rnd, Vec3 trunkTop, double radiusX, double radiusY, double radiusZ, int count) {
+        List<Vec3> points = new ArrayList<>(count);
+        int tries = 0;
+        while (points.size() < count && tries < count * 6) { // some rejection sampling
+            tries++;
+            double rx = (rnd.nextDouble() * 2.0 - 1.0) * radiusX;
+            double ry = rnd.nextDouble() * radiusY; // biased upward hemisphere (0..radiusY)
+            double rz = (rnd.nextDouble() * 2.0 - 1.0) * radiusZ;
+            // accept if inside ellipsoid (x/rx)^2 + (y/ry)^2 + (z/rz)^2 <= 1
+            double nx = (radiusX == 0) ? 0 : rx / radiusX;
+            double ny = (radiusY == 0) ? 0 : ry / radiusY;
+            double nz = (radiusZ == 0) ? 0 : rz / radiusZ;
+            if (nx * nx + ny * ny + nz * nz <= 1.0) {
+                points.add(new Vec3(trunkTop.getX() + rx, trunkTop.getY() + ry, trunkTop.getZ() + rz));
+            }
+        }
+        return points;
+    }
+
+    /**
+     * Grow a skeleton (list of edges) using the Space Colonization algorithm.
+     * <p>
+     * Parameters tuned conservatively; adjust to taste.
+     */
+    private List<Edge> growSkeletonSpaceColonization(RandomSource rnd, Vec3 trunkTop, List<Vec3> attractPoints,
+                                                     double influenceRadius, double killRadius, double stepSize,
+                                                     int maxIterations, int maxNodes) {
+        List<Edge> edges = new ArrayList<>();
+        List<BranchNode> nodes = new ArrayList<>();
+        BranchNode root = new BranchNode(trunkTop, null, 0);
+        nodes.add(root);
+
+        // precompute squares for distance tests
+        double infR2 = influenceRadius * influenceRadius;
+        double killR2 = killRadius * killRadius;
+
+        int iter = 0;
+        while (!attractPoints.isEmpty() && iter++ < maxIterations && nodes.size() < maxNodes) {
+            // assignment: map node -> list of targets (we accumulate direction sums & counts instead)
+            Map<BranchNode, Vec3> sumDir = new HashMap<>();
+            Map<BranchNode, Integer> sumCount = new HashMap<>();
+
+            // for each target, find nearest node within influenceRadius
+            Iterator<Vec3> atkIter = attractPoints.iterator();
+            while (atkIter.hasNext()) {
+                Vec3 a = atkIter.next();
+                BranchNode nearest = null;
+                double best2 = Double.POSITIVE_INFINITY;
+                for (BranchNode n : nodes) {
+                    double dx = a.getX() - n.pos.getX();
+                    double dy = a.getY() - n.pos.getY();
+                    double dz = a.getZ() - n.pos.getZ();
+                    double d2 = dx * dx + dy * dy + dz * dz;
+                    if (d2 < best2) {
+                        best2 = d2;
+                        nearest = n;
+                    }
+                }
+                if (nearest == null) continue;
+                if (best2 <= infR2) {
+                    // add direction vector
+                    Vec3 dir = new Vec3(a.getX() - nearest.pos.getX(), a.getY() - nearest.pos.getY(), a.getZ() - nearest.pos.getZ());
+                    Vec3 prev = sumDir.get(nearest);
+                    if (prev == null) sumDir.put(nearest, dir);
+                    else sumDir.put(nearest, prev.add(dir)); // Vec3.add assumed
+                    sumCount.merge(nearest, 1, Integer::sum);
+                } else {
+                    // If not within any influence radius, we keep the attraction point for later (could also discard after many iters)
+                }
+            }
+
+            // Create new nodes from contributions
+            List<BranchNode> newNodes = new ArrayList<>();
+            for (Map.Entry<BranchNode, Vec3> e : sumDir.entrySet()) {
+                BranchNode base = e.getKey();
+                Vec3 avg = e.getValue();
+                int count = sumCount.getOrDefault(base, 1);
+                // average direction
+                Vec3 dir = avg.multiply(1.0 / count).normalize();
+                // new position
+                Vec3 newPos = base.pos.add(dir.multiply(stepSize));
+                // ensure not too close to existing nodes (min spacing)
+                double minSpacing = Math.max(0.5, stepSize * 0.6);
+                boolean tooClose = false;
+                for (BranchNode n : nodes) {
+                    double dx = newPos.getX() - n.pos.getX();
+                    double dy = newPos.getY() - n.pos.getY();
+                    double dz = newPos.getZ() - n.pos.getZ();
+                    if (dx * dx + dy * dy + dz * dz < minSpacing * minSpacing) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+                if (tooClose) continue;
+                BranchNode nn = new BranchNode(newPos, base, base.depth + 1);
+                nodes.add(nn);
+                newNodes.add(nn);
+                edges.add(new Edge(base, nn));
+                if (nodes.size() >= maxNodes) break;
+            }
+
+            if (newNodes.isEmpty()) {
+                // nothing grew this iteration -> stop early
+                break;
+            }
+
+            // Remove attraction points that are within killRadius of any new node
+            Iterator<Vec3> atRem = attractPoints.iterator();
+            outer:
+            while (atRem.hasNext()) {
+                Vec3 a = atRem.next();
+                for (BranchNode n : newNodes) {
+                    double dx = a.getX() - n.pos.getX();
+                    double dy = a.getY() - n.pos.getY();
+                    double dz = a.getZ() - n.pos.getZ();
+                    if (dx * dx + dy * dy + dz * dz <= killR2) {
+                        atRem.remove();
+                        continue outer;
+                    }
+                }
+            }
+        }
+
+        return edges;
+    }
+
+    /**
+     * Convert skeleton edges into block placements by stamping cylinders along each edge.
+     * thicknessBase controls trunk->branch thickness scaling.
+     */
+    private void skeletonToBlocks(List<Edge> skeleton, RandomSource rnd, double thicknessBase) {
+        for (Edge e : skeleton) {
+            Vec3 a = e.a.pos;
+            Vec3 b = e.b.pos;
+            double dx = b.getX() - a.getX();
+            double dy = b.getY() - a.getY();
+            double dz = b.getZ() - a.getZ();
+            double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (len <= 0.001) continue;
+            int steps = Math.max(1, (int) Math.ceil(len / 0.5)); // sample every 0.5 blocks
+            for (int s = 0; s <= steps; s++) {
+                double t = s / (double) steps;
+                double px = a.getX() + dx * t;
+                double py = a.getY() + dy * t;
+                double pz = a.getZ() + dz * t;
+
+                // thickness falloff by depth: deeper (larger depth number) => thinner
+                int depth = e.b.depth; // use child depth as thickness indicator
+                double radius = Math.max(0.5, thicknessBase * Math.pow(branchShrinkPerLevel, depth));
+                int rInt = (int) Math.round(radius);
+
+                guardAndStore((int) Math.round(px), (int) Math.round(py), (int) Math.round(pz), rInt, wood, rInt > 0);
+            }
+        }
+    }
+
+    /**
+     * Public method to run SC branches. Call after trunk is built.
+     */
+    private void generateSpaceColonizationBranches(RandomSource rnd, Vec3 trunkTop) {
+        // Tunables (try adjusting)
+        int attractCount = Math.round(maxWidth * maxWidth * 6 * qualityFactor); // density
+        double radiusX = Math.max(2, maxWidth * 0.9);
+        double radiusY = Math.max(2, maxHeight * 0.55);
+        double radiusZ = radiusX;
+        double influenceRadius = Math.max(2.5, Math.min(radiusX, 4.0));
+        double killRadius = 1.2;
+        double stepSize = Math.max(0.8, 1.4 * (1.0 - qualityFactor)); // shorter steps = finer branches
+        int maxIter = 200;
+        int maxNodes = 2000;
+
+        List<Vec3> attracts = generateAttractionPoints(rnd, trunkTop, radiusX, radiusY, radiusZ, attractCount);
+        if (attracts.isEmpty()) return;
+
+        List<Edge> skeleton = growSkeletonSpaceColonization(rnd, trunkTop, attracts, influenceRadius, killRadius, stepSize, maxIter, maxNodes);
+        // convert skeleton to blocks
+        double thicknessBase = Math.max(1.0, maxBranchThickness * 0.9);
+        skeletonToBlocks(skeleton, rnd, thicknessBase);
+
+        // optionally place leaves at tips (leaf clusters at nodes with no children)
+        for (Edge ed : skeleton) {
+            // find nodes with no children - naive: child nodes that are never a parent in any edge
+        }
+        // simple way: collect all child nodes and find child nodes that don't appear as parent in any edge
+        Set<BranchNode> parents = new HashSet<>();
+        Set<BranchNode> children = new HashSet<>();
+        for (Edge ed : skeleton) {
+            parents.add(ed.a);
+            children.add(ed.b);
+        }
+        for (BranchNode nd : children) {
+            if (!parents.contains(nd)) {
+                // tip node -> spawn leaves
+                if (addLeaves) setLeaves(nd.pos);
+            }
+        }
+    }
+
+    private static final class BranchNode {
+        final Vec3 pos;
+        final BranchNode parent;
+        final int depth; // depth from trunk root
+
+        BranchNode(Vec3 pos, BranchNode parent, int depth) {
+            this.pos = pos;
+            this.parent = parent;
+            this.depth = depth;
+        }
+    }
+
+    private static final class Edge {
+        final BranchNode a, b;
+
+        Edge(BranchNode a, BranchNode b) {
+            this.a = a;
+            this.b = b;
+        }
+    }
 
     public static class Builder<T> extends
             BaseBuilder<T, ProceduralBranchedTreeGenerator<T>> {

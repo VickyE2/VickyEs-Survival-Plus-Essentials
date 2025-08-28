@@ -13,20 +13,6 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-fun <T> List<T>.weightedRandomOrNull(weightProvider: (T) -> Int): T? {
-    if (isEmpty()) return null
-    val totalWeight = sumOf(weightProvider)
-    if (totalWeight <= 0) return null
-
-    val r = Random.nextInt(totalWeight)
-    var cumulative = 0
-    for (item in this) {
-        cumulative += weightProvider(item)
-        if (r < cumulative) return item
-    }
-    return null // shouldn't happen unless totalWeight is messed up
-}
-
 fun createTerrainSampler(seed: Long): CompositeNoiseLayer {
     // low-frequency "mountain" ridges (FBM) — big scale, fewer features
     val mountainBase = FBMGenerator(
@@ -133,7 +119,59 @@ typealias PaletteFunction = (
 ) -> PlatformBlockState<*>
 
 enum class BiomeCategory {
-    COAST, WARM_OCEAN, WARM_DEEP_OCEAN, COLD_OCEAN, COLD_DEEP_OCEAN, SNOWY_BEACH, LUSH_CAVES, PLAINS, FOREST, DESERT, MOUNTAIN, OCEAN, DEEP_OCEAN, RIVER, SWAMP, TAIGA, SAVANNA, TUNDRA, NETHER, END, MESA, ICY, JUNGLE, RAINFOREST, WETLAND;
+    COAST, COLD_COAST, WARM_COAST, WARM_OCEAN, WARM_DEEP_OCEAN, LUKEWARM_OCEAN, LUKEWARM_DEEP_OCEAN, COLD_OCEAN, COLD_DEEP_OCEAN, FROZEN_OCEAN, FROZEN_DEEP_OCEAN, SNOWY_BEACH, LUSH_CAVES, PLAINS, FOREST, DESERT, COLD_DESERT, MOUNTAIN, OCEAN, DEEP_OCEAN, RIVER, SWAMP, COLD_SWAMP, TAIGA, SAVANNA, TUNDRA, NETHER, END, MESA, ICY, JUNGLE, RAINFOREST, WETLAND;
+}
+
+fun <T> List<T>.weightedRandomOrNullI(weightProvider: (T) -> Int): T? {
+    if (isEmpty()) return null
+    val totalWeight = sumOf(weightProvider)
+    if (totalWeight <= 0) return null
+
+    val r = Random.nextInt(totalWeight)
+    var cumulative = 0
+    for (item in this) {
+        cumulative += weightProvider(item)
+        if (r < cumulative) return item
+    }
+    return null // shouldn't happen unless totalWeight is messed up
+}
+
+fun <T> Iterable<T>.weightedRandomOrNullD(
+    random: Random = Random.Default,
+    weightSelector: (T) -> Double
+): T? {
+    val list = this.toList()
+    if (list.isEmpty()) return null
+
+    val totalWeight = list.sumOf(weightSelector)
+    if (totalWeight <= 0.0) return null
+
+    var r = random.nextDouble() * totalWeight
+    for (item in list) {
+        r -= weightSelector(item)
+        if (r <= 0.0) {
+            return item
+        }
+    }
+    return list.last() // fallback if rounding quirks happen
+}
+
+fun xorNumbers(a: Number, b: Number): Number {
+    return when {
+        a is Long && b is Long -> a xor b
+        a is Int && b is Int -> a xor b
+        a is Short && b is Short -> (a.toInt() xor b.toInt()).toShort()
+        a is Byte && b is Byte -> (a.toInt() xor b.toInt()).toByte()
+        else -> throw IllegalArgumentException("Unsupported number types: ${a::class}, ${b::class}")
+    }
+}
+
+fun subSeed(seed: Long, salt: Long): Long {
+    var x = seed xor salt
+    x = (x xor (x ushr 33)) * 0xff23d7ed558ccdL
+    x = (x xor (x ushr 33)) * 0xc4ceba85ec53L
+    x = x xor (x ushr 33)
+    return x
 }
 
 fun <T> List<T>.contains(transform: (T) -> Boolean) : Boolean {

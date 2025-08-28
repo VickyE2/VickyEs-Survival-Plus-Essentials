@@ -8,7 +8,7 @@ import org.vicky.platform.world.PlatformWorld
 import org.vicky.utilities.ContextLogger.ContextLogger
 import org.vicky.vspe.PaletteFunction
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState
-import org.vicky.vspe.weightedRandomOrNull
+import org.vicky.vspe.weightedRandomOrNullI
 import kotlin.math.*
 import kotlin.properties.Delegates
 import kotlin.random.Random
@@ -603,7 +603,7 @@ class KraterBukkitCityGenerator @JvmOverloads constructor(
 
         // If we got matches, do a weighted random pick
         if (matches.isNotEmpty()) {
-            return matches.weightedRandomOrNull { it.rules.weight }
+            return matches.weightedRandomOrNullI { it.rules.weight }
         }
 
         // Fallback: pick any of that type randomly

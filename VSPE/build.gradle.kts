@@ -35,9 +35,9 @@ repositories {
 
 dependencies {
     api("net.sf.trove4j:core:3.1.0")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
     compileOnly("org.reflections:reflections:0.10.2")
-    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.10")
     api("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
     api(project(":structure_loader"))
     api("net.sandrohc:schematic4j:1.1.0")
