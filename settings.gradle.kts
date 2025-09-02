@@ -8,15 +8,19 @@ rootProject.name = "vickyes-survival-plus-essentials"
 // include(":structure")
 include(":structure_loader")
 include(":VSPE")
-include(":V-NMS")
 
 pluginManagement {
     repositories {
         gradlePluginPortal()
+        maven("https://maven.minecraftforge.net/") {
+            name = "MinecraftForge"
+        }
     }
 }
 
-include("V-NMS:1_20_R4")
-findProject(":V-NMS:1_20_R4")?.name = "1_20_R4"
-include("VSPE:1_20_4")
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.7.0"
+}
+
+include(":VSPE:1_20_4")
 findProject(":VSPE:1_20_4")?.name = "1_20_4"

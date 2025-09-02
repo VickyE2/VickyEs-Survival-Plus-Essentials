@@ -1,14 +1,8 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformJvmPlugin
 val javaVersion = 21
 
 plugins {
-    // Add plugins here that you *don't* want to auto-apply
-    kotlin("jvm") version "2.1.10" apply false
-    id("io.papermc.paperweight.userdev") version "1.7.7" apply false
     `java-library`
     `maven-publish`
-    id("io.github.goooler.shadow") version "8.1.8" apply false
 }
 
 allprojects {
@@ -53,7 +47,6 @@ subprojects {
     apply(plugin = "java")
     apply(plugin = "java-library")
     apply(plugin = "maven-publish")
-    apply(plugin = "io.github.goooler.shadow")
 
     tasks.withType<Test> {
         useJUnitPlatform()
@@ -67,14 +60,6 @@ subprojects {
 
     java {
         toolchain.languageVersion.set(JavaLanguageVersion.of(javaVersion))
-    }
-
-    plugins.withType<KotlinPlatformJvmPlugin> {
-        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-            kotlinOptions {
-                jvmTarget = "$javaVersion"
-            }
-        }
     }
 }
 
