@@ -3,6 +3,7 @@ package org.vicky.vspe.forge.dimension;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.dimension.DimensionType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.PlatformItem;
@@ -22,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.List;
 
+import static org.vicky.vspe.forge.forgeplatform.AwsomeForgeHacks.fromDescriptor;
 import static org.vicky.vspe.forge.forgeplatform.ForgeDimensionManager.cleanNamespace;
 
 public class ForgeDescriptorBasedDimension extends ForgeBaseDimension {
@@ -47,6 +49,11 @@ public class ForgeDescriptorBasedDimension extends ForgeBaseDimension {
                 descriptor.oceanLevel(),
                 descriptor.water()
         );
+    }
+
+    @Override
+    public DimensionType getDimensionType() {
+        return fromDescriptor(descriptor);
     }
 
     public static long stringToSeed(String input) {

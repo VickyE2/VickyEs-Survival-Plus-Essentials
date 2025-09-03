@@ -5,7 +5,11 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.valueproviders.ConstantInt;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.DimensionType;
+import org.vicky.vspe.forge.forgeplatform.useables.ForgeDescriptorDispensableDimensionEffects;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 
 import java.util.List;
 
@@ -35,5 +39,30 @@ public class AwsomeForgeHacks {
 
     public static ServerLevel getLevelFromKey(ResourceKey<Level> levelKey) {
         return server.getLevel(levelKey); // returns null if the dimension isn’t loaded
+    }
+
+    public static DimensionType fromDescriptor(DimensionDescriptor descriptor) {
+        return new DimensionType(
+                descriptor.worldTime(),
+                descriptor.hasSkyLight(),
+                descriptor.hasCeiling(),
+                descriptor.ultraWarm(),
+                descriptor.natural(),
+                descriptor.worldScale(),
+                descriptor.canSleep(),
+                descriptor.canUseAnchor(),
+                descriptor.minimumY(),
+                descriptor.maximumY(),
+                descriptor.logicalHeight(),
+                null,
+                new ForgeDescriptorDispensableDimensionEffects(descriptor),
+                descriptor.ambientLight,
+                new net.minecraft.world.level.dimension.DimensionType.MonsterSettings(
+                        false,
+                        false,
+                        ConstantInt.of(descriptor.monsterLight()),
+                        descriptor.monsterLightThreashold()
+                )
+        );
     }
 }
