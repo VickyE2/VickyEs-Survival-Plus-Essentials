@@ -67,7 +67,8 @@ public interface VSPEPlatformPlugin {
     static PlatformStructureManager<?> structureManager() {
         return get().getPlatformStructureManager();
     }
-    static PlatformBlockDataRegistry<?> blockStateCreator() {
+
+    static PlatformBlockDataRegistry blockStateCreator() {
         return get().getPlatformBlockDataRegistry();
     }
     static QuestProductionFactory questFactory() {
@@ -92,7 +93,8 @@ public interface VSPEPlatformPlugin {
     }
     PlatformScheduler getPlatformScheduler();
     PlatformStructureManager<?> getPlatformStructureManager();
-    PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry();
+
+    PlatformBlockDataRegistry getPlatformBlockDataRegistry();
     PlatformConfig getPlatformConfig();
 
     boolean platformIsNative();

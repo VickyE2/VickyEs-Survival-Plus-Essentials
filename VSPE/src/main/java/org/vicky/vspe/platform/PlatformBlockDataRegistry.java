@@ -5,10 +5,10 @@ import org.vicky.platform.world.PlatformBlockState;
 
 import java.util.List;
 
-public interface PlatformBlockDataRegistry<T> {
+public interface PlatformBlockDataRegistry {
     default List<ResourceLocation> getNonMinecraftDefaults() {
         return NativeTypeMapper.nativeMaps.keySet().stream().map(ResourceLocation::from).toList();
     }
 
-    PlatformBlockState<T> getBlockState(ResourceLocation id);
+    <T> PlatformBlockState<T> getBlockState(ResourceLocation id);
 }

@@ -17,20 +17,14 @@ interface DimensionSpawnStrategy<T, N> {
 
 /**
  * @param sourceLocation
- * @param sourceDimension
- * @param targetDimension
  * @param player
  * @param beforeSpawning Things the context should do like placing portal frame...etc
  */
 data class PortalContext<T, N>(
     val sourceLocation: PlatformLocation,
-    val sourceDimension: PlatformBaseDimension<T, N>,
-    val targetDimension: PlatformBaseDimension<T, N>,
     val player: PlatformPlayer,
-    val beforeSpawning: (() -> Unit)?
+    val beforeSpawning: ((Int, Int, Int, PlatformBaseDimension<T, N>) -> Unit)?
 )
-
-
 
 class SafeRandomLandSpawnStrategy<T, N>(
     private val maxAttempts: Int = 20,
@@ -38,7 +32,6 @@ class SafeRandomLandSpawnStrategy<T, N>(
     private val minY: Int = 64,
     private val maxY: Int = 128
 ) : DimensionSpawnStrategy<T, N> {
-
     override fun resolveSpawn(
         player: PlatformPlayer,
         dimension: PlatformBaseDimension<T, N>,
@@ -52,7 +45,7 @@ class SafeRandomLandSpawnStrategy<T, N>(
             for (y in maxY downTo minY) {
                 val location = dimension.locationAt(x.toDouble(), y.toDouble(), z.toDouble())
                 if (dimension.isSafeSpawnLocation(location)) {
-                    portalContext?.beforeSpawning?.invoke() // setup logic (like placing a frame)
+                    portalContext?.beforeSpawning?.invoke(x.toInt(), y.toInt() + 1, z.toInt(), dimension)
                     return location.offset(0.5, 1.0, 0.5) // center and elevate
                 }
             }
@@ -68,7 +61,6 @@ private fun PlatformLocation?.offset(
 ): PlatformLocation? {
     return if (this != null) PlatformLocation(this.world, this.x - x, this.y - y, this.z - z) else null
 }
-
 
 class FixedRingSpawnStrategy<T, N>(
     private val center: PlatformLocation,
@@ -87,20 +79,21 @@ class FixedRingSpawnStrategy<T, N>(
         val rad = Math.toRadians(angle)
         val x = center.x + radius * cos(rad)
         val z = center.z + radius * sin(rad)
-
-        portalContext?.beforeSpawning?.invoke() // setup logic (like placing a frame)
-
         val groundY = dimension.findGroundYAt(x.toInt(), z.toInt()) ?: return null
+
+        portalContext?.beforeSpawning?.invoke(
+            x.toInt(),
+            groundY.toInt() + 1,
+            z.toInt(),
+            dimension
+        ) // setup logic (like placing a frame)
         return dimension.locationAt(x, groundY + 1.0, z)
     }
 }
 
-
-
 class PortalLinkedStrategy<T, N>(
     private val scaleFactor: Double = 8.0 // nether-style mapping
 ) : DimensionSpawnStrategy<T, N> {
-
     override fun resolveSpawn(
         player: PlatformPlayer,
         dimension: PlatformBaseDimension<T, N>,
@@ -113,9 +106,13 @@ class PortalLinkedStrategy<T, N>(
         val mappedZ = source.z * scaleFactor
         val groundY = dimension.findGroundYAt(mappedX.toInt(), mappedZ.toInt()) ?: 80.0
 
-        portalContext.beforeSpawning?.invoke() // setup logic (like placing a frame)
+        portalContext.beforeSpawning?.invoke(
+            mappedX.toInt(),
+            groundY.toInt() + 1,
+            mappedZ.toInt(),
+            dimension
+        ) // setup logic (like placing a frame)
 
         return dimension.locationAt(mappedX, groundY + 1.0, mappedZ)
     }
 }
-

@@ -8,7 +8,9 @@ public class NativeTypeMapper {
             "vspe:magenta_frost_vine", "minecraft:weeping_vines",
             "vspe:magenta_frost_log", "minecraft:cherry_wood",
             "vspe:pink_sand", "minecraft:pink_concrete_powder",
-            "vspe:magenta_moss_block", "minecraft:grass_block"
+            "vspe:magenta_moss_block", "minecraft:grass_block",
+            "vspe:frozen_portal_frame", "minecraft:obsidian",
+            "vspe:frozen_portal", "minecraft:nether_portal"
     );
 
     private static final String DEFAULT_FALLBACK = "minecraft:grass_block";
