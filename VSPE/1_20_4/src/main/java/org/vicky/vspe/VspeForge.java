@@ -4,8 +4,11 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -21,7 +24,9 @@ import org.vicky.platform.PlatformConfig;
 import org.vicky.platform.PlatformLogger;
 import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.PlatformScheduler;
+import org.vicky.vspe.forge.dimension.WorldManager;
 import org.vicky.vspe.forge.forgeplatform.*;
+import org.vicky.vspe.forge.forgeplatform.useables.VSPEDimensionEffects;
 import org.vicky.vspe.forge.registers.Blocks;
 import org.vicky.vspe.forge.registers.Items;
 import org.vicky.vspe.forge.registers.Tabs;
@@ -83,6 +88,31 @@ public class VspeForge implements VSPEPlatformPlugin {
         ForgeDimensionManager.getInstance().loadDimensionsFromDescriptors();
     }
 
+    @SubscribeEvent
+    public static void registerEffects(RegisterDimensionSpecialEffectsEvent event) {
+        VSPEDimensionEffects.registerAll(event);
+    }
+
+    @SubscribeEvent
+    public static void onWorldTick(TickEvent.LevelTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (!(event.level instanceof ServerLevel level)) return;
+        DimensionDescriptor descriptor = WorldManager.getDescriptor(level.dimension());
+        if (descriptor == null) return;
+        long rawTicks = level.getGameTime();
+        long customDayLen = Math.max(1L, descriptor.worldTime());
+        long cycles = rawTicks / customDayLen;
+        long ticksIntoCycle = rawTicks % customDayLen;
+        float cycleNormalized = descriptor.worldTimeCurve().apply(ticksIntoCycle, customDayLen);
+        float shifted = cycleNormalized - 0.25f;
+        if (shifted < 0f) shifted += 1f;
+        long tickWithinVanilla = (long) (shifted * 24000.0F) % 24000L;
+        long newDayTime = cycles * 24000L + tickWithinVanilla;
+        if (level.getDayTime() != newDayTime) {
+            level.setDayTime(newDayTime);
+        }
+    }
+
     @Override
     public void registerDimensionDescriptor(DimensionDescriptor dimensionDescriptor) {
 
@@ -99,7 +129,7 @@ public class VspeForge implements VSPEPlatformPlugin {
     }
 
     @Override
-    public PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry() {
+    public PlatformBlockDataRegistry getPlatformBlockDataRegistry() {
         return ForgeBlockDataRegistry.INSTANCE;
     }
 

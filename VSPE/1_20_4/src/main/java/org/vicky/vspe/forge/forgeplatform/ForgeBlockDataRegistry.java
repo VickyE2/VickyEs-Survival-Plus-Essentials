@@ -6,7 +6,7 @@ import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.platform.PlatformBlockDataRegistry;
 
-public class ForgeBlockDataRegistry implements PlatformBlockDataRegistry<BlockState> {
+public class ForgeBlockDataRegistry implements PlatformBlockDataRegistry {
     public static ForgeBlockDataRegistry INSTANCE = new ForgeBlockDataRegistry();
 
     private ForgeBlockDataRegistry() {

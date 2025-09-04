@@ -30,6 +30,7 @@ import org.vicky.vspe.forge.advancements.ForgeAdvancement;
 import org.vicky.vspe.forge.events.DimensionWarpEvent;
 import org.vicky.vspe.forge.forgeplatform.ForgeAdvancementManager;
 import org.vicky.vspe.forge.forgeplatform.ForgeDimensionManager;
+import org.vicky.vspe.forge.forgeplatform.useables.Descriptored;
 import org.vicky.vspe.forge.forgeplatform.useables.ForgeDimensionWarpEvent;
 import org.vicky.vspe.platform.PlatformEnvironment;
 import org.vicky.vspe.platform.PlatformWorldType;
@@ -105,10 +106,17 @@ public abstract class ForgeBaseDimension implements PlatformBaseDimension<BlockS
             dimensionType.addDimension((PlatformDimension<?, ?>) this);
         }
         ResourceLocation dimId = ResourceLocation.parse(getIdentifier());
-        WorldManager.registerAtStartup(dimId, getDimensionType(), () -> generator, (world) -> {
-            this.world = new ForgePlatformWorldAdapter(world);
-            return null;
-        });
+        if (this instanceof Descriptored descriptored) {
+            WorldManager.registerAtStartup(dimId, getDimensionType(), () -> generator, (world) -> {
+                this.world = new ForgePlatformWorldAdapter(world);
+                return null;
+            }, descriptored.getDescriptor());
+        } else {
+            WorldManager.registerAtStartup(dimId, getDimensionType(), () -> generator, (world) -> {
+                this.world = new ForgePlatformWorldAdapter(world);
+                return null;
+            });
+        }
     }
 
     protected abstract void dimensionAdvancementGainProcedures(ServerPlayer player);
@@ -196,7 +204,7 @@ public abstract class ForgeBaseDimension implements PlatformBaseDimension<BlockS
             service.createDimension(context);
             return world;
         } else {
-            logger.print("Failed to generate Multiverse Dimension...", true);
+            logger.print("Failed to generate Dimension...", true);
             worldExists = false;
             return null;
         }

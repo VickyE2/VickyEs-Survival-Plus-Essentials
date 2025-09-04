@@ -11,6 +11,7 @@ import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
 import org.vicky.vspe.forge.advancements.ForgeAdvancement;
 import org.vicky.vspe.forge.forgeplatform.ForgeDimensionManager;
+import org.vicky.vspe.forge.forgeplatform.useables.Descriptored;
 import org.vicky.vspe.platform.defaults.SimpleWorldType;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
@@ -26,7 +27,7 @@ import java.util.List;
 import static org.vicky.vspe.forge.forgeplatform.AwsomeForgeHacks.fromDescriptor;
 import static org.vicky.vspe.forge.forgeplatform.ForgeDimensionManager.cleanNamespace;
 
-public class ForgeDescriptorBasedDimension extends ForgeBaseDimension {
+public class ForgeDescriptorBasedDimension extends ForgeBaseDimension implements Descriptored {
     private final DimensionDescriptor descriptor;
 
     public ForgeDescriptorBasedDimension(DimensionDescriptor descriptor, String seed) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
@@ -39,30 +40,7 @@ public class ForgeDescriptorBasedDimension extends ForgeBaseDimension {
                 descriptor.shouldGenerateStructures(),
                 ForgeDimensionManager.GENERATORS.get(cleanNamespace(descriptor.name()))
         );
-        this.descriptor = new DimensionDescriptor(
-                descriptor.name(),
-                descriptor.description(),
-                descriptor.shouldGenerateStructures(),
-                descriptor.dimensionTypes(),
-                descriptor.identifier(),
-                descriptor.resolver(),
-                descriptor.oceanLevel(),
-                descriptor.water(),
-                descriptor.worldTime(),
-                descriptor.hasSkyLight(),
-                descriptor.hasCeiling(),
-                descriptor.ambientAlways(),
-                descriptor.canUseAnchor(),
-                descriptor.canSleep(),
-                descriptor.natural(),
-                descriptor.ambientLight(),
-                descriptor.worldScale(),
-                descriptor.monsterLight(),
-                descriptor.monsterLightThreshold(),
-                descriptor.logicalHeight(),
-                descriptor.minimumY(),
-                descriptor.maximumY()
-        );
+        this.descriptor = descriptor.clone();
     }
 
     @Override
@@ -148,15 +126,16 @@ public class ForgeDescriptorBasedDimension extends ForgeBaseDimension {
 
     @Override
     public @NotNull DimensionSpawnStrategy<BlockState, Level> getStrategy() {
-        return descriptor.dimensionStrategy();
+        return (DimensionSpawnStrategy<BlockState, Level>) descriptor.dimensionStrategy();
     }
 
     @Override
     public @Nullable PortalContext<BlockState, Level> createPortalContext(PlatformPlayer platformPlayer) {
-        return descriptor.portalContext().supply(platformPlayer);
+        return (PortalContext<BlockState, Level>) descriptor.portalContext().apply(platformPlayer);
     }
 
-    public DimensionDescriptor getDescriptor() {
+    @Override
+    public @NotNull DimensionDescriptor getDescriptor() {
         return descriptor;
     }
 }

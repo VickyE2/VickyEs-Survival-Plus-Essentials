@@ -11,6 +11,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.LevelStem;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 
 import java.util.*;
 import java.util.function.Function;
@@ -32,6 +33,7 @@ public final class WorldManager {
     private static final Map<ResourceLocation, PendingEntry> PENDING = new LinkedHashMap<>();
     private static final Set<ResourceLocation> REGISTERED = new HashSet<>();
     private static final Map<ResourceLocation, Function<ServerLevel, Void>> PENDING_WORLDS = new HashMap<>();
+    private static final Map<ResourceKey<Level>, DimensionDescriptor> DESCRIPTORS = new HashMap<>();
     private WorldManager() {
     }
 
@@ -54,6 +56,30 @@ public final class WorldManager {
         if (PENDING.containsKey(id) || REGISTERED.contains(id)) return;
         PENDING.put(id, new PendingEntry(generatorSupplier, DIMENSION_TYPE, LEVEL_STEM, LEVEL, type));
         if (supplier != null) PENDING_WORLDS.put(id, supplier);
+    }
+
+    /**
+     * Register a dimension LevelStem to be created on server startup.
+     *
+     * @param id                dimension id (e.g. new ResourceLocation(MODID, "my_dim"))
+     * @param generatorSupplier supplier producing your generator (lazy)
+     * @param descriptor        A dimension that's controlled by a descriptor
+     */
+    public static void registerAtStartup(ResourceLocation id,
+                                         DimensionType type,
+                                         Supplier<ChunkGenerator> generatorSupplier,
+                                         Function<ServerLevel, Void> supplier,
+                                         DimensionDescriptor descriptor) {
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(generatorSupplier, "generatorSupplier");
+        final ResourceKey<LevelStem> LEVEL_STEM = ResourceKey.create(Registries.LEVEL_STEM, id);
+        final ResourceKey<Level> LEVEL = ResourceKey.create(Registries.DIMENSION, id);
+        final ResourceKey<DimensionType> DIMENSION_TYPE = ResourceKey.create(Registries.DIMENSION_TYPE, id);
+
+        if (PENDING.containsKey(id) || REGISTERED.contains(id)) return;
+        PENDING.put(id, new PendingEntry(generatorSupplier, DIMENSION_TYPE, LEVEL_STEM, LEVEL, type));
+        if (supplier != null) PENDING_WORLDS.put(id, supplier);
+        DESCRIPTORS.put(ResourceKey.create(Registries.DIMENSION, id), descriptor);
     }
 
     /**
@@ -155,5 +181,12 @@ public final class WorldManager {
             this.levelKey = levelKey;
             this.dimensionType = dimensionType;
         }
+    }
+
+    public static DimensionDescriptor getDescriptor(ResourceKey<Level> location) {
+        if (DESCRIPTORS.containsKey(location)) {
+            return DESCRIPTORS.get(location);
+        }
+        return null;
     }
 }

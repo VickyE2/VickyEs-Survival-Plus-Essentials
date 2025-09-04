@@ -9,7 +9,7 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.util.valueproviders.ConstantInt;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
-import org.vicky.vspe.forge.forgeplatform.useables.ForgeDescriptorDispensableDimensionEffects;
+import org.vicky.vspe.forge.forgeplatform.useables.VSPEDimensionEffects;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 
 import java.util.List;
@@ -57,7 +57,7 @@ public class AwsomeForgeHacks {
                 Math.abs(descriptor.minimumY()) + descriptor.maximumY(),
                 descriptor.logicalHeight(),
                 BlockTags.INFINIBURN_OVERWORLD,
-                new ForgeDescriptorDispensableDimensionEffects(descriptor),
+                VSPEDimensionEffects.registerSpecialEffect(descriptor),
                 descriptor.ambientLight(),
                 new net.minecraft.world.level.dimension.DimensionType.MonsterSettings(
                         false,
@@ -65,15 +65,6 @@ public class AwsomeForgeHacks {
                         ConstantInt.of(descriptor.monsterLight()),
                         descriptor.monsterLightThreshold()
                 )
-        ) {
-            @Override
-            public float timeOfDay(long dayTime) {
-                TimeCurve curve = descriptor.worldTimeCurve();
-                float cycle = curve.apply(dayTime, descriptor.worldTime());
-                float shifted = cycle - 0.25f;
-                if (shifted < 0f) shifted += 1f;
-                return shifted;
-            }
-        };
+        );
     }
 }
