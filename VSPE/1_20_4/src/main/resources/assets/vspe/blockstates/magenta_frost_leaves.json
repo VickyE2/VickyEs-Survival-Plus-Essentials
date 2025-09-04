@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "vspe:block/magenta_frost_leaves"
+    },
+    "axis=z": {
+      "model": "vspe:block/magenta_frost_leaves_horizontal",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "vspe:block/magenta_frost_leaves_horizontal",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

@@ -25,6 +25,6 @@ public class ForgeDescriptorDispensableDimensionEffects extends DimensionSpecial
 
     @Override
     public boolean isFoggyAt(int x, int z) {
-        return descriptor.resolver().biomeIsFoggyAt(x, z); // disable Nether-like fog
+        return descriptor.resolver().foggyAt(x, z); // disable Nether-like fog
     }
 }

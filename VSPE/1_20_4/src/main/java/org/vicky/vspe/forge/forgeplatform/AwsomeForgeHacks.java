@@ -5,6 +5,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.valueproviders.ConstantInt;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
@@ -12,6 +13,7 @@ import org.vicky.vspe.forge.forgeplatform.useables.ForgeDescriptorDispensableDim
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 
 import java.util.List;
+import java.util.OptionalLong;
 
 import static org.vicky.vspe.VspeForge.server;
 
@@ -43,7 +45,7 @@ public class AwsomeForgeHacks {
 
     public static DimensionType fromDescriptor(DimensionDescriptor descriptor) {
         return new DimensionType(
-                descriptor.worldTime(),
+                OptionalLong.empty(),
                 descriptor.hasSkyLight(),
                 descriptor.hasCeiling(),
                 descriptor.ultraWarm(),
@@ -52,17 +54,26 @@ public class AwsomeForgeHacks {
                 descriptor.canSleep(),
                 descriptor.canUseAnchor(),
                 descriptor.minimumY(),
-                descriptor.maximumY(),
+                Math.abs(descriptor.minimumY()) + descriptor.maximumY(),
                 descriptor.logicalHeight(),
-                null,
+                BlockTags.INFINIBURN_OVERWORLD,
                 new ForgeDescriptorDispensableDimensionEffects(descriptor),
-                descriptor.ambientLight,
+                descriptor.ambientLight(),
                 new net.minecraft.world.level.dimension.DimensionType.MonsterSettings(
                         false,
                         false,
                         ConstantInt.of(descriptor.monsterLight()),
-                        descriptor.monsterLightThreashold()
+                        descriptor.monsterLightThreshold()
                 )
-        );
+        ) {
+            @Override
+            public float timeOfDay(long dayTime) {
+                TimeCurve curve = descriptor.worldTimeCurve();
+                float cycle = curve.apply(dayTime, descriptor.worldTime());
+                float shifted = cycle - 0.25f;
+                if (shifted < 0f) shifted += 1f;
+                return shifted;
+            }
+        };
     }
 }

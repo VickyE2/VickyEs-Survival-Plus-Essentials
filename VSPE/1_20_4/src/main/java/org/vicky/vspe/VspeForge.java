@@ -55,6 +55,7 @@ public class VspeForge implements VSPEPlatformPlugin {
 
         modEventBus.addListener(this::commonSetup);
         Blocks.BLOCKS.register(modEventBus);
+        Blocks.BLOCK_ITEMS.register(modEventBus);
         Items.ITEMS.register(modEventBus);
         Tabs.CREATIVE_MODE_TABS.register(modEventBus);
         MinecraftForge.EVENT_BUS.register(this);
@@ -99,7 +100,7 @@ public class VspeForge implements VSPEPlatformPlugin {
 
     @Override
     public PlatformBlockDataRegistry<?> getPlatformBlockDataRegistry() {
-        return new ForgeBlockDataRegistry();
+        return ForgeBlockDataRegistry.INSTANCE;
     }
 
     @Override

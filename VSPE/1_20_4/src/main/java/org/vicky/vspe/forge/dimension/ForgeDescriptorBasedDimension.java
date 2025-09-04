@@ -47,7 +47,21 @@ public class ForgeDescriptorBasedDimension extends ForgeBaseDimension {
                 descriptor.identifier(),
                 descriptor.resolver(),
                 descriptor.oceanLevel(),
-                descriptor.water()
+                descriptor.water(),
+                descriptor.worldTime(),
+                descriptor.hasSkyLight(),
+                descriptor.hasCeiling(),
+                descriptor.ambientAlways(),
+                descriptor.canUseAnchor(),
+                descriptor.canSleep(),
+                descriptor.natural(),
+                descriptor.ambientLight(),
+                descriptor.worldScale(),
+                descriptor.monsterLight(),
+                descriptor.monsterLightThreshold(),
+                descriptor.logicalHeight(),
+                descriptor.minimumY(),
+                descriptor.maximumY()
         );
     }
 

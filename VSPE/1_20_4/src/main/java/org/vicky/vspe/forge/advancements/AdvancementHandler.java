@@ -8,6 +8,7 @@ import net.minecraftforge.event.OnDatapackSyncEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,7 @@ public class AdvancementHandler {
      */
     public static AdvancementHolder register(ResourceLocation id, Advancement.Builder builder) {
         AdvancementHolder adv = builder.build(id);
+        UNREGISTERED.remove(id);
         REGISTERED.put(id, adv);
         return adv;
     }
@@ -34,6 +36,7 @@ public class AdvancementHandler {
      * Build and register a new advancement dynamically.
      */
     public static AdvancementHolder register(AdvancementHolder holder) {
+        UNREGISTERED.remove(holder.id());
         REGISTERED.put(holder.id(), holder);
         return holder;
     }
@@ -71,7 +74,7 @@ public class AdvancementHandler {
         }
     }
 
-    private static void syncToPlayer(ServerPlayer player) {
+    private static void syncToPlayer(@NotNull ServerPlayer player) {
         var manager = player.getServer().getAdvancements();
         for (AdvancementHolder adv : REGISTERED.values()) {
             // Ensure the advancement exists in the server's advancement data
