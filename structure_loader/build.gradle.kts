@@ -39,7 +39,8 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
     implementation("org.yaml:snakeyaml:2.4")
-    compileOnly("io.github.vickye2:vicky-utils-core:all-0.0.1-BETA")
+    implementation("org.jetbrains:annotations:24.1.0")
+    compileOnly("io.github.vickye2:vicky-utils-core:0.0.1")
     compileOnly("com.dfsek.terra:api:6.5.0-BETA+060cbfd0c")
     compileOnly("com.dfsek.terra:manifest-addon-loader:1.0.0-BETA+fd6decc70")
 }

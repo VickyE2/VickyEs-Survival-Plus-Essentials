@@ -1,6 +1,6 @@
 package org.vicky.vspe.platform.utilities.Hibernate.dao_s;
 
-import jakarta.persistence.EntityManager;
+import org.vicky.shaded.jakarta.persistence.EntityManager;
 import org.vicky.utilities.DatabaseManager.HibernateUtil;
 import org.vicky.vspe.platform.utilities.Hibernate.DBTemplates.Dimension;
 

@@ -1,6 +1,5 @@
 package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
-import org.vicky.platform.PlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.CoreDimensionRegistry;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.DimensionType;
@@ -17,7 +16,21 @@ public final class DimensionDescriptors {
                     "vspe:crymorra",
                     BiomeResolvers.getInstance().CRYMORRA_BIOME_RESOLVER(),
                     64,
-                    PlatformPlugin.stateFactory().getBlockState("minecraft:water")
+                    null /*PlatformPlugin.stateFactory().getBlockState("minecraft:water")*/,
+                    24000,
+                    true,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    0.7f,
+                    4.0f,
+                    15,
+                    15,
+                    218,
+                    319,
+                    -64
             );
 
     static {

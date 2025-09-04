@@ -9,6 +9,12 @@ import com.dfsek.terra.api.event.functional.FunctionalEventHandler;
 import com.dfsek.terra.api.inject.annotations.Inject;
 import com.dfsek.terra.api.registry.CheckedRegistry;
 import com.dfsek.terra.api.structure.Structure;
+import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.vicky.utilities.ANSIColor;
+import org.vicky.vspe.addon.util.BaseStructure;
+import org.vicky.vspe.addon.util.StructureLoader;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
 import java.lang.reflect.Constructor;
@@ -17,12 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import org.yaml.snakeyaml.Yaml;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.vicky.utilities.ANSIColor;
-import org.vicky.vspe.addon.util.BaseStructure;
-import org.vicky.vspe.addon.util.StructureLoader;
 
 public class VSPEStructures implements AddonInitializer {
    @Inject

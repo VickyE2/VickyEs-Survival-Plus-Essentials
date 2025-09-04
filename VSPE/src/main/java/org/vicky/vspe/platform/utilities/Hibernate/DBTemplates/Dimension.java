@@ -1,9 +1,9 @@
 package org.vicky.vspe.platform.utilities.Hibernate.DBTemplates;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import org.vicky.shaded.jakarta.persistence.Column;
+import org.vicky.shaded.jakarta.persistence.Entity;
+import org.vicky.shaded.jakarta.persistence.Id;
+import org.vicky.shaded.jakarta.persistence.Table;
 import org.vicky.utilities.DatabaseTemplate;
 
 import java.util.UUID;

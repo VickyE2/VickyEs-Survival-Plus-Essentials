@@ -10,10 +10,9 @@ data class Rule(
     val category: BiomeCategory
 )
 
-enum class ElevBand { DEEP, OCEAN, COAST, LOWLAND, HIGHLAND, PEAK }
+enum class ElevBand { OCEAN, COAST, LOWLAND, HIGHLAND, PEAK }
 
 fun elevBand(e: Double): ElevBand = when {
-    e < 0.09 -> ElevBand.DEEP
     e < 0.36 -> ElevBand.OCEAN
     e < 0.42 -> ElevBand.COAST
     e < 0.68 -> ElevBand.LOWLAND
@@ -22,8 +21,7 @@ fun elevBand(e: Double): ElevBand = when {
 }
 
 fun elevBand(e: ElevBand): ClosedFloatingPointRange<Double> = when (e) {
-    ElevBand.DEEP -> 0.0..0.09
-    ElevBand.OCEAN -> 0.09..0.36
+    ElevBand.OCEAN -> 0.0..0.36
     ElevBand.COAST -> 0.36..0.42
     ElevBand.LOWLAND -> 0.42..0.68
     ElevBand.HIGHLAND -> 0.68..0.8
@@ -31,7 +29,6 @@ fun elevBand(e: ElevBand): ClosedFloatingPointRange<Double> = when (e) {
 }
 
 val fallbackByBand = mapOf(
-    ElevBand.DEEP to BiomeCategory.DEEP_OCEAN,
     ElevBand.OCEAN to BiomeCategory.OCEAN,
     ElevBand.COAST to BiomeCategory.COAST,
     ElevBand.LOWLAND to BiomeCategory.PLAINS,
@@ -51,18 +48,18 @@ class VickyMapGen<T : PlatformBiome>(
 ) : BiomeResolver<T> {
     val rules = listOf(
         // Deep oceans (cold → warm spectrum)
-        Rule(0.0..0.3, ElevBand.DEEP, 0.0..1.0, BiomeCategory.FROZEN_DEEP_OCEAN),
-        Rule(0.0..0.4, ElevBand.DEEP, 0.0..1.0, BiomeCategory.COLD_DEEP_OCEAN),
-        Rule(0.28..0.78, ElevBand.DEEP, 0.0..1.0, BiomeCategory.DEEP_OCEAN),
-        Rule(0.4..0.7, ElevBand.DEEP, 0.0..1.0, BiomeCategory.LUKEWARM_DEEP_OCEAN),
-        Rule(0.6..1.0, ElevBand.DEEP, 0.0..1.0, BiomeCategory.WARM_DEEP_OCEAN),
+        Rule(0.0..0.3, ElevBand.OCEAN, 0.0..0.5, BiomeCategory.FROZEN_DEEP_OCEAN),
+        Rule(0.0..0.4, ElevBand.OCEAN, 0.0..0.5, BiomeCategory.COLD_DEEP_OCEAN),
+        Rule(0.28..0.78, ElevBand.OCEAN, 0.0..0.5, BiomeCategory.DEEP_OCEAN),
+        Rule(0.4..0.7, ElevBand.OCEAN, 0.0..0.5, BiomeCategory.LUKEWARM_DEEP_OCEAN),
+        Rule(0.6..1.0, ElevBand.OCEAN, 0.0..0.5, BiomeCategory.WARM_DEEP_OCEAN),
 
         // Oceans (surface level)
-        Rule(0.0..0.3, ElevBand.OCEAN, 0.0..1.0, BiomeCategory.FROZEN_OCEAN),
-        Rule(0.0..0.4, ElevBand.OCEAN, 0.0..1.0, BiomeCategory.COLD_OCEAN),
-        Rule(0.3..0.7, ElevBand.OCEAN, 0.0..1.0, BiomeCategory.OCEAN),
-        Rule(0.4..0.8, ElevBand.OCEAN, 0.0..1.0, BiomeCategory.LUKEWARM_OCEAN),
-        Rule(0.6..1.0, ElevBand.OCEAN, 0.0..1.0, BiomeCategory.WARM_OCEAN),
+        Rule(0.0..0.25, ElevBand.OCEAN, 0.5..1.0, BiomeCategory.FROZEN_OCEAN),
+        Rule(0.25..0.47, ElevBand.OCEAN, 0.5..1.0, BiomeCategory.COLD_OCEAN),
+        Rule(0.47..0.65, ElevBand.OCEAN, 0.5..1.0, BiomeCategory.OCEAN),
+        Rule(0.65..0.82, ElevBand.OCEAN, 0.5..1.0, BiomeCategory.LUKEWARM_OCEAN),
+        Rule(0.82..1.0, ElevBand.OCEAN, 0.5..1.0, BiomeCategory.WARM_OCEAN),
 
         // Coasts & beaches
         Rule(0.0..0.3, ElevBand.COAST, 0.0..0.3, BiomeCategory.ICY),
@@ -87,9 +84,9 @@ class VickyMapGen<T : PlatformBiome>(
         Rule(0.8..1.0, ElevBand.HIGHLAND, 0.7..1.0, BiomeCategory.RAINFOREST),
 
         // Peaks (dry → wet spectrum)
-        Rule(0.0..0.4, ElevBand.PEAK, 0.0..0.5, BiomeCategory.MESA),
-        Rule(0.4..0.7, ElevBand.PEAK, 0.3..0.7, BiomeCategory.DESERT),
-        Rule(0.5..1.0, ElevBand.PEAK, 0.4..0.8, BiomeCategory.MOUNTAIN),
+        Rule(0.0..0.4, ElevBand.PEAK, 0.6..1.0, BiomeCategory.COLD_MOUNTAIN),
+        Rule(0.4..0.7, ElevBand.PEAK, 0.4..0.6, BiomeCategory.MOUNTAIN),
+        Rule(0.5..1.0, ElevBand.PEAK, 0.0..0.5, BiomeCategory.MESA),
 
         // Underground/other
         Rule(0.7..1.0, ElevBand.LOWLAND, 0.6..1.0, BiomeCategory.LUSH_CAVES),
@@ -121,6 +118,7 @@ class VickyMapGen<T : PlatformBiome>(
         BiomeCategory.SWAMP to BiomeCategory.COAST,
         BiomeCategory.COLD_SWAMP to BiomeCategory.COAST,
         BiomeCategory.LUSH_CAVES to BiomeCategory.FOREST,
+        BiomeCategory.COLD_MOUNTAIN to BiomeCategory.TUNDRA,
         BiomeCategory.MOUNTAIN to BiomeCategory.PLAINS,
         BiomeCategory.SAVANNA to BiomeCategory.PLAINS,
         BiomeCategory.MESA to BiomeCategory.DESERT,

@@ -9,7 +9,6 @@ import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.*
 import org.vicky.vspe.BiomeCategory
 import org.vicky.vspe.PrecipitationType
-import org.vicky.vspe.platform.systems.dimension.globalDimensions.DimensionDescriptors
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*
 import java.awt.BorderLayout
 import java.awt.Color
@@ -621,6 +620,46 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
         category = BiomeCategory.DEEP_OCEAN
     )
 
+    val cold_deep = deep.withChanges(
+        name = "cold_deep",
+        biomeColor = 0x253b44,
+        fogColor = 0xE0FFFF,
+        isOcean = true,
+        rainfall = 1.0,
+        elevation = 0.0,
+        category = BiomeCategory.COLD_DEEP_OCEAN
+    )
+
+    val frozen_deep = deep.withChanges(
+        name = "frozen_deep",
+        biomeColor = 0x003344,
+        fogColor = 0xE0FFFF,
+        isOcean = true,
+        rainfall = 1.0,
+        elevation = 0.0,
+        category = BiomeCategory.FROZEN_DEEP_OCEAN
+    )
+
+    val warm_deep = deep.withChanges(
+        name = "warm_deep",
+        biomeColor = 0x162b44,
+        fogColor = 0xE0FFFF,
+        isOcean = true,
+        rainfall = 1.0,
+        elevation = 0.0,
+        category = BiomeCategory.WARM_DEEP_OCEAN
+    )
+
+    val luke_warm_deep = deep.withChanges(
+        name = "luke_warm_deep",
+        biomeColor = 0x004436,
+        fogColor = 0xE0FFFF,
+        isOcean = true,
+        rainfall = 1.0,
+        elevation = 0.0,
+        category = BiomeCategory.LUKEWARM_DEEP_OCEAN
+    )
+
     val mesa = plains.withChanges(
         name = "mesa",
         biomeColor = 0xCD853F,
@@ -761,34 +800,38 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
     )
 
     val resolver = VickyMapGen(
-        createTemperatureSampler(seed = seedBase.xor(20397239723L)),
-        createHumiditySampler(seed = seedBase.xor(8628368682L)),
-        createElevationSampler(bias = -0.3, amplitude = 0.005, seed = seedBase.xor(2039455472397239L)),
+        createTemperatureSampler(20397239723L, amplitude = 0.005),
+        createHumiditySampler(8628368682L, amplitude = 0.05),
+        createElevationSampler(0xAC87574CL, amplitude = 0.005, bias = -0.3),
         palette = InvertedPaletteBuilder<SimpleConstructorBasedBiome>()
             .add(Pair(0.0, 1.0), ocean)
-            .add(Pair(0.0, 1.0), warmocean)
-            .add(Pair(0.25, 1.0), coast)
             .add(Pair(0.35, 1.0), plains)
-            .add(Pair(0.55, 0.7), tundra)
-            .add(Pair(0.7, 0.8), taiga)
-            .add(Pair(0.8, 1.0), jungle)
-            .add(Pair(0.8, 1.0), savanna)
-            .add(Pair(0.8, 1.0), mesa)
-            .add(Pair(0.8, 1.0), deep)
-            .add(Pair(0.8, 1.0), snowy)
-            .add(Pair(0.8, 1.0), swamp)
-            .add(Pair(0.8, 1.0), rainforest)
-            .add(Pair(0.7, 0.8), frozenOcean)
-            .add(Pair(0.8, 1.0), coldOcean)
-            .add(Pair(0.8, 1.0), lukewarmOcean)
-            .add(Pair(0.8, 1.0), coldCoast)
-            .add(Pair(0.8, 1.0), warmCoast)
-            .add(Pair(0.8, 1.0), icyCoast)
-            .add(Pair(0.8, 1.0), coldDesert)
-            .add(Pair(0.8, 1.0), mountain)
-            .add(Pair(0.8, 1.0), coldSwamp)
-            .add(Pair(0.8, 1.0), wetland)
-            .add(Pair(0.8, 1.0), lushCaves)
+            // .add(Pair(0.0, 1.0), warmocean)
+            // .add(Pair(0.25, 1.0), coast)
+            // .add(Pair(0.55, 0.7), tundra)
+            // .add(Pair(0.7, 0.8), taiga)
+            // .add(Pair(0.8, 1.0), jungle)
+            // .add(Pair(0.8, 1.0), savanna)
+            // .add(Pair(0.8, 1.0), mesa)
+            // .add(Pair(0.8, 1.0), deep)
+            // .add(Pair(0.8, 1.0), warm_deep)
+            // .add(Pair(0.8, 1.0), cold_deep)
+            // .add(Pair(0.8, 1.0), luke_warm_deep)
+            // .add(Pair(0.8, 1.0), frozen_deep)
+            // .add(Pair(0.8, 1.0), snowy)
+            // .add(Pair(0.8, 1.0), swamp)
+            // .add(Pair(0.8, 1.0), rainforest)
+            // .add(Pair(0.7, 0.8), frozenOcean)
+            // .add(Pair(0.8, 1.0), coldOcean)
+            // .add(Pair(0.8, 1.0), lukewarmOcean)
+            // .add(Pair(0.8, 1.0), coldCoast)
+            // .add(Pair(0.8, 1.0), warmCoast)
+            // .add(Pair(0.8, 1.0), icyCoast)
+            // .add(Pair(0.8, 1.0), coldDesert)
+            // .add(Pair(0.8, 1.0), mountain)
+            // .add(Pair(0.8, 1.0), coldSwamp)
+            // .add(Pair(0.8, 1.0), wetland)
+            // .add(Pair(0.8, 1.0), lushCaves)
             .build()
     )
 
@@ -800,7 +843,7 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
 
 const val imageSize = 512
 const val scale = 10
-const val startChX = 100 // world offset (chunk origin offset in blocks)
+const val startChX = -100 // world offset (chunk origin offset in blocks)
 const val startChZ = 0 // world offset (chunk origin offset in blocks)
 fun main() {
     val size = imageSize
@@ -817,8 +860,16 @@ fun main() {
     val miniStep = max(1, totalChunks / 10)  // every ~1%
     var done = 0
     var start = System.currentTimeMillis()
-    // biomeResolverTest(done, start, chunkCount, mainStep, totalChunks, miniStep)
-    // showBiomeViewer(ImageIO.read(File("colored.png")), (ImageBiomeResolver.getBiomePalette() as InvertedPalette).invertedMap.map{ it -> Pair(it.key.biomeColor, it.key.name) }.toTypedArray())
+    biomeResolverTest(done, start, chunkCount, mainStep, totalChunks, miniStep)
+    showBiomeViewer(
+        ImageIO.read(File("colored.png")),
+        (ImageBiomeResolver.getBiomePalette() as InvertedPalette).invertedMap.map { it ->
+            Pair(
+                it.key.biomeColor,
+                it.key.name
+            )
+        }.toTypedArray()
+    )
     testUtilNoiseFuns(chunkCount, done, mainStep, totalChunks, start, miniStep)
     /*
     val provider =
@@ -893,7 +944,7 @@ private fun testUtilNoiseFuns(
     var done1 = done
     var start1 = start
 
-    var sampler = (DimensionDescriptors.CRYMORRA.resolver as VickyMapGen).elevNoise
+    var sampler = (ImageBiomeResolver.resolver).elevNoise
     println("${sampler.getSeed()}")
     ChunkFlusher.setImagePath("elevation.png")
     for (cx in 0 until chunkCount) {
@@ -909,7 +960,7 @@ private fun testUtilNoiseFuns(
                 for (localZ in worldZ until endZ) {
                     // resolveBiome expects world coords (x,z)
                     // val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
-                    val color = sampler.sample(localX * 1.0, localZ * 1.0).toGrayrh()
+                    val color = toGray(sampler.sample(localX * 1.0, localZ * 1.0))
                     ChunkFlusher.add(localX - (startChX * scale), localZ - (startChZ * scale), color, null)
                 }
             }
@@ -932,7 +983,7 @@ private fun testUtilNoiseFuns(
 
     done1 = 0
     start1 = System.currentTimeMillis()
-    sampler = (DimensionDescriptors.CRYMORRA.resolver as VickyMapGen).tempNoise
+    sampler = (ImageBiomeResolver.resolver).tempNoise
     println("${sampler.getSeed()}")
     ChunkFlusher.setImagePath("temperature.png")
     for (cx in 0 until chunkCount) {
@@ -948,7 +999,7 @@ private fun testUtilNoiseFuns(
                 for (localZ in worldZ until endZ) {
                     // resolveBiome expects world coords (x,z)
                     // val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
-                    val color = sampler.sample(localX * 1.0, localZ * 1.0).toGrayrh()
+                    val color = toGray(sampler.sample(localX * 1.0, localZ * 1.0))
                     ChunkFlusher.add(localX - (startChX * scale), localZ - (startChZ * scale), color, null)
                 }
             }
@@ -971,7 +1022,7 @@ private fun testUtilNoiseFuns(
 
     done1 = 0
     start1 = System.currentTimeMillis()
-    sampler = (DimensionDescriptors.CRYMORRA.resolver as VickyMapGen).rainNoise
+    sampler = (ImageBiomeResolver.resolver).rainNoise
     println("${sampler.getSeed()}")
     ChunkFlusher.setImagePath("humidity.png")
     for (cx in 0 until chunkCount) {
@@ -987,7 +1038,7 @@ private fun testUtilNoiseFuns(
                 for (localZ in worldZ until endZ) {
                     // resolveBiome expects world coords (x,z)
                     // val color = ImageBiomeResolver.resolver.resolveBiome(localX, 64, localZ, seedBase).biomeColor
-                    val color = sampler.sample(localX * 1.0, localZ * 1.0).toGrayrh()
+                    val color = toGray(sampler.sample(localX * 1.0, localZ * 1.0))
                     ChunkFlusher.add(localX - (startChX * scale), localZ - (startChZ * scale), color, null)
                 }
             }

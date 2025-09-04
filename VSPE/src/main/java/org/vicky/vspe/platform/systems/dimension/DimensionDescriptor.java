@@ -13,5 +13,19 @@ public record DimensionDescriptor(
         String identifier,
         BiomeResolver<?> resolver,
         int oceanLevel,
-        PlatformBlockState<?> water) {
+        PlatformBlockState<?> water,
+        long worldTime,
+        boolean hasSkyLight,
+        boolean hasCeiling,
+        boolean ambientAlways,
+        boolean canUseAnchor,
+        boolean canSleep,
+        boolean natural,
+        float ambientLight,
+        float worldScale,
+        int monsterLight,
+        int monsterLightThreshold,
+        int logicalHeight,
+        int minimumY,
+        int maximumY) {
 }

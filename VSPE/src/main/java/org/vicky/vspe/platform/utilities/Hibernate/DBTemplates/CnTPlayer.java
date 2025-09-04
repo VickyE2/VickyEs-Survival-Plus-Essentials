@@ -1,6 +1,6 @@
 package org.vicky.vspe.platform.utilities.Hibernate.DBTemplates;
 
-import jakarta.persistence.*;
+import org.vicky.shaded.jakarta.persistence.*;
 import org.vicky.utilities.DatabaseManager.templates.ExtendedPlayerBase;
 import org.vicky.utilities.DatabaseTemplate;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.EquippedTrinket;

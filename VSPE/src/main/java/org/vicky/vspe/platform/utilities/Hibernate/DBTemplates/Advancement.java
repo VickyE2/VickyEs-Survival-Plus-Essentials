@@ -1,7 +1,7 @@
 package org.vicky.vspe.platform.utilities.Hibernate.DBTemplates;
 
-import jakarta.persistence.*;
 import org.hibernate.annotations.NaturalId;
+import org.vicky.shaded.jakarta.persistence.*;
 import org.vicky.utilities.DatabaseTemplate;
 
 import java.util.UUID;

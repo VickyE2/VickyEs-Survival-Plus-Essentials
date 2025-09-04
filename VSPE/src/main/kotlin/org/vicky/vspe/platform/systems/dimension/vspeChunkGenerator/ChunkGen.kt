@@ -39,6 +39,7 @@ open class ChunkGenerateContext<T, B: PlatformBiome>(
 interface BiomeResolver<B: PlatformBiome>{
     fun getBiomePalette(): Palette<B>
     fun resolveBiome(x: Int, y: Int, z: Int, seed: Long): B
+    fun foggyAt(x: Int, y: Int): Boolean = false
 }
 
 interface ChunkData<T, B: PlatformBiome> {

@@ -1465,7 +1465,7 @@ class VoronoiBuilder(): NoiseBuilder<DefaultedNoiseResult, VoronoiBuilder>() {
 }
 
 @JvmOverloads
-fun createElevationSampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: Long = 0L): JNoiseNoiseSampler {
+fun createElevationSampler(seed: Long = 0L, bias: Double = 0.0, amplitude: Double = 1.0): JNoiseNoiseSampler {
     val base = NoiseSamplerFactory.create(
         NoiseSamplerFactory.Type.PERLIN,
         { b ->
@@ -1479,17 +1479,67 @@ fun createElevationSampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: Lo
                     .withSecondary(ConstantModule.of(bias))
                     .build()
             )
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(
+                        NoiseSamplerFactory.create(
+                            NoiseSamplerFactory.Type.PERLIN,
+                            seed = seed * 84848488L,
+                            frequency = 0.00058,
+                            octaves = 5
+                        )
+                    )
+                    .build()
+            )
             b
         },
         seed,
-        0.00076, // continental scale
-        8
+        0.000076, // continental scale
+        8,
+        lacunarity = 3.4
     )
     return JNoiseNoiseSampler(base)
 }
 
 @JvmOverloads
-fun createTemperatureSampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: Long = 0L): JNoiseNoiseSampler {
+fun createTemperatureSampler(seed: Long = 0L, bias: Double = 0.0, amplitude: Double = 1.0): JNoiseNoiseSampler {
+    val base = NoiseSamplerFactory.create(
+        NoiseSamplerFactory.Type.PERLIN,
+        { b ->
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(amplitude))
+                    .build()
+            )
+            b.addModule(
+                AdditionModuleBuilder.newBuilder()
+                    .withSecondary(ConstantModule.of(bias))
+                    .build()
+            )
+            b.addModule(
+                MultiplicationModuleBuilder.newBuilder()
+                    .withSecondary(
+                        NoiseSamplerFactory.create(
+                            NoiseSamplerFactory.Type.OPEN_SIMPLEX,
+                            seed = seed * 5775755727L,
+                            frequency = 0.0000058,
+                            octaves = 4
+                        )
+                    )
+                    .build()
+            )
+            b
+        },
+        seed,
+        0.0000063, // continental scale
+        8,
+        lacunarity = 3.0
+    )
+    return JNoiseNoiseSampler(base)
+}
+
+@JvmOverloads
+fun createHumiditySampler(seed: Long = 0L, bias: Double = 0.0, amplitude: Double = 1.0): JNoiseNoiseSampler {
     val base = NoiseSamplerFactory.create(
         NoiseSamplerFactory.Type.PERLIN,
         { b ->
@@ -1516,44 +1566,9 @@ fun createTemperatureSampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: 
             b
         },
         seed,
-        0.00098, // continental scale
-        4,
-        0.4
-    )
-    return JNoiseNoiseSampler(base)
-}
-
-@JvmOverloads
-fun createHumiditySampler(bias: Double = 0.0, amplitude: Double = 1.0, seed: Long = 0L): JNoiseNoiseSampler {
-    val base = NoiseSamplerFactory.create(
-        NoiseSamplerFactory.Type.PERLIN,
-        { b ->
-            b.addModule(
-                MultiplicationModuleBuilder.newBuilder()
-                    .withSecondary(ConstantModule.of(amplitude))
-                    .build()
-            )
-            b.addModule(
-                AdditionModuleBuilder.newBuilder()
-                    .withSecondary(ConstantModule.of(bias))
-                    .build()
-            )
-            b.addModule(
-                AdditionModuleBuilder.newBuilder()
-                    .withSecondary(ConstantModule.of(1.0))
-                    .build()
-            )
-            b.addModule(
-                MultiplicationModuleBuilder.newBuilder()
-                    .withSecondary(ConstantModule.of(0.5))
-                    .build()
-            )
-            b
-        },
-        seed,
-        0.00088, // continental scale
-        4,
-        0.6
+        0.000088, // continental scale
+        8,
+        lacunarity = 2.7
     )
     return JNoiseNoiseSampler(base)
 }

@@ -1,9 +1,9 @@
 package org.vicky.vspe.platform.utilities.Hibernate.dao_s;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityTransaction;
-import jakarta.persistence.NoResultException;
-import jakarta.persistence.TypedQuery;
+import org.vicky.shaded.jakarta.persistence.EntityManager;
+import org.vicky.shaded.jakarta.persistence.EntityTransaction;
+import org.vicky.shaded.jakarta.persistence.NoResultException;
+import org.vicky.shaded.jakarta.persistence.TypedQuery;
 import org.vicky.utilities.DatabaseManager.HibernateUtil;
 import org.vicky.vspe.platform.utilities.Hibernate.DBTemplates.CnTPlayer;
 
