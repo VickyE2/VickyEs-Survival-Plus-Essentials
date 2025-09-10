@@ -75,14 +75,6 @@ tasks.register<Jar>("javadocJar") {
     from(tasks.javadoc)
 }
 
-tasks.named<Jar>("jar") {
-    from({
-        zipTree("libs/jNBT-1.6.0.jar") // path to the JAR you want to include
-    }) {
-        exclude("META-INF/**") // avoid signature clashes
-    }
-}
-
 publishing {
     publications {
         withType<MavenPublication>().configureEach {
