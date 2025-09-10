@@ -12,7 +12,6 @@ public class ForgeBlockDataRegistry implements PlatformBlockDataRegistry {
     private ForgeBlockDataRegistry() {
     }
 
-
     @Override
     @SuppressWarnings("unchecked")
     public PlatformBlockState<BlockState> getBlockState(ResourceLocation id) {

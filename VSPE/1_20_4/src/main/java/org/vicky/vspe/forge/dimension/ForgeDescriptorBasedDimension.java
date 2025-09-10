@@ -40,7 +40,7 @@ public class ForgeDescriptorBasedDimension extends ForgeBaseDimension implements
                 descriptor.shouldGenerateStructures(),
                 ForgeDimensionManager.GENERATORS.get(cleanNamespace(descriptor.name()))
         );
-        this.descriptor = descriptor.clone();
+        this.descriptor = descriptor.copy();
     }
 
     @Override

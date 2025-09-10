@@ -140,7 +140,7 @@ public class VspeForge implements VSPEPlatformPlugin {
 
     @Override
     public boolean platformIsNative() {
-        return false;
+        return true;
     }
 
     @Override

@@ -42,7 +42,7 @@ public class UnImpressedBiomeSource extends BiomeSource {
     }
 
     @Override
-    public @NotNull Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.Sampler noise) {
+    public @NotNull Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.@NotNull Sampler noise) {
         ForgeBiome resolved = biomeProvider.resolveBiome(x, y, z, 0);
         ResourceLocation rl = resolved.getResourceKey().location();
 
