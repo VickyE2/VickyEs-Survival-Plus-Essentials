@@ -1,4 +1,3 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformJvmPlugin
 val javaVersion = 21
 
@@ -8,7 +7,6 @@ plugins {
     id("io.papermc.paperweight.userdev") version "1.7.7" apply false
     `java-library`
     `maven-publish`
-    id("io.github.goooler.shadow") version "8.1.8" apply true
 }
 
 allprojects {
@@ -26,7 +24,6 @@ subprojects {
     apply(plugin = "java")
     apply(plugin = "java-library")
     apply(plugin = "maven-publish")
-    apply(plugin = "io.github.goooler.shadow")
 
     tasks.withType<Test> {
         useJUnitPlatform()
@@ -48,34 +45,5 @@ subprojects {
                 jvmTarget = "$javaVersion"
             }
         }
-    }
-
-    tasks.shadowJar {
-        archiveClassifier.set("")
-    }
-
-    tasks.named<ShadowJar>("shadowJar") {
-        archiveBaseName.set("VSPE")
-        version = project.version
-        configurations = listOf(
-            project.configurations.runtimeClasspath.get(),
-        )
-        archiveClassifier.set("")
-        mergeServiceFiles()
-    }
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            groupId = "io.vicky" // or whatever you want
-            artifactId = "nms"
-            version = "1.0.0"
-
-            from(components["java"])
-        }
-    }
-    repositories {
-        mavenLocal()
     }
 }
