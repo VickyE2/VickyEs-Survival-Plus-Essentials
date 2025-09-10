@@ -87,7 +87,7 @@ tasks.named<Jar>("jar") {
     from({
         zipTree("libs/jNBT-1.6.0.jar") // path to the JAR you want to include
     }) {
-        exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA") // avoid signature clashes
+        exclude("META-INF/**") // avoid signature clashes
     }
 }
 
