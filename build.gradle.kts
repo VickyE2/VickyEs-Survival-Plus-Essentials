@@ -25,6 +25,24 @@ subprojects {
     apply(plugin = "java-library")
     apply(plugin = "maven-publish")
 
+    // only configure Java/Forge style projects where sourceSets exist
+    plugins.withId("java") {
+        // ensure bundled exists if a subproject forgets (buildSrc helper will create too)
+        configurations.create("bundled").apply {
+            isCanBeConsumed = false
+            isCanBeResolved = true
+        }
+
+        tasks.jar {
+            from({
+                configurations["bundled"].resolve()
+                    .filter { it.name.endsWith(".jar") }
+                    .map { zipTree(it) }
+            })
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        }
+    }
+
     tasks.withType<Test> {
         useJUnitPlatform()
     }
