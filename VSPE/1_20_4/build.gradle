@@ -139,10 +139,7 @@ dependencies {
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib"
-    compileOnly "io.github.vickye2:vicky-utils-core:0.0.1"
-    implementation("io.github.vickye2:vicky-utils-forge:1.20.4-0.0.1-BETA") {
-        exclude group: "io.github.vickye2", module: "vicky-utils-core"
-    }
+    implementation "io.github.vickye2:vicky-utils-forge:0.0.1-1.20.4"
 
     // Example mod dependency with JEI - using fg.deobf() ensures the dependency is remapped to your development mappings
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime

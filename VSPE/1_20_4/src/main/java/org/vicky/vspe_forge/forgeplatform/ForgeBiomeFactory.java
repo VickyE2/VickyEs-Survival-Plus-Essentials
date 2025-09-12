@@ -1,0 +1,28 @@
+package org.vicky.vspe_forge.forgeplatform;
+
+import net.minecraft.data.worldgen.BootstapContext;
+import net.minecraft.world.level.biome.Biome;
+import org.vicky.vspe_forge.dimension.ForgeBiome;
+import org.vicky.vspe.platform.PlatformBiomeFactory;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeParameters;
+
+import java.util.HashSet;
+import java.util.Set;
+
+public class ForgeBiomeFactory implements PlatformBiomeFactory<ForgeBiome> {
+
+    public static final Set<ForgeBiome> REGISTERED_BIOMES = new HashSet<>();
+
+    public static void boostrap(BootstapContext<Biome> context) {
+        REGISTERED_BIOMES.forEach((b) -> {
+            context.register(b.getResourceKey(), b.funner.apply(context));
+        });
+    }
+
+    @Override
+    public ForgeBiome createBiome(BiomeParameters config) {
+        var biome = new ForgeBiome(config);
+        REGISTERED_BIOMES.add(biome);
+        return biome;
+    }
+}

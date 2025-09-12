@@ -1,0 +1,6 @@
+{
+  "parent": "block/cross",
+  "textures": {
+    "cross": "vspe:block/magenta_frost_vines_2"
+  }
+}
