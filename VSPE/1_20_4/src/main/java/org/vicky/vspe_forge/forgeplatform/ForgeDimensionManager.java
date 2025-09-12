@@ -11,7 +11,6 @@ import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException
 import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
-import org.vicky.vspe.platform.systems.dimension.globalDimensions.DimensionDescriptors;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
@@ -29,7 +28,7 @@ public class ForgeDimensionManager implements PlatformDimensionManager<BlockStat
     public static ForgeDimensionManager INSTANCE;
     public final List<PlatformBaseDimension<BlockState, Level>> LOADED_DIMENSIONS = new ArrayList<>();
     public final List<PlatformBaseDimension<BlockState, Level>> UNLOADED_DIMENSIONS = new ArrayList<>();
-    public final Set<DimensionDescriptor> DIMENSION_DESCRIPTOR_SET = new HashSet<>();
+    public static final Set<DimensionDescriptor> DIMENSION_DESCRIPTOR_SET = new HashSet<>();
     private final ContextLogger logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSIONS");
 
     private ForgeDimensionManager() {
@@ -47,9 +46,10 @@ public class ForgeDimensionManager implements PlatformDimensionManager<BlockStat
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-        CoreDimensionRegistry.getRegisteredDescriptors().forEach(descriptor -> {
-            UnImpressedChunkGenerator gen = new UnImpressedChunkGenerator(new UnImpressedBiomeSource((BiomeResolver<ForgeBiome>) descriptor.resolver()), stringToSeed(descriptor.description()), descriptor);
-            GENERATORS.put(cleanNamespace(descriptor.name()).toUpperCase(), gen);
+        CoreDimensionRegistry.getRegisteredDescriptors().forEach(it -> {
+            DIMENSION_DESCRIPTOR_SET.add(it);
+            UnImpressedChunkGenerator gen = new UnImpressedChunkGenerator(new UnImpressedBiomeSource((BiomeResolver<ForgeBiome>) it.resolver()), stringToSeed(it.description()), it);
+            GENERATORS.put(cleanNamespace(it.name()).toUpperCase(), gen);
         });
     }
 

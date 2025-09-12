@@ -12,7 +12,8 @@ subprojects {
             exclude(group = "io.github.vickye2", module = "vspe-core")
             exclude(group = "io.github.vickye2", module = "vicky-utils-core")
             exclude(group = "org.vicky.vspe.addon", module = "structure_loader")
-            // exclude(group = "de.articdive", module = "jnoise")
+            exclude(group = "de.articdive", module = "jnoise")
+            exclude(group = "de.articdive", module = "jnoise-pipeline")
         }
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.0")
         testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")

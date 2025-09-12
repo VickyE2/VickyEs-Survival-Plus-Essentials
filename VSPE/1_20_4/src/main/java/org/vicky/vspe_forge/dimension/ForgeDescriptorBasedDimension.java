@@ -9,9 +9,6 @@ import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.PlatformItem;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
-import org.vicky.vspe_forge.advancements.ForgeAdvancement;
-import org.vicky.vspe_forge.forgeplatform.ForgeDimensionManager;
-import org.vicky.vspe_forge.forgeplatform.useables.Descriptored;
 import org.vicky.vspe.platform.defaults.SimpleWorldType;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException;
@@ -19,6 +16,9 @@ import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsExcept
 import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
 import org.vicky.vspe.systems.dimension.DimensionSpawnStrategy;
 import org.vicky.vspe.systems.dimension.PortalContext;
+import org.vicky.vspe_forge.advancements.ForgeAdvancement;
+import org.vicky.vspe_forge.forgeplatform.ForgeDimensionManager;
+import org.vicky.vspe_forge.forgeplatform.useables.Descriptored;
 
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -28,19 +28,34 @@ import static org.vicky.vspe_forge.forgeplatform.AwsomeForgeHacks.fromDescriptor
 import static org.vicky.vspe_forge.forgeplatform.ForgeDimensionManager.cleanNamespace;
 
 public class ForgeDescriptorBasedDimension extends ForgeBaseDimension implements Descriptored {
-    private final DimensionDescriptor descriptor;
+    private DimensionDescriptor descriptor;
 
-    public ForgeDescriptorBasedDimension(DimensionDescriptor descriptor, String seed) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
+    public ForgeDescriptorBasedDimension(DimensionDescriptor inputtedDescriptor, String seed) throws WorldNotExistsException, NoGeneratorException, ManagerNotFoundException {
         super(
-                descriptor.name(),
-                cleanNamespace(descriptor.name()),
-                descriptor.dimensionTypes(),
+                inputtedDescriptor.name(),
+                cleanNamespace(inputtedDescriptor.name()),
+                inputtedDescriptor.dimensionTypes(),
                 seed,
                 new SimpleWorldType("NORMAL"),
-                descriptor.shouldGenerateStructures(),
-                ForgeDimensionManager.GENERATORS.get(cleanNamespace(descriptor.name()))
+                inputtedDescriptor.shouldGenerateStructures(),
+                ForgeDimensionManager.GENERATORS.get(cleanNamespace(inputtedDescriptor.name())),
+                inputtedDescriptor
         );
-        this.descriptor = descriptor.copy();
+    }
+
+    @Override
+    public @Nullable Runnable toRuns() {
+        return () -> {
+            Object p = this.passable;
+            if (p == null) {
+                throw new IllegalStateException("Expected a DimensionDescriptor in passable, but passable is null");
+            }
+            if (!(p instanceof DimensionDescriptor dd)) {
+                throw new IllegalStateException("Expected passable to be DimensionDescriptor but got: " + p.getClass());
+            }
+            // defensive copy
+            this.descriptor = dd.copy();
+        };
     }
 
     @Override

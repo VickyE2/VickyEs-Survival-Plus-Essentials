@@ -26,16 +26,11 @@ import org.vicky.utilities.ANSIColor;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.utilities.PermittedObjects.AllowedBoolean;
 import org.vicky.utilities.UUIDGenerator;
-import org.vicky.vspe_forge.advancements.ForgeAdvancement;
-import org.vicky.vspe_forge.events.DimensionWarpEvent;
-import org.vicky.vspe_forge.forgeplatform.ForgeAdvancementManager;
-import org.vicky.vspe_forge.forgeplatform.ForgeDimensionManager;
-import org.vicky.vspe_forge.forgeplatform.useables.Descriptored;
-import org.vicky.vspe_forge.forgeplatform.useables.ForgeDimensionWarpEvent;
 import org.vicky.vspe.platform.PlatformEnvironment;
 import org.vicky.vspe.platform.PlatformWorldType;
 import org.vicky.vspe.platform.features.advancement.Exceptions.AdvancementNotExists;
 import org.vicky.vspe.platform.features.advancement.Exceptions.NullAdvancementUser;
+import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
 import org.vicky.vspe.platform.systems.dimension.DimensionClass;
 import org.vicky.vspe.platform.systems.dimension.DimensionType;
 import org.vicky.vspe.platform.systems.dimension.Events.PlatformDimensionWarpEvent;
@@ -43,7 +38,6 @@ import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException
 import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.BaseGenerator;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformDimension;
 import org.vicky.vspe.platform.utilities.Config;
 import org.vicky.vspe.platform.utilities.Hibernate.DBTemplates.AdvanceablePlayer;
 import org.vicky.vspe.platform.utilities.Hibernate.DBTemplates.Advancement;
@@ -54,13 +48,19 @@ import org.vicky.vspe.platform.utilities.Hibernate.dao_s.AdvancementDAO;
 import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe.systems.dimension.PlatformDimensionTickHandler;
+import org.vicky.vspe_forge.advancements.ForgeAdvancement;
+import org.vicky.vspe_forge.events.DimensionWarpEvent;
+import org.vicky.vspe_forge.forgeplatform.ForgeAdvancementManager;
+import org.vicky.vspe_forge.forgeplatform.ForgeDimensionManager;
+import org.vicky.vspe_forge.forgeplatform.useables.Descriptored;
+import org.vicky.vspe_forge.forgeplatform.useables.ForgeDimensionWarpEvent;
 
 import java.util.*;
 
+import static org.vicky.vspe.platform.systems.dimension.DimensionType.AQUATIC_WORLD;
 import static org.vicky.vspe_forge.VspeForge.MODID;
 import static org.vicky.vspe_forge.forgeplatform.AwsomeForgeHacks.getLevel;
 import static org.vicky.vspe_forge.forgeplatform.AwsomeForgeHacks.moveAllPlayersToOverworld;
-import static org.vicky.vspe.platform.systems.dimension.DimensionType.AQUATIC_WORLD;
 
 public abstract class ForgeBaseDimension implements PlatformBaseDimension<BlockState, Level> {
     protected final static DimensionService service = DimensionService.getInstance();
@@ -72,6 +72,7 @@ public abstract class ForgeBaseDimension implements PlatformBaseDimension<BlockS
     private final boolean generateStructures;
     private final ChunkGenerator generator;
     private final ContextLogger logger;
+    protected final @Nullable Object passable;
     private ForgePlatformWorldAdapter world = null;
     private String description;
     private boolean worldExists = true;
@@ -84,8 +85,11 @@ public abstract class ForgeBaseDimension implements PlatformBaseDimension<BlockS
             @NotNull String seed,
             @NotNull PlatformWorldType worldType,
             boolean generateStructures,
-            @NotNull ChunkGenerator generator
+            @NotNull ChunkGenerator generator,
+            @Nullable Object passable
     ) throws ManagerNotFoundException {
+        this.passable = passable;
+        if (toRuns() != null) toRuns().run();
         this.name = name;
         this.mainName = mainName;
         this.logger = new ContextLogger(ContextLogger.ContextType.SYSTEM, "DIMENSION-" + name.toUpperCase());
@@ -95,15 +99,13 @@ public abstract class ForgeBaseDimension implements PlatformBaseDimension<BlockS
         this.generateStructures = generateStructures;
         this.generator = generator;
         DimensionClass.registerCustomDimension(name);
-        Optional<ForgeAdvancementManager> oM = ManagerRegistry.getManager(ForgeAdvancementManager.class);
+        Optional<PlatformAdvancementManager> oM = ManagerRegistry.getManager(PlatformAdvancementManager.class);
         try {
-            ForgeAdvancementManager manager = oM.get();
-            manager.addAdvancement(this.getDimensionJoinAdvancement());
+            PlatformAdvancementManager<ForgeAdvancement> manager = oM.get();
+            if (this.getDimensionJoinAdvancement() != null)
+                manager.addAdvancement(this.getDimensionJoinAdvancement());
         } catch (NoSuchElementException e) {
             throw new ManagerNotFoundException("Failed to locate advancement manager...");
-        }
-        for (DimensionType dimensionType : dimensionTypes) {
-            dimensionType.addDimension((PlatformDimension<?, ?>) this);
         }
         ResourceLocation dimId = ResourceLocation.parse(getIdentifier());
         if (this instanceof Descriptored descriptored) {
@@ -117,6 +119,11 @@ public abstract class ForgeBaseDimension implements PlatformBaseDimension<BlockS
                 return null;
             });
         }
+    }
+
+    public @Nullable Runnable toRuns() {
+        return () -> {
+        };
     }
 
     protected abstract void dimensionAdvancementGainProcedures(ServerPlayer player);

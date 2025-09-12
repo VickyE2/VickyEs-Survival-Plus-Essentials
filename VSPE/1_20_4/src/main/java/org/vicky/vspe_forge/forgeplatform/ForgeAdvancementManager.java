@@ -3,28 +3,25 @@ package org.vicky.vspe_forge.forgeplatform;
 import net.minecraft.resources.ResourceLocation;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.Identifiable;
-import org.vicky.vspe_forge.advancements.AdvancementHandler;
-import org.vicky.vspe_forge.advancements.ForgeAdvancement;
 import org.vicky.vspe.platform.features.advancement.AdvancementStorage;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
+import org.vicky.vspe_forge.advancements.AdvancementHandler;
+import org.vicky.vspe_forge.advancements.ForgeAdvancement;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class ForgeAdvancementManager implements PlatformAdvancementManager<ForgeAdvancement> {
 
-    private static ForgeAdvancementManager INSTANCE;
+    private static final ForgeAdvancementManager INSTANCE = new ForgeAdvancementManager();
 
     private ForgeAdvancementManager() {
         ManagerRegistry.register(this);
     }
 
     public static ForgeAdvancementManager getInstance() {
-        if (INSTANCE == null) {
-            INSTANCE = new ForgeAdvancementManager();
-        }
         return INSTANCE;
     }
 

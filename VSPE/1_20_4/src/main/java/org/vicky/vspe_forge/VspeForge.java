@@ -9,7 +9,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -25,12 +24,6 @@ import org.vicky.platform.PlatformConfig;
 import org.vicky.platform.PlatformLogger;
 import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.PlatformScheduler;
-import org.vicky.vspe_forge.dimension.WorldManager;
-import org.vicky.vspe_forge.forgeplatform.*;
-import org.vicky.vspe_forge.forgeplatform.useables.VSPEDimensionEffects;
-import org.vicky.vspe_forge.registers.Blocks;
-import org.vicky.vspe_forge.registers.Items;
-import org.vicky.vspe_forge.registers.Tabs;
 import org.vicky.vspe.platform.PlatformBiomeFactory;
 import org.vicky.vspe.platform.PlatformBlockDataRegistry;
 import org.vicky.vspe.platform.PlatformStructureManager;
@@ -41,6 +34,12 @@ import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformBiome;
 import org.vicky.vspe.platform.systems.platformquestingintegration.QuestProductionFactory;
+import org.vicky.vspe_forge.dimension.WorldManager;
+import org.vicky.vspe_forge.forgeplatform.*;
+import org.vicky.vspe_forge.forgeplatform.useables.VSPEDimensionEffects;
+import org.vicky.vspe_forge.registers.Blocks;
+import org.vicky.vspe_forge.registers.Items;
+import org.vicky.vspe_forge.registers.Tabs;
 
 import java.io.File;
 import java.io.IOException;
@@ -85,6 +84,7 @@ public class VspeForge implements VSPEPlatformPlugin {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        ForgeAdvancementManager.getInstance();
         ForgeDimensionManager.prepareGenerators();
         ForgeDimensionManager.getInstance().loadDimensionsFromDescriptors();
     }
