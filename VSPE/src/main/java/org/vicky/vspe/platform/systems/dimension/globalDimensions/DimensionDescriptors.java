@@ -38,14 +38,14 @@ public final class DimensionDescriptors {
                     15,
                     15,
                     218,
-                    319,
                     -64,
+                    319,
                     (player) -> new PortalContext<>(
                             player.getLocation(),
                             player,
                             (x, y, z, dimension) -> {
                                 PortalFrameUtil.PortalPattern nether = PortalFrameUtil.create(
-                                        PortalFrameUtil.PortalShape.ROUNDED_ARCH, 2, 3, Direction.NORTH
+                                        PortalFrameUtil.PortalShape.RECTANGLE, 3, 4, Direction.NORTH
                                 );
                                 for (int[] c : nether.frame) {
                                     System.out.println(Arrays.toString(c));

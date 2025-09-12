@@ -11,6 +11,34 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
+/**
+ * @param name
+ * @param description
+ * @param shouldGenerateStructures
+ * @param dimensionTypes
+ * @param identifier
+ * @param resolver
+ * @param oceanLevel
+ * @param water
+ * @param worldTime
+ * @param hasSkyLight
+ * @param hasCeiling
+ * @param ambientAlways
+ * @param canUseAnchor
+ * @param canSleep
+ * @param natural
+ * @param ultraWarm
+ * @param ambientLight
+ * @param worldScale
+ * @param monsterLight
+ * @param monsterLightThreshold
+ * @param logicalHeight
+ * @param minimumY                 when added to maximum y and 1 it MUST be a multiple of 16.
+ * @param maximumY                 when added to minimum y and 1 it MUST be a multiple of 16.
+ * @param portalContext
+ * @param dimensionStrategy
+ * @param worldTimeCurve
+ */
 public record DimensionDescriptor(
         @NotNull String name,
         @NotNull String description,
@@ -39,6 +67,30 @@ public record DimensionDescriptor(
         @NotNull DimensionSpawnStrategy<?, ?> dimensionStrategy,
         @NotNull TimeCurve worldTimeCurve
 ) {
+
+    public DimensionDescriptor {
+        if (minimumY > maximumY) {
+            throw new IllegalArgumentException("minimumY cannot be greater than maximumY");
+        }
+
+        int height = maximumY - minimumY + 1;
+        if (height % 16 != 0) {
+            throw new IllegalArgumentException("Height (" + height + ") must be a multiple of 16");
+        }
+
+        if (logicalHeight > height) {
+            throw new IllegalArgumentException("logicalHeight cannot exceed total height");
+        }
+    }
+
+    private static int roundDownToMultipleOf16(int v) {
+        return (v / 16) * 16;
+    }
+
+    @Override
+    public int logicalHeight() {
+        return roundDownToMultipleOf16(logicalHeight);
+    }
 
     /**
      * Shallow copy; defensive-copy for mutable collections.
