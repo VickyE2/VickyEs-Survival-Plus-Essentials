@@ -1,16 +1,22 @@
 package org.vicky.vspe_forge.dimension;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import de.pauleff.api.ICompoundTag;
+import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.WorldGenRegion;
-import net.minecraft.world.level.*;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.LevelHeightAccessor;
+import net.minecraft.world.level.NoiseColumn;
+import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.biome.BiomeManager;
-import net.minecraft.world.level.biome.Climate;
+import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.RandomState;
@@ -30,250 +36,284 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 public class UnImpressedChunkGenerator extends ChunkGenerator {
+    public static final Codec<UnImpressedChunkGenerator> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            UnImpressedBiomeSource.CODEC.fieldOf("biome_source").forGetter(gen -> (UnImpressedBiomeSource) gen.biomeSource),
+            Codec.LONG.fieldOf("seed").forGetter(gen -> gen.seed)
+    ).apply(instance, UnImpressedChunkGenerator::new));
     private static final WeightedStructurePlacer<BlockState> structurePlacer = new WeightedStructurePlacer<>();
     private static final Map<String, ChunkHeightProvider> heightProviderCache = new ConcurrentHashMap<>();
     private final long seed;
     private final DimensionDescriptor descriptor;
+    private static final BlockState AIR = Blocks.AIR.defaultBlockState();
+    private static final java.util.concurrent.ConcurrentMap<ChunkPos, GenerationDebug> DEBUG_MAP = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public UnImpressedChunkGenerator(UnImpressedBiomeSource biomeProvider, long seed, DimensionDescriptor descriptor) {
-        super(biomeProvider);
+    public UnImpressedChunkGenerator(UnImpressedBiomeSource biomeSource, long seed) {
+        super(biomeSource);
         this.seed = seed;
-        this.descriptor = descriptor;
+        this.descriptor = biomeSource.descriptor;
+    }
+
+    private static GenerationDebug debugFor(ChunkPos pos) {
+        return DEBUG_MAP.computeIfAbsent(pos, k -> {
+            GenerationDebug g = new GenerationDebug();
+            g.startTimeMs = System.currentTimeMillis();
+            g.lastUpdateMs = g.startTimeMs;
+            g.threadName = Thread.currentThread().getName();
+            return g;
+        });
+    }
+
+    private static void clearDebug(ChunkPos pos) {
+        DEBUG_MAP.remove(pos);
+    }
+
+    private static void logProgress(String s) {
+        // VSPEPlatformPlugin.platformLogger().info("[UnImprGen] " + s);
+    }
+
+    private static void setBlockInSectionFast(ChunkAccess chunk, BlockPos pos, BlockState state) {
+        int sectionIndex = chunk.getSectionIndex(pos.getY());          // chunk.getSectionIndex(y) -> section array index
+        LevelChunkSection section = chunk.getSection(sectionIndex);
+        int localX = pos.getX() & 15;
+        int localY = pos.getY() & 15;     // y % 16
+        int localZ = pos.getZ() & 15;
+        section.setBlockState(localX, localY, localZ, state, false); // ``false`` = don't update ref counts / lighting
     }
 
     @Override
     protected @NotNull Codec<? extends ChunkGenerator> codec() {
-        return ChunkGenerator.CODEC;
+        return CODEC;
     }
 
-    // We intentionally don't run vanilla carvers/surface building — we use our own pipeline
+    // === Biomes phase (like vanilla createBiomes) ===
     @Override
-    public void applyCarvers(@NotNull WorldGenRegion chunkRegion, long seed, @NotNull RandomState noiseConfig, @NotNull BiomeManager world,
-                             @NotNull StructureManager structureAccessor, @NotNull ChunkAccess chunk, @NotNull GenerationStep.Carving carverStep) {
-        // no-op (carving can be implemented later if desired)
-    }
-
-    @Override
-    public void buildSurface(@NotNull WorldGenRegion region, @NotNull StructureManager structures, @NotNull RandomState noiseConfig,
-                             @NotNull ChunkAccess chunk) {
-        // no-op (we paint surface in fillFromNoise)
-    }
-
-    @Override
-    public void applyBiomeDecoration(@NotNull WorldGenLevel world, @NotNull ChunkAccess chunk,
-                                     @NotNull StructureManager structureAccessor) {
-        // no-op - decoration may be handled by your feature placement pipeline
+    public CompletableFuture<ChunkAccess> createBiomes(Executor executor, RandomState randomState,
+                                                       Blender blender, StructureManager structureManager,
+                                                       ChunkAccess chunk) {
+        return CompletableFuture.supplyAsync(Util.wrapThreadWithTaskName("init_biomes", () -> {
+            logProgress("UnImpressedChunkGenerator.createBiomes for chunk " + chunk.getPos());
+            GenerationDebug g = debugFor(chunk.getPos());
+            g.setStage(GenStage.BIOMES_INIT);
+            doCreateBiomes(blender, randomState, structureManager, chunk);
+            return chunk;
+        }), Util.backgroundExecutor());
     }
 
     @Override
-    public void spawnOriginalMobs(@NotNull WorldGenRegion region) {
-        // no-op - spawn rules can be applied elsewhere if needed
+    public void applyCarvers(WorldGenRegion p_223043_, long p_223044_, RandomState p_223045_, BiomeManager p_223046_, StructureManager p_223047_, ChunkAccess p_223048_, GenerationStep.Carving p_223049_) {
+
+    }
+
+    @Override
+    public void buildSurface(WorldGenRegion p_223050_, StructureManager p_223051_, RandomState p_223052_, ChunkAccess p_223053_) {
+
+    }
+
+    @Override
+    public void spawnOriginalMobs(WorldGenRegion p_62167_) {
+
     }
 
     @Override
     public int getGenDepth() {
-        // sensible default (seaLevel - minY). Adjust if you prefer a different value.
         return getSeaLevel() - getMinY();
     }
 
-    @NotNull
+    private void doCreateBiomes(Blender blender, RandomState randomState,
+                                StructureManager structureManager, ChunkAccess chunk) {
+        // Use biome resolver from the RandomState if available (vanilla does this)
+        BiomeResolver resolver = blender.getBiomeResolver(this.biomeSource);
+        chunk.fillBiomesFromNoise(resolver, randomState.sampler());
+        GenerationDebug g = debugFor(chunk.getPos());
+        g.setBiomesFilled(true);
+    }
+
+    // === Fill phase ===
     @Override
-    public CompletableFuture<ChunkAccess> fillFromNoise(@NotNull Executor executor, @NotNull Blender blender,
-                                                        @NotNull RandomState noiseConfig,
-                                                        @NotNull StructureManager structureAccessor, @NotNull ChunkAccess chunk) {
-        return CompletableFuture.supplyAsync(() -> {
-            ChunkPos pos = chunk.getPos();
-            int startX = pos.getMinBlockX();
-            int startZ = pos.getMinBlockZ();
-            int minY = getMinY();
-            int maxY = chunk.getHeight();
+    public @NotNull CompletableFuture<ChunkAccess> fillFromNoise(Executor executor, Blender blender,
+                                                                 RandomState noiseConfig, StructureManager structureAccessor,
+                                                                 ChunkAccess chunk) {
+        logProgress("UnImpressedChunkGenerator.createNoise for chunk " + chunk.getPos());
+        GenerationDebug g = debugFor(chunk.getPos());
+        g.setStage(GenStage.FILLING_INIT);
+        // Acquire sections we will touch (mirror vanilla section acquire)
+        int minSectionIndex = chunk.getSectionIndex(getMinY());
+        int maxSectionIndex = chunk.getSectionIndex(getSeaLevel() - 1);
 
-            // step 1: resolve biomes for each column and gather providers
-            ForgeBiome[] biomeForColumn = new ForgeBiome[16 * 16];
-            SeededRandomSource randomSource = new SeededRandomSource(seed);
+        // Clamp to chunk section bounds
+        int sectionCount = chunk.getSectionsCount();
+        minSectionIndex = Math.max(0, Math.min(sectionCount - 1, minSectionIndex));
+        maxSectionIndex = Math.max(0, Math.min(sectionCount - 1, maxSectionIndex));
 
-            for (int lz = 0; lz < 16; lz++) {
-                for (int lx = 0; lx < 16; lx++) {
-                    int worldX = startX + lx;
-                    int worldZ = startZ + lz;
+        Set<LevelChunkSection> acquired = new HashSet<>();
+        for (int i = maxSectionIndex; i >= minSectionIndex; --i) {
+            LevelChunkSection s = chunk.getSection(i);
+            s.acquire();
+            acquired.add(s);
+        }
 
-                    ForgeBiome platformBiome = ((UnImpressedBiomeSource) biomeSource).getBiomeProvider().resolveBiome(worldX, 64, worldZ, seed);
-                    biomeForColumn[lx + lz * 16] = platformBiome;
-                }
-            }
-
-            // helper: chunk seed function
-            java.util.function.LongFunction<Long> seedForChunk = (salt) -> {
-                long h = seed;
-                h ^= (pos.x * 0x9E3779B97F4A7C15L);
-                h ^= (pos.z * 0xC6BC279692B5CC83L);
-                h = Long.rotateLeft(h, 31);
-                h ^= salt;
-                return h;
-            };
-
-            int radius = 3; // tune (3..5)
-            int paddedW = 16 + 2 * radius;
-            ForgeBiome[] paddedBiomeGrid = precomputePaddedBiomeGrid(startX, startZ, seed, radius);
-
-            int[] blendedHeights = computeBiomeAwareBlendedHeightsOptimized(pos.x, pos.z, startX, startZ, paddedBiomeGrid, radius);
-            // Optional slope limiting
-            blendedHeights = applySlopeLimit(blendedHeights, 2); // max vertical step 3
-
-            // step 3: fill blocks & apply NMS biome holders
-            for (int lx = 0; lx < 16; lx++) {
-                for (int lz = 0; lz < 16; lz++) {
-                    int worldX = startX + lx;
-                    int worldZ = startZ + lz;
-                    int idx = lx + lz * 16;
-
-                    ForgeBiome biome = paddedBiomeGrid[(lx + radius) + (lz + radius) * paddedW];
-                    if (biome == null) continue;
-                    // Then in the per-column loop, instead of querying provider/ heights[idx], do:
-                    int topY = blendedHeights[idx];
-                    if (topY < minY) topY = minY;
-                    if (topY >= maxY) topY = maxY - 1;
-
-                    // set bedrock at minY
-                    chunk.setBlockState(new BlockPos(worldX, minY, worldZ), Blocks.BEDROCK.defaultBlockState(), false);
-
-                    // fill column from minY+1..topY using palette
-                    for (int y = minY + 1; y <= topY; y++) {
-                        PlatformBlockState<BlockState> platformBlock = biome.getDistributionPalette().getFor(y);
-                        BlockState forgeData = platformBlock.getNative();
-                        chunk.setBlockState(new BlockPos(worldX, y, worldZ), forgeData, false);
-                    }
-
-                    // set biome for each y slice (some MC versions require this)
-                    for (int y = minY; y < maxY; y++) {
-                        // chunk#setBiome expects local coords 0..15 for x/z
-                        chunk.fillBiomesFromNoise(getBiomeSource(), Climate.empty());
-                    }
-
-                    int seaLevel = getSeaLevel();
-                    if (topY < seaLevel - 1) {
-                        for (int y = topY + 1; y < seaLevel; y++) {
-                            BlockPos p = new BlockPos(worldX, y, worldZ);
-                            if (chunk.getBlockState(p).isAir()) {
-                                PlatformBlockState<?> water = descriptor.water();
-                                if (water.getNative() instanceof BlockState forgeData) {
-                                    chunk.setBlockState(p, forgeData, false);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            var placer = new BlockPlacer<BlockState>() {
-                @Override
-                public int getHighestBlockAt(int x, int z) {
-                    int highest = minY;
-                    for (int y = maxY - 1; y >= minY; y--) {
-                        if (!chunk.getBlockState(new BlockPos(x, y, z)).isAir()) {
-                            return y;
-                        }
-                    }
-                    return highest;
-                }
-
-                @Override
-                public void placeBlock(int x, int y, int z, @Nullable PlatformBlockState<BlockState> platformBlockState) {
-                    if (platformBlockState == null) return;
-                    chunk.setBlockState(new BlockPos(x, y, z), platformBlockState.getNative(), false);
-                }
-
-                @Override
-                public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockState> platformBlockState) {
-                    placeBlock((int) vec3.x, (int) vec3.y, (int) vec3.z, platformBlockState);
-                }
-
-                @Override
-                public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockState> platformBlockState, @NotNull ICompoundTag tag) {
-                    placeBlock(vec3, platformBlockState);
-                }
-
-                @Override
-                public void placeBlock(int x, int y, int z, @Nullable PlatformBlockState<BlockState> platformBlockState, @NotNull ICompoundTag tag) {
-                    placeBlock(x, y, z, platformBlockState);
-                }
-            };
-
-            // step 4: per-column features
-            for (int lz = 0; lz < 16; lz++) {
-                for (int lx = 0; lx < 16; lx++) {
-                    int idx = lx + lz * 16;
-                    ForgeBiome platformBiome = biomeForColumn[idx];
-                    if (platformBiome == null) continue;
-                    int topY = blendedHeights[idx];
-
-                    FeatureContext<BlockState> ctx = new FeatureContext<>(
-                            seed,
-                            pos.x,
-                            pos.z,
-                            randomSource.fork(seedForChunk.apply(0xF00D_1L)),
-                            placer,
-                            new NoiseSamplerProvider() {
-                                @NotNull
-                                @Override
-                                public NoiseSampler getSampler(@NotNull ResourceLocation resourceLocation) {
-                                    return new FBMGenerator(seed, 2, 0.03f, 0.003f, 0.7f, 2);
-                                }
-                            }
-                    );
-
-                    for (BiomeFeature<?> feature : platformBiome.getFeatures()) {
-                        if (feature.getPlacement() == FeaturePlacement.PER_COLUMN) {
-                            if (((BiomeFeature<BlockState>) feature).shouldPlace(
-                                    pos.x * 16 + lx,
-                                    topY,
-                                    pos.z * 16 + lz,
-                                    ctx
-                            )) {
-                                try {
-                                    ((BiomeFeature<BlockState>) feature).place(
-                                            pos.x * 16 + lx,
-                                            topY,
-                                            pos.z * 16 + lz,
-                                            ctx
-                                    );
-                                } catch (Exception ex) {
-                                    VSPEPlatformPlugin.platformLogger().error("Feature placement error at " + pos.x + "," + pos.z + ": " + ex.getMessage(), ex);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Now create the chunk generate context using the simpleDimension and pass the adapter
-            ChunkGenerateContext<BlockState, ForgeBiome> chunkGenerateContext =
-                    new ChunkGenerateContext<>(
-                            pos.x, pos.z,
-                            ((UnImpressedBiomeSource) biomeSource).getBiomeProvider(),
-                            randomSource, placer,
-                            Vec3::new
-                    );
-
+        // spawn async job (use background executor like vanilla)
+        return CompletableFuture.supplyAsync(Util.wrapThreadWithTaskName("wgen_unimpressed_fill", () -> {
             try {
-                structurePlacer.placeStructuresInChunk(pos.x, pos.z, chunkGenerateContext, new ChunkData<BlockState, ForgeBiome>() {
-                    @Override
-                    public void setBiome(int x, int y, int z, @NotNull ForgeBiome forgeBiome) {
-                        chunk.fillBiomesFromNoise(biomeSource, Climate.empty());
-                    }
-
-                    @Override
-                    public void setBlock(int x, int y, int z, @NotNull PlatformBlockState<BlockState> platformBlockState) {
-                        chunk.setBlockState(new BlockPos(x, y, z), platformBlockState.getNative(), false);
-                    }
-                });
-            } catch (Exception ex) {
-                VSPEPlatformPlugin.platformLogger().error("Structure placement failed for chunk " + pos.x + "," + pos.z + ": " + ex.getMessage(), ex);
+                return doFill(blender, structureAccessor, noiseConfig, chunk);
+            } catch (Throwable e) {
+                GenerationDebug gd = debugFor(chunk.getPos());
+                gd.setException(e);
+                throw new RuntimeException(e);
             }
-
-            return chunk;
+        }), Util.backgroundExecutor()).whenCompleteAsync((c, t) -> {
+            for (LevelChunkSection sec : acquired) sec.release();
         }, executor);
     }
+
+    private ChunkAccess doFill(Blender blender, StructureManager structureAccessor,
+                               RandomState noiseConfig, ChunkAccess chunk) {
+        // Basic local helpers & precomputation
+        GenerationDebug g = debugFor(chunk.getPos());
+        g.setStage(GenStage.FILLING);
+        ChunkPos pos = chunk.getPos();
+        int minY = getMinY();
+        int seaLevel = getSeaLevel();
+        int startX = pos.getMinBlockX();
+        int startZ = pos.getMinBlockZ();
+
+        // Precompute padded biome grid once per chunk
+        int radius = 3;
+        long t0 = System.nanoTime();
+        ForgeBiome[] padded;
+        try {
+            logProgress("precomputePaddedBiomeGrid START chunk " + pos);
+            padded = precomputePaddedBiomeGrid(startX, startZ, seed, radius);
+            long t1 = System.nanoTime();
+            logProgress(String.format("precomputePaddedBiomeGrid DONE chunk %s time=%.3fms", pos, (t1 - t0) / 1_000_000.0));
+        } catch (Throwable ex) {
+            logProgress("precomputePaddedBiomeGrid EX chunk " + pos + " -> " + ex);
+            throw ex;
+        }
+        int paddedW = 16 + 2 * radius;
+
+        // Precompute topY per column
+        t0 = System.nanoTime();
+        int[] topYs;
+        try {
+            logProgress("computeBiomeAwareBlendedHeightsOptimized START chunk " + pos);
+            topYs = computeBiomeAwareBlendedHeightsOptimized(pos.x, pos.z, startX, startZ, padded, radius);
+            long t1 = System.nanoTime();
+            logProgress(String.format("computeBiomeAwareBlendedHeightsOptimized DONE chunk %s time=%.3fms", pos, (t1 - t0) / 1_000_000.0));
+        } catch (Throwable ex) {
+            logProgress("computeBiomeAwareBlendedHeightsOptimized EX chunk " + pos + " -> " + ex);
+            throw ex;
+        }
+
+        // Reuse mutable objects
+        BlockPos.MutableBlockPos mpos = new BlockPos.MutableBlockPos();
+        Heightmap hmMotion = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.MOTION_BLOCKING);
+        Heightmap hmMotionNoLeaves = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES);
+        Heightmap hmOceanFloor = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.OCEAN_FLOOR_WG); // or OCEAN_FLOOR
+
+        t0 = System.nanoTime();
+        ForgeBiome[] biomeForColumn = new ForgeBiome[16 * 16];
+        for (int lz = 0; lz < 16; lz++) {
+            for (int lx = 0; lx < 16; lx++) {
+                int idx = lx + lz * 16;
+                logProgress("biomeForColumn START chunk " + pos + " x, z: " + "[" + lx + ", " + lz + "]");
+                biomeForColumn[idx] = padded[(lx + radius) + (lz + radius) * paddedW];
+                long t1 = System.nanoTime();
+                logProgress(String.format("biomeForColumn DONE chunk %s time=%.3fms x: z: [%s, %s]", pos, (t1 - t0) / 1_000_000.0, lx, lz));
+            }
+        }
+
+        logProgress("UnImpressedChunkGenerator: doFill chunk before locals " + pos);
+        // Fill columns
+        for (int localZ = 0; localZ < 16; localZ++) {
+            for (int localX = 0; localX < 16; localX++) {
+                int worldX = startX + localX;
+                int worldZ = startZ + localZ;
+                int idx = localX + localZ * 16;
+
+                int topY = topYs[idx];
+                if (topY < minY) topY = minY;
+                if (topY >= chunk.getHeight()) topY = chunk.getHeight() - 1;
+
+                int i2 = chunk.getSectionsCount() - 1;
+                LevelChunkSection levelchunksection = chunk.getSection(i2);
+
+                // BEDROCK at minY
+                mpos.set(worldX, minY, worldZ);
+                t0 = System.nanoTime();
+                logProgress("place block state pos " + mpos);
+                setBlockInSectionFast(chunk, mpos, Blocks.BEDROCK.defaultBlockState());
+                long t1 = System.nanoTime();
+                logProgress(String.format("block state chunk DONE pos %s time=%.3fms", mpos, (t1 - t0) / 1_000_000.0));
+
+                t0 = System.nanoTime();
+                logProgress("hmMotion.update pos " + mpos);
+                hmMotion.update(localX, minY, localZ, Blocks.BEDROCK.defaultBlockState());
+                t1 = System.nanoTime();
+                logProgress(String.format("hmMotion.update DONE pos %s time=%.3fms", mpos, (t1 - t0) / 1_000_000.0));
+
+                t0 = System.nanoTime();
+                logProgress("hmMotionNoLeaves.update pos " + mpos);
+                hmMotionNoLeaves.update(localX, minY, localZ, Blocks.BEDROCK.defaultBlockState());
+                t1 = System.nanoTime();
+                logProgress(String.format("hmMotionNoLeaves.update DONE pos %s time=%.3fms", mpos, (t1 - t0) / 1_000_000.0));
+
+                t0 = System.nanoTime();
+                logProgress("hmOceanFloor.update pos " + mpos);
+                hmOceanFloor.update(localX, minY, localZ, Blocks.BEDROCK.defaultBlockState());
+                t1 = System.nanoTime();
+                logProgress(String.format("hmOceanFloor.update DONE pos %s time=%.3fms", mpos, (t1 - t0) / 1_000_000.0));
+
+                // Fill body
+                logProgress("UnImpressedChunkGenerator: doFill chunk after locals " + pos);
+                for (int y = minY + 1; y <= topY; y++) {
+                    PlatformBlockState<BlockState> platformBlock = getBlockForHeight(localX, y, localZ, topY, padded, paddedW, idx);
+                    if (platformBlock == null) continue;
+                    BlockState bs = platformBlock.getNative();
+                    mpos.set(worldX, y, worldZ);
+                    setBlockInSectionFast(chunk, mpos, bs);
+
+                    // update heightmaps
+                    hmMotion.update(localX, y, localZ, bs);
+                    hmMotionNoLeaves.update(localX, y, localZ, bs);
+                    hmOceanFloor.update(localX, y, localZ, bs);
+                }
+
+                // Fill water below sea level if needed (only where air)
+                if (topY < seaLevel - 1) {
+                    PlatformBlockState<?> water = descriptor.water();
+                    BlockState waterState = water.getNative() instanceof BlockState s ? s : null;
+                    if (waterState != null) {
+                        for (int y = topY + 1; y < seaLevel; y++) {
+                            mpos.set(worldX, y, worldZ);
+                            if (chunk.getBlockState(mpos).isAir()) {
+                                setBlockInSectionFast(chunk, mpos, waterState);
+                                hmMotion.update(localX, y, localZ, waterState);
+                                hmMotionNoLeaves.update(localX, y, localZ, waterState);
+                                // hmOceanFloor.update(localX, y, localZ, waterState);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        java.util.function.LongFunction<Long> seedForChunk = (salt) -> {
+            long h = seed;
+            h ^= (pos.x * 0x9E3779B97F4A7C15L);
+            h ^= (pos.z * 0xC6BC279692B5CC83L);
+            h = Long.rotateLeft(h, 31);
+            h ^= salt;
+            return h;
+        };
+
+        // Place per-column features (invoke your existing feature placement but avoid heavy allocations)
+        g.setStage(GenStage.FEATURES);
+        placePerColumnFeatures(chunk, pos, topYs, padded, paddedW, biomeForColumn, new SeededRandomSource(seed), seedForChunk, seed);
+        g.setStage(GenStage.DONE);
+        return chunk;
+    }
+
 
     @Override
     public int getSeaLevel() {
@@ -352,9 +392,180 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         return new NoiseColumn(minY, array);
     }
 
+    // -------------------------
+    // Replace your heavy logic inside helpers:
+    // -------------------------
+    private PlatformBlockState<BlockState> getBlockForHeight(int localX, int y, int localZ, int topY, ForgeBiome[] padded, int paddedW, int idx) {
+        // Look up biome from padded grid. Keep this lightweight, avoid registry lookups here.
+        ForgeBiome biome = padded[(localX + 3) + (localZ + 3) * paddedW]; // example if radius=3; adapt accordingly
+        if (biome == null) return null;
+        return biome.getDistributionPalette().getFor(localX, y, localZ, topY, getSeaLevel()); // keep this fast
+    }
+
+    private void placePerColumnFeatures(
+            ChunkAccess chunk,
+            ChunkPos pos,
+            int[] topYs,                    // per-column top Y (16*16)
+            ForgeBiome[] padded,            // padded biome grid
+            int paddedW,                    // padded width (16 + 2*radius)
+            ForgeBiome[] biomeForColumn,    // direct per-column biome (16*16)
+            SeededRandomSource randomSource,// your seeded RNG instance (the one you created earlier)
+            java.util.function.LongFunction<Long> seedForChunk, // same function used earlier
+            long seed                       // base seed value
+    ) {
+        final int minY = getMinY();
+        final int maxY = chunk.getHeight();
+        final int startX = pos.getMinBlockX();
+        final int startZ = pos.getMinBlockZ();
+
+        // Reused objects to avoid allocations
+        final BlockPos.MutableBlockPos mpos = new BlockPos.MutableBlockPos();
+        final Heightmap hmMotion = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.MOTION_BLOCKING);
+        final Heightmap hmMotionNoLeaves = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES);
+        final Heightmap hmOceanFloor = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.OCEAN_FLOOR_WG);
+
+        // Lightweight placer that updates heightmaps when placing blocks
+        final BlockPlacer<BlockState> placer = new BlockPlacer<>() {
+            @Override
+            public int getHighestBlockAt(int worldX, int worldZ) {
+                // compute local coords 0..15
+                final int localX = Math.floorMod(worldX, 16);
+                final int localZ = Math.floorMod(worldZ, 16);
+
+                for (int y = maxY - 1; y >= minY; y--) {
+                    mpos.set(worldX, y, worldZ);
+                    if (!chunk.getBlockState(mpos).isAir()) return y;
+                }
+                return minY;
+            }
+
+            @Override
+            public void placeBlock(int worldX, int y, int worldZ, @Nullable PlatformBlockState<BlockState> platformBlockState) {
+                if (platformBlockState == null) return;
+                BlockState bs = platformBlockState.getNative();
+                mpos.set(worldX, y, worldZ);
+                setBlockInSectionFast(chunk, mpos, bs);
+
+                // update heightmaps with local coords
+                final int localX = Math.floorMod(worldX, 16);
+                final int localZ = Math.floorMod(worldZ, 16);
+                hmMotion.update(localX, y, localZ, bs);
+                hmMotionNoLeaves.update(localX, y, localZ, bs);
+                hmOceanFloor.update(localX, y, localZ, bs);
+            }
+
+            @Override
+            public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockState> platformBlockState) {
+                placeBlock((int) vec3.x, (int) vec3.y, (int) vec3.z, platformBlockState);
+            }
+
+            @Override
+            public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockState> platformBlockState, @NotNull ICompoundTag tag) {
+                placeBlock(vec3, platformBlockState);
+            }
+
+            @Override
+            public void placeBlock(int x, int y, int z, @Nullable PlatformBlockState<BlockState> platformBlockState, @NotNull ICompoundTag tag) {
+                placeBlock(x, y, z, platformBlockState);
+            }
+        };
+
+        // For each column, run PER_COLUMN features
+        for (int lz = 0; lz < 16; lz++) {
+            for (int lx = 0; lx < 16; lx++) {
+                int idx = lx + lz * 16;
+                ForgeBiome platformBiome = biomeForColumn[idx];
+                if (platformBiome == null) continue;
+
+                int worldX = startX + lx;
+                int worldZ = startZ + lz;
+                int topY = topYs[idx];
+                if (topY < minY) topY = minY;
+                if (topY >= maxY) topY = maxY - 1;
+
+                // create a per-column feature RNG (forked from the chunk RNG with your salt)
+                SeededRandomSource featureRng = (SeededRandomSource) randomSource.fork(seedForChunk.apply(0xF00D_1L));
+
+                FeatureContext<BlockState> ctx = new FeatureContext<>(
+                        seed,
+                        pos.x,
+                        pos.z,
+                        featureRng,
+                        placer,
+                        new NoiseSamplerProvider() {
+                            @NotNull
+                            @Override
+                            public NoiseSampler getSampler(@NotNull ResourceLocation resourceLocation) {
+                                return new FBMGenerator(seed, 2, 0.03f, 0.003f, 0.7f, 2);
+                            }
+                        }
+                );
+
+                for (BiomeFeature<?> feature : platformBiome.getFeatures()) {
+                    if (feature.getPlacement() != FeaturePlacement.PER_COLUMN) continue;
+
+                    @SuppressWarnings("unchecked")
+                    BiomeFeature<BlockState> bf = (BiomeFeature<BlockState>) feature;
+
+                    try {
+                        if (bf.shouldPlace(worldX, topY, worldZ, ctx)) {
+                            bf.place(worldX, topY, worldZ, ctx);
+                        }
+                    } catch (Exception ex) {
+                        VSPEPlatformPlugin.platformLogger().error("Feature placement error at chunk " + pos + " column ("
+                                + worldX + "," + worldZ + "): " + ex.getMessage(), ex);
+                    }
+                }
+            }
+        }
+
+        // Structures: create chunkGenerateContext and call structurePlacer
+        ChunkGenerateContext<BlockState, ForgeBiome> chunkGenerateContext = new ChunkGenerateContext<>(
+                pos.x, pos.z,
+                ((UnImpressedBiomeSource) biomeSource).getBiomeProvider(),
+                randomSource, // base RNG (structure placer may fork it further)
+                placer,
+                Vec3::new
+        );
+
+        try {
+            structurePlacer.placeStructuresInChunk(pos.x, pos.z, chunkGenerateContext, new ChunkData<>() {
+                @Override
+                public void setBiome(int x, int y, int z, @NotNull PlatformBiome forgeBiome) {
+                    // NO-OP: biomes should already be filled once via chunk.fillBiomesFromNoise(...)
+                    // Avoid filling biomes here (it caused duplicate/frequent biome fills and errors).
+                }
+
+                @Override
+                public void setBlock(int x, int y, int z, @NotNull PlatformBlockState<BlockState> platformBlockState) {
+                    // Delegates to the placer (which updates heightmaps)
+                    placer.placeBlock(x, y, z, platformBlockState);
+                }
+            });
+            GenerationDebug g = debugFor(chunk.getPos());
+            g.setStructuresPlaced(true);
+            g.setStage(GenStage.STRUCTURES);
+        } catch (Exception ex) {
+            VSPEPlatformPlugin.platformLogger().error("Structure placement failed for chunk " + pos + ": " + ex.getMessage(), ex);
+        }
+    }
+
     @Override
     public void addDebugScreenInfo(@NotNull List<String> text, @NotNull RandomState noiseConfig, @NotNull BlockPos pos) {
-        // optional debug info; implement as needed
+        // Show generator info for the chunk the player is looking at (pos)
+        ChunkPos cp = new ChunkPos(Math.floorDiv(pos.getX(), 16), Math.floorDiv(pos.getZ(), 16));
+        GenerationDebug gd = DEBUG_MAP.get(cp);
+        if (gd != null) {
+            text.add("UnImpressedChunkGen: " + gd.shortStatus(cp));
+        } else {
+            // if none found, optionally list some nearby debug entries
+            text.add("UnImpressedChunkGen: no debug for chunk " + cp);
+            // list up to 3 recent entries close to player
+            DEBUG_MAP.entrySet().stream()
+                    .filter(e -> Math.abs(e.getKey().x - cp.x) <= 2 && Math.abs(e.getKey().z - cp.z) <= 2)
+                    .limit(3)
+                    .forEach(e -> text.add(" nearby: " + e.getValue().shortStatus(e.getKey())));
+        }
     }
 
     /**
@@ -457,66 +668,6 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         return 0.6;
     }
 
-    /**
-     * Enforce a per-adjacent-column step limit to avoid single-column cliffs.
-     * maxStep e.g. 3 or 4.
-     */
-    private int[] applySlopeLimit(int[] heights, int maxStep) {
-        int W = 16, H = 16;
-        int[] out = Arrays.copyOf(heights, heights.length);
-        boolean changed = true;
-        int iter = 0;
-        int MAX_ITERS = 4;
-
-        while (changed && iter++ < MAX_ITERS) {
-            changed = false;
-            for (int z = 0; z < H; z++) {
-                for (int x = 0; x < W; x++) {
-                    int idx = x + z * W;
-                    int h = out[idx];
-
-                    // 4-neighbors
-                    if (x > 0) {
-                        int nidx = (x - 1) + z * W;
-                        int nh = out[nidx];
-                        if (Math.abs(nh - h) > maxStep) {
-                            if (nh > h) out[nidx] = h + maxStep;
-                            else out[nidx] = h - maxStep;
-                            changed = true;
-                        }
-                    }
-                    if (x < W - 1) {
-                        int nidx = (x + 1) + z * W;
-                        int nh = out[nidx];
-                        if (Math.abs(nh - h) > maxStep) {
-                            if (nh > h) out[nidx] = h + maxStep;
-                            else out[nidx] = h - maxStep;
-                            changed = true;
-                        }
-                    }
-                    if (z > 0) {
-                        int nidx = x + (z - 1) * W;
-                        int nh = out[nidx];
-                        if (Math.abs(nh - h) > maxStep) {
-                            if (nh > h) out[nidx] = h + maxStep;
-                            else out[nidx] = h - maxStep;
-                            changed = true;
-                        }
-                    }
-                    if (z < H - 1) {
-                        int nidx = x + (z + 1) * W;
-                        int nh = out[nidx];
-                        if (Math.abs(nh - h) > maxStep) {
-                            if (nh > h) out[nidx] = h + maxStep;
-                            else out[nidx] = h - maxStep;
-                            changed = true;
-                        }
-                    }
-                }
-            }
-        }
-        return out;
-    }
 
     /**
      * Precompute a padded biome array of size (16 + 2*radius)^2 for world coords:
@@ -665,5 +816,90 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         }
 
         return out;
+    }
+
+    private enum GenStage {
+        NONE,
+        BIOMES_INIT,
+        FILLING,
+        FILLING_INIT,
+        FEATURES,
+        STRUCTURES,
+        DONE,
+        FAILED
+    }
+
+    private static final class GenerationDebug {
+        volatile GenStage stage = GenStage.NONE;
+        volatile long startTimeMs = System.currentTimeMillis();
+        volatile long lastUpdateMs = startTimeMs;
+        volatile String threadName = "";
+        volatile boolean biomesFilled = false;
+        volatile boolean structuresPlaced = false;
+        volatile int topYMin = Integer.MAX_VALUE;
+        volatile int topYMax = Integer.MIN_VALUE;
+        volatile double topYAvg = 0.0;
+        volatile int computedColumns = 0;
+        volatile String exception = null;
+
+        void touch() {
+            lastUpdateMs = System.currentTimeMillis();
+            threadName = Thread.currentThread().getName();
+        }
+
+        void setStage(GenStage s) {
+            stage = s;
+            touch();
+        }
+
+        void setBiomesFilled(boolean v) {
+            biomesFilled = v;
+            touch();
+        }
+
+        void setStructuresPlaced(boolean v) {
+            structuresPlaced = v;
+            touch();
+        }
+
+        void setTopYStats(int[] topYs) {
+            if (topYs == null || topYs.length == 0) {
+                topYMin = Integer.MAX_VALUE;
+                topYMax = Integer.MIN_VALUE;
+                topYAvg = 0;
+                computedColumns = 0;
+                return;
+            }
+            int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
+            long sum = 0L;
+            for (int t : topYs) {
+                if (t < min) min = t;
+                if (t > max) max = t;
+                sum += t;
+            }
+            topYMin = min;
+            topYMax = max;
+            computedColumns = topYs.length;
+            topYAvg = (double) sum / topYs.length;
+            touch();
+        }
+
+        void setException(Throwable t) {
+            exception = t == null ? null : (t.getClass().getSimpleName() + ": " + t.getMessage());
+            stage = GenStage.FAILED;
+            touch();
+        }
+
+        // compact one-line status for debug screen
+        String shortStatus(ChunkPos pos) {
+            long now = System.currentTimeMillis();
+            long elapsed = now - startTimeMs;
+            String ex = exception == null ? "" : " EX:" + exception;
+            return String.format("chunk %d,%d stage=%s t=%dms biomes=%s %n    structs=%s topY[min=%d max=%d avg=%.1f cols=%d] thread=%s%s",
+                    pos.x, pos.z, stage, elapsed, biomesFilled, structuresPlaced,
+                    topYMin == Integer.MAX_VALUE ? -9999 : topYMin,
+                    topYMax == Integer.MIN_VALUE ? -9999 : topYMax,
+                    topYAvg, computedColumns, threadName, ex);
+        }
     }
 }

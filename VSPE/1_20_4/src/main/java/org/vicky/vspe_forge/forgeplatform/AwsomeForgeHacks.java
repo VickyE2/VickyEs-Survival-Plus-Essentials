@@ -9,8 +9,8 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.util.valueproviders.ConstantInt;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
-import org.vicky.vspe_forge.forgeplatform.useables.VSPEDimensionEffects;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
+import org.vicky.vspe_forge.forgeplatform.useables.VSPEDimensionEffects;
 
 import java.util.List;
 import java.util.OptionalLong;
@@ -54,7 +54,7 @@ public class AwsomeForgeHacks {
                 descriptor.canSleep(),
                 descriptor.canUseAnchor(),
                 descriptor.minimumY(),
-                Math.abs(descriptor.minimumY()) + descriptor.maximumY(),
+                Math.abs(descriptor.minimumY()) + descriptor.maximumY() + 1,
                 descriptor.logicalHeight(),
                 BlockTags.INFINIBURN_OVERWORLD,
                 VSPEDimensionEffects.registerSpecialEffect(descriptor),

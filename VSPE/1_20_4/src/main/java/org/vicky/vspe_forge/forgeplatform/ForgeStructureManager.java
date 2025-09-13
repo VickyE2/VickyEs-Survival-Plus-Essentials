@@ -17,6 +17,7 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRul
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static org.vicky.forge.forgeplatform.useables.ForgeHacks.fromVicky;
 
@@ -29,19 +30,23 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
         structures.putAll(initStructures());
     }
 
-    private final ResourceManager manager;
+    private final Supplier<ResourceManager> manager;
     private final Map<ResourceLocation, File> fileCache = new HashMap<>();
 
-    private ForgeStructureManager(ResourceManager manager) {
+    private ForgeStructureManager(Supplier<ResourceManager> manager) {
         this.manager = manager;
     }
 
-    public static void createInstance(ResourceManager manager) {
+    public static void createInstance(Supplier<ResourceManager> manager) {
         if (INSTANCE == null) {
             INSTANCE = new ForgeStructureManager(manager);
         } else {
             throw new IllegalStateException("ForgeStructureManager is already initialized");
         }
+    }
+
+    public static void destroyInstance() {
+        INSTANCE = null;
     }
 
     public static ForgeStructureManager getInstance() {
@@ -86,7 +91,7 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
             return fileCache.get(id);
         }
 
-        Resource resource = manager.getResourceOrThrow(fromVicky(id));
+        Resource resource = manager.get().getResourceOrThrow(fromVicky(id));
         File temp = File.createTempFile(id.getPath().replace('/', '_'), ".nbt");
         temp.deleteOnExit();
 

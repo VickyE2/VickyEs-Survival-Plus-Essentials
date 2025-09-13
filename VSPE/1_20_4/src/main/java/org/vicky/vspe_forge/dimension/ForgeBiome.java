@@ -14,6 +14,7 @@ import org.vicky.forge.forgeplatform.useables.ForgePlatformBlockStateAdapter;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
+import org.vicky.vspe_forge.VspeForge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -76,7 +77,7 @@ public class ForgeBiome implements PlatformBiome {
         this.isMountainous = builder.isMountainous;
         this.isHumid = builder.isHumid;
         this.isCold = builder.isCold;
-        this.resourceKey = ResourceKey.create(Registries.BIOME, ResourceLocation.parse(identifier));
+        this.resourceKey = ResourceKey.create(Registries.BIOME, ResourceLocation.fromNamespaceAndPath(VspeForge.MODID, identifier.split(":", 2)[1]));
     }
 
     public ForgeBiome(BiomeParameters params) {
@@ -103,7 +104,7 @@ public class ForgeBiome implements PlatformBiome {
         this.isMountainous = params.isMountainous();
         this.isHumid = params.isHumid();
         this.isCold = params.isCold();
-        this.resourceKey = ResourceKey.create(Registries.BIOME, ResourceLocation.parse(identifier));
+        this.resourceKey = ResourceKey.create(Registries.BIOME, ResourceLocation.fromNamespaceAndPath(VspeForge.MODID, identifier.split(":", 2)[1]));
     }
 
     // Translate your fields to a vanilla Biome

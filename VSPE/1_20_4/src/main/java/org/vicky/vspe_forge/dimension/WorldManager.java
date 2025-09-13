@@ -12,6 +12,7 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.dimension.LevelStem;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
+import org.vicky.vspe_forge.VspeForge;
 
 import java.util.*;
 import java.util.function.Function;
@@ -33,6 +34,7 @@ public final class WorldManager {
     private static final Map<ResourceLocation, PendingEntry> PENDING = new LinkedHashMap<>();
     private static final Set<ResourceLocation> REGISTERED = new HashSet<>();
     private static final Map<ResourceLocation, Function<ServerLevel, Void>> PENDING_WORLDS = new HashMap<>();
+    private static final Map<ResourceLocation, Holder.Reference<DimensionType>> REFRENCES = new HashMap<>();
     private static final Map<ResourceKey<Level>, DimensionDescriptor> DESCRIPTORS = new HashMap<>();
     private WorldManager() {
     }
@@ -83,28 +85,29 @@ public final class WorldManager {
     }
 
     /**
-     * Called automatically on ServerAboutToStartEvent. Registers LevelStem objects into BuiltinRegistries.LEVEL_STEM.
+     * Called automatically on GenerateDataEvent. Registers DimensionType objects.
      */
     public static void applyDimensionTypes(BootstapContext<DimensionType> context) {
         if (PENDING.isEmpty()) return;
         List<Map.Entry<ResourceLocation, PendingEntry>> toApply = new ArrayList<>(PENDING.entrySet());
 
         for (var entry : toApply) {
+            VspeForge.LOGGER.info("Registering DimensionType: {}", entry.getValue().dimensionTypeKey);
             PendingEntry pending = entry.getValue();
-            context.register(pending.dimensionTypeKey, pending.dimensionType);
+            REFRENCES.put(
+                    entry.getKey(),
+                    context.register(pending.dimensionTypeKey, pending.dimensionType)
+            );
         }
     }
 
     /**
-     * Called automatically on ServerAboutToStartEvent. Registers LevelStem objects into BuiltinRegistries.LEVEL_STEM.
+     * Called automatically on GenerateDataEvent. Registers LevelStem objects.
      */
     public static void applyLevelStems(BootstapContext<LevelStem> context) {
         if (PENDING.isEmpty()) return;
 
-        var registryAccess = server.registryAccess();
-        var dimTypeRegistry = registryAccess.registryOrThrow(Registries.DIMENSION_TYPE);
-
-        // We iterate over a copy so callers can modify PENDING inside generatorSupplier if needed
+        // iterate over a copy so callers can modify PENDING inside generatorSupplier
         List<Map.Entry<ResourceLocation, PendingEntry>> toApply = new ArrayList<>(PENDING.entrySet());
 
         for (var entry : toApply) {
@@ -116,15 +119,14 @@ public final class WorldManager {
 
             PendingEntry pending = entry.getValue();
             try {
-                // obtain a Holder<DimensionType> from the server registry access
-                Holder<DimensionType> dimTypeHolder = dimTypeRegistry.getHolderOrThrow(pending.dimensionTypeKey);
+                // Data-gen path: we may not have a server; do not use server.registryAccess() here.
+                Holder.Reference<DimensionType> dimHolder = REFRENCES.get(entry.getKey());
 
-                // create the chunk generator (lazy)
+                // create the chunk generator lazily
                 ChunkGenerator generator = pending.generatorSupplier.get();
-                // create LevelStem and register it into builtin registries so it becomes visible to Dimension system
-                LevelStem stem = new LevelStem(dimTypeHolder, generator);
 
-                // Register into BuiltinRegistries.LEVEL_STEM (this makes it known to vanilla's "builtin" stems)
+                // create LevelStem and register it into this BootstapContext
+                LevelStem stem = new LevelStem(dimHolder, generator);
                 context.register(pending.dimKey, stem);
 
                 REGISTERED.add(id);
@@ -132,15 +134,18 @@ public final class WorldManager {
                 if (server != null) {
                     server.sendSystemMessage(Component.literal("[WorldManager] Registered dimension: " + id));
                 } else {
-                    System.out.println("[WorldManager] Registered dimension (no server): " + id);
+                    System.out.println("[WorldManager] Registered dimension (data-gen/no-server): " + id);
                 }
 
-                if (PENDING_WORLDS.containsKey(id)) {
+                // DO NOT try to create runtime ServerLevel here during data-gen.
+                // Only call PENDING_WORLDS if server != null
+                if (server != null && PENDING_WORLDS.containsKey(id)) {
                     var sup = PENDING_WORLDS.remove(id);
                     sup.apply(getLevelFromKey(pending.levelKey));
                 }
             } catch (Exception ex) {
-                server.sendSystemMessage(net.minecraft.network.chat.Component.literal("[WorldManager] Failed to register " + id + ": " + ex.getMessage()));
+                if (server != null)
+                    server.sendSystemMessage(Component.literal("[WorldManager] Failed to register " + id + ": " + ex.getMessage()));
                 ex.printStackTrace();
             }
         }

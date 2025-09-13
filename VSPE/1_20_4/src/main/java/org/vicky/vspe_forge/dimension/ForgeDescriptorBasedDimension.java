@@ -38,7 +38,7 @@ public class ForgeDescriptorBasedDimension extends ForgeBaseDimension implements
                 seed,
                 new SimpleWorldType("NORMAL"),
                 inputtedDescriptor.shouldGenerateStructures(),
-                ForgeDimensionManager.GENERATORS.get(cleanNamespace(inputtedDescriptor.name())),
+                ForgeDimensionManager.GENERATORS.get(cleanNamespace(inputtedDescriptor.name()).toUpperCase()),
                 inputtedDescriptor
         );
     }

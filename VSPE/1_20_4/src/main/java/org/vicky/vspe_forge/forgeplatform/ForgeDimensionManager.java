@@ -11,12 +11,14 @@ import org.vicky.vspe.platform.systems.dimension.Exceptions.NoGeneratorException
 import org.vicky.vspe.platform.systems.dimension.Exceptions.WorldNotExistsException;
 import org.vicky.vspe.platform.systems.dimension.PlatformBaseDimension;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
 import org.vicky.vspe.platform.utilities.Manager.EntityNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerNotFoundException;
 import org.vicky.vspe.platform.utilities.Manager.ManagerRegistry;
 import org.vicky.vspe_forge.VspeForge;
-import org.vicky.vspe_forge.dimension.*;
+import org.vicky.vspe_forge.dimension.ForgeBaseDimension;
+import org.vicky.vspe_forge.dimension.ForgeDescriptorBasedDimension;
+import org.vicky.vspe_forge.dimension.UnImpressedBiomeSource;
+import org.vicky.vspe_forge.dimension.UnImpressedChunkGenerator;
 
 import java.text.Normalizer;
 import java.util.*;
@@ -48,7 +50,7 @@ public class ForgeDimensionManager implements PlatformDimensionManager<BlockStat
         }
         CoreDimensionRegistry.getRegisteredDescriptors().forEach(it -> {
             DIMENSION_DESCRIPTOR_SET.add(it);
-            UnImpressedChunkGenerator gen = new UnImpressedChunkGenerator(new UnImpressedBiomeSource((BiomeResolver<ForgeBiome>) it.resolver()), stringToSeed(it.description()), it);
+            UnImpressedChunkGenerator gen = new UnImpressedChunkGenerator(new UnImpressedBiomeSource(it), stringToSeed(it.description()));
             GENERATORS.put(cleanNamespace(it.name()).toUpperCase(), gen);
         });
     }

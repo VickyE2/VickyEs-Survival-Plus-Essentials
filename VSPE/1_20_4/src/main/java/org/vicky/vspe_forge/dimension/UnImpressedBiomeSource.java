@@ -1,29 +1,42 @@
 package org.vicky.vspe_forge.dimension;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.biome.Climate;
 import org.jetbrains.annotations.NotNull;
+import org.vicky.vspe.platform.systems.dimension.CoreDimensionRegistry;
+import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.InvertedPalette;
 
 import java.util.stream.Stream;
 
 import static org.vicky.vspe_forge.VspeForge.registryAccess;
 
 public class UnImpressedBiomeSource extends BiomeSource {
-    // Dummy codec if you don't need datapack/worldgen json
-    public static final Codec<UnImpressedBiomeSource> CODEC =
-            Codec.unit(() -> {
-                throw new UnsupportedOperationException("Not serializable");
-            });
-    private final BiomeResolver<ForgeBiome> biomeProvider;
+    public static final Codec<UnImpressedBiomeSource> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.STRING.fieldOf("descriptor_name").forGetter(src -> src.descriptor.name()),
+            Codec.STRING.fieldOf("descriptor_id").forGetter(src -> src.descriptor.identifier())
+    ).apply(instance, (name, id) -> {
+        try {
+            Class.forName("org.vicky.vspe.platform.systems.dimension.globalDimensions.DimensionDescriptors");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        DimensionDescriptor desc = CoreDimensionRegistry.getRegisteredDescriptors().stream().filter(it -> it.identifier().equals(id)).findFirst().get();
+        return new UnImpressedBiomeSource(desc);
+    }));
 
-    public UnImpressedBiomeSource(BiomeResolver<ForgeBiome> resolver) {
-        this.biomeProvider = resolver;
+    private final BiomeResolver<ForgeBiome> biomeProvider;
+    final DimensionDescriptor descriptor;
+
+    public UnImpressedBiomeSource(DimensionDescriptor resolver) {
+        this.biomeProvider = (BiomeResolver<ForgeBiome>) resolver.resolver();
+        this.descriptor = resolver;
     }
 
     @Override
@@ -33,24 +46,29 @@ public class UnImpressedBiomeSource extends BiomeSource {
 
     @Override
     protected @NotNull Stream<Holder<Biome>> collectPossibleBiomes() {
-        return biomeProvider.getBiomePalette().getPaletteMap().values().stream()
-                .map(forgeBiome -> {
-                    ResourceKey<Biome> key = forgeBiome.getResourceKey();
-                    return registryAccess.registryOrThrow(net.minecraft.core.registries.Registries.BIOME)
-                            .getHolderOrThrow(key);
-                });
+        Stream<Holder<Biome>> val;
+        if (biomeProvider.getBiomePalette() instanceof InvertedPalette<ForgeBiome> i) {
+            val = i.getInvertedPaletteMap().keySet().stream()
+                    .map(forgeBiome -> {
+                        ResourceKey<Biome> key = forgeBiome.getResourceKey();
+                        return registryAccess.registryOrThrow(net.minecraft.core.registries.Registries.BIOME)
+                                .getHolderOrThrow(key);
+                    });
+        } else {
+            val = biomeProvider.getBiomePalette().getPaletteMap().values().stream()
+                    .map(forgeBiome -> {
+                        ResourceKey<Biome> key = forgeBiome.getResourceKey();
+                        return registryAccess.registryOrThrow(net.minecraft.core.registries.Registries.BIOME)
+                                .getHolderOrThrow(key);
+                    });
+        }
+        return val;
     }
 
     @Override
     public @NotNull Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.@NotNull Sampler noise) {
         ForgeBiome resolved = biomeProvider.resolveBiome(x, y, z, 0);
-        ResourceLocation rl = resolved.getResourceKey().location();
-
-        ResourceKey<Biome> key = ResourceKey.create(
-                net.minecraft.core.registries.Registries.BIOME,
-                rl
-        );
-
+        ResourceKey<Biome> key = resolved.getResourceKey();
         return registryAccess.registryOrThrow(net.minecraft.core.registries.Registries.BIOME)
                 .getHolderOrThrow(key);
     }

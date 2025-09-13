@@ -9,7 +9,9 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
@@ -74,19 +76,29 @@ public class VspeForge implements VSPEPlatformPlugin {
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-        // Do something when the server starts
+    public void onServerAboutToStart(ServerAboutToStartEvent event) {
         server = event.getServer();
         registryAccess = event.getServer().registryAccess();
+    }
+
+    @SubscribeEvent
+    public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("HELLO from server starting");
         try {
-            ForgeStructureManager.createInstance(Minecraft.getInstance().getResourceManager());
+            ForgeStructureManager.createInstance(() -> event.getServer().getResourceManager());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        ForgeAdvancementManager.getInstance();
-        ForgeDimensionManager.prepareGenerators();
-        ForgeDimensionManager.getInstance().loadDimensionsFromDescriptors();
+    }
+
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppedEvent event) {
+        LOGGER.info("GOODBYE from server ending");
+        try {
+            ForgeStructureManager.destroyInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @SubscribeEvent
