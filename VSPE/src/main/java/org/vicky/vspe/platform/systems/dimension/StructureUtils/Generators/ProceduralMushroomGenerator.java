@@ -9,7 +9,6 @@ import org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStruct
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.StructureCacheUtils;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BlockPlacement;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource;
-import org.vicky.vspe.platform.utilities.Math.Vector3;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -94,10 +93,10 @@ public class ProceduralMushroomGenerator<T> extends
         double stepX = 0, stepZ = 0;
 
         double cumulativeTilt = 0.0;
-        double x = origin.getX(), y = origin.getY(), z = origin.getZ();
+        double x = origin.getIntX(), y = origin.getIntY(), z = origin.getIntZ();
 
         int finalX = 0, finalY = 0, finalZ = 0;
-        Vector3 dir = Vector3.at(0, 1, 0);
+        Vec3 dir = Vec3.of(0, 1, 0);
 
         for (int i = 0; i < stemHeight; i++) {
             double progress = i / (double) stemHeight; // avoid div by zero
@@ -118,7 +117,7 @@ public class ProceduralMushroomGenerator<T> extends
             }
             // 2) straighten a bit toward vertical
             dir = dir.multiply(1 - straighten)
-                    .add(Vector3.at(0, 1, 0).multiply(straighten))
+                    .add(Vec3.of(0, 1, 0).multiply(straighten))
                     .normalize();
 
             // 3) yaw twist always allowed
@@ -130,7 +129,7 @@ public class ProceduralMushroomGenerator<T> extends
             // 4) gentle pitch, capped by cumulativeTilt
             if (rnd.nextFloat() < stemTiltChance * 0.5) {
                 double theta = rnd.nextDouble() * Math.PI * 2;
-                Vector3 hAxis = Vector3.at(Math.cos(theta), 0, Math.sin(theta));
+                Vec3 hAxis = Vec3.of(Math.cos(theta), 0, Math.sin(theta));
                 double pitchOff = (rnd.nextDouble() * 2 - 1) * maxPitchRad;
                 if (Math.abs(cumulativeTilt + pitchOff) <= maxCumulative) {
                     dir = rotateAroundAxis(dir, hAxis, pitchOff).normalize();
@@ -139,27 +138,27 @@ public class ProceduralMushroomGenerator<T> extends
             }
 
             double minHoriz = 0.3; // tweak: ensures a little lateral motion otherwise stem would be perfectly vertical
-            double hx = dir.getX(), hz = dir.getZ(), hy = dir.getY();
+            double hx = dir.getIntX(), hz = dir.getIntZ(), hy = dir.getIntY();
             double horiz = Math.hypot(hx, hz);
             if (horiz < minHoriz) {
                 double scale = minHoriz / (horiz + 1e-6);
                 hx *= scale;
                 hz *= scale;
                 hy *= Math.max(0.1, scale / 2.0); // keep vertical reasonable
-                dir = Vector3.at(hx, hy, hz).normalize();
+                dir = Vec3.of(hx, hy, hz).normalize();
             }
 
-            stepX += dir.getX();
-            stepZ += dir.getZ();
+            stepX += dir.getIntX();
+            stepZ += dir.getIntZ();
 
             finalX = (int) Math.round(x);
             finalY = (int) Math.round(y);
             finalZ = (int) Math.round(z);
 
             // 5) advance
-            x += dir.getX();
-            y += dir.getY();
-            z += dir.getZ();
+            x += dir.getIntX();
+            y += dir.getIntY();
+            z += dir.getIntZ();
         }
 
         // final cap placement
@@ -182,12 +181,12 @@ public class ProceduralMushroomGenerator<T> extends
         else startCap = rnd.nextInt(Math.max(1, capHeight / 4));
 
         Vec3 capBase = new Vec3(
-                origin.getX(),
-                origin.getY() - startCap,
-                origin.getZ()
+                origin.getIntX(),
+                origin.getIntY() - startCap,
+                origin.getIntZ()
         );
 
-        int drop = origin.getY() - capBase.getY();
+        int drop = origin.getIntY() - capBase.getIntY();
         int gillCount = 10;
         for (int g = 0; g < gillCount; g++) {
             double angle = 2 * Math.PI * g / gillCount;
@@ -195,12 +194,12 @@ public class ProceduralMushroomGenerator<T> extends
 
             // march out from the origin to the rim
             for (int d = 0; d <= capMaxR; d++) {
-                int gx = origin.getX() + (int) Math.round(dx * d);
-                int gz = origin.getZ() + (int) Math.round(dz * d);
+                int gx = origin.getIntX() + (int) Math.round(dx * d);
+                int gz = origin.getIntZ() + (int) Math.round(dz * d);
 
                 // interpolate y from origin.y down to capBase.y
                 double t = d / (double) Math.max(1, capMaxR);
-                int gy = origin.getY() - (int) Math.round(drop * t);
+                int gy = origin.getIntY() - (int) Math.round(drop * t);
 
                 guardAndStore(gx, gy, gz, ridgeMaterial, false, 1);
             }
@@ -247,7 +246,7 @@ public class ProceduralMushroomGenerator<T> extends
             sliceProfiles[dy] = profiles;
 
             short[] scan = StructureCacheUtils.getDiscScanlineWidths(sliceR);
-            int worldY = capBase.getY() + dy + 1;
+            int worldY = capBase.getIntY() + dy + 1;
 
             for (int dz = -sliceR; dz <= sliceR; dz++) {
                 int half = scan[dz + sliceR];
@@ -296,9 +295,9 @@ public class ProceduralMushroomGenerator<T> extends
                     }
 
                     guardAndStore(
-                            origin.getX() + dx,
+                            origin.getIntX() + dx,
                             worldY,
-                            origin.getZ() + dz,
+                            origin.getIntZ() + dz,
                             mat, false, 1
                     );
                 }
@@ -429,7 +428,7 @@ public class ProceduralMushroomGenerator<T> extends
         }
 
         @Override
-        public ProceduralMushroomGenerator<T> build() {
+        protected ProceduralMushroomGenerator<T> create() {
             return new ProceduralMushroomGenerator<>(this);
         }
     }

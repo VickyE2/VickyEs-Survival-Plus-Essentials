@@ -24,7 +24,7 @@ public class HugeCoralGenerator extends BaseStructure {
     }
 
     // --- SPIRAL CORAL ---
-    private static void generateSpiralCoral(Random random, TerraPlatformWorld world, Vector3Int origin, int height, int span, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan) {
+    private static void generateSpiralCoral(Random random, TerraPlatformWorld world, Vec3 origin, int height, int span, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan) {
         double angleStep = 2 * Math.PI / (height + 1);
         boolean opposite = random.nextBoolean();
 
@@ -42,14 +42,14 @@ public class HugeCoralGenerator extends BaseStructure {
             placeThickCoralPath(world, origin, x2, y, z2, thickness, blueCoral);
 
             if (random.nextInt(4) == 0) {
-                world.setPlatformBlockState(new Vec3(origin.getX() + x1 + 1, origin.getY() + y, origin.getZ() + z1), coralFan);
-                world.setPlatformBlockState(new Vec3(origin.getX() + x2 - 1, origin.getY() + y, origin.getZ() + z2), coralFan);
+                world.setPlatformBlockState(new Vec3(origin.getIntX() + x1 + 1, origin.getIntY() + y, origin.getIntZ() + z1), coralFan);
+                world.setPlatformBlockState(new Vec3(origin.getIntX() + x2 - 1, origin.getIntY() + y, origin.getIntZ() + z2), coralFan);
             }
         }
     }
 
     // --- TREE-LIKE CORAL ---
-    private static void generateTreeCoral(Random random, TerraPlatformWorld world, Vector3Int origin, int heighto, int span, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan, Platform platform) {
+    private static void generateTreeCoral(Random random, TerraPlatformWorld world, Vec3 origin, int heighto, int span, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan, Platform platform) {
         final var origin2 = origin.mutable().add(0, -10, 0);
         final var generated = new ProceduralCrystalShardGenerator.Builder<String>()
             .palette(List.of(
@@ -76,7 +76,7 @@ public class HugeCoralGenerator extends BaseStructure {
                 return palette.get(idx);
             })
                 .build()
-            .generate(new SeededRandomSource(random.nextLong() + 5149898959L), new Vec3(origin2.getX(), origin2.getY(), origin2.getZ()));
+                .generate(new SeededRandomSource(random.nextLong() + 5149898959L), new Vec3(origin2.getIntX(), origin2.getIntY(), origin2.getIntZ()));
 
         generated.placements.forEach(placement -> {
             if (placement.getNbt() != null) {
@@ -187,7 +187,7 @@ public class HugeCoralGenerator extends BaseStructure {
         for (int dx = -trunkThickness; dx <= trunkThickness; dx++) {
             for (int dz = -trunkThickness; dz <= trunkThickness; dz++) {
                 for (int y = 0; y < trunkHeight; y++) {
-                    world.setBlockState(new Vec3(origin.getX() + dx, origin.getY() + y, origin.getZ() + dz), blueCoral);
+                    world.setBlockState(new Vec3(origin.getIntX() + dx, origin.getIntY() + y, origin.getIntZ() + dz), blueCoral);
                 }
             }
         }
@@ -212,7 +212,7 @@ public class HugeCoralGenerator extends BaseStructure {
                 int thickness = Math.max(1, (int) (1 + j * 0.08));
                 placeThickCoralPath(world, origin, bx, y, bz, thickness, blueCoral);
                 if (random.nextFloat() < 0.3) {
-                    world.setBlockState(new Vec3(origin.getX() + bx, origin.getY() + y + 1, origin.getZ() + bz), coralFan);
+                    world.setBlockState(new Vec3(origin.getIntX() + bx, origin.getIntY() + y + 1, origin.getIntZ() + bz), coralFan);
                 }
             }
         }
@@ -220,7 +220,7 @@ public class HugeCoralGenerator extends BaseStructure {
     }
 
     // --- COLUMN CORAL ---
-    private static void generateColumnCoral(Random random, TerraPlatformWorld world, Vector3Int origin, int height, int maxSpan, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan) {
+    private static void generateColumnCoral(Random random, TerraPlatformWorld world, Vec3 origin, int height, int maxSpan, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan) {
         int base = 2;
         int top = maxSpan / 2;
         for (int y = 0; y < height; y++) {
@@ -241,7 +241,7 @@ public class HugeCoralGenerator extends BaseStructure {
                         bz += random.nextInt(-1, 2);
                     }
                     if (random.nextBoolean()) {
-                        world.setPlatformBlockState(new Vec3(origin.getX() + bx, origin.getY() + y + bl, origin.getZ() + bz), coralFan);
+                        world.setPlatformBlockState(new Vec3(origin.getIntX() + bx, origin.getIntY() + y + bl, origin.getIntZ() + bz), coralFan);
                     }
                 }
             }
@@ -249,7 +249,7 @@ public class HugeCoralGenerator extends BaseStructure {
     }
 
     // --- ARCHED CORAL ---
-    private static void generateArchedCoral(Random random, TerraPlatformWorld world, Vector3Int origin, int radius, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan) {
+    private static void generateArchedCoral(Random random, TerraPlatformWorld world, Vec3 origin, int radius, PlatformBlockState<String> blueCoral, PlatformBlockState<String> coralFan) {
         int rings = 6 + random.nextInt(3);
         double ringStep = 2 * Math.PI / rings;
         double tubeRadius = radius * 0.3;
@@ -268,13 +268,13 @@ public class HugeCoralGenerator extends BaseStructure {
                 int thickness = Math.max(1, (int) (tubeRadius * 0.2));
                 placeThickCoralPath(world, origin, ix, iy, iz, thickness, blueCoral);
                 if (random.nextInt(5) == 0) {
-                    world.setPlatformBlockState(new Vec3(origin.getX() + ix, origin.getY() + iy + 1, origin.getZ() + iz), coralFan);
+                    world.setPlatformBlockState(new Vec3(origin.getIntX() + ix, origin.getIntY() + iy + 1, origin.getIntZ() + iz), coralFan);
                 }
             }
         }
     }
 
-    private static void placeThickCoralPath(TerraPlatformWorld world, Vector3Int origin, int x, int y, int z, int thickness, PlatformBlockState<String> state) {
+    private static void placeThickCoralPath(TerraPlatformWorld world, Vec3 origin, int x, int y, int z, int thickness, PlatformBlockState<String> state) {
         for (int dx = -thickness; dx <= thickness; dx++) {
             for (int dz = -thickness; dz <= thickness; dz++) {
                 if (dx * dx + dz * dz <= thickness * thickness) {
@@ -284,6 +284,9 @@ public class HugeCoralGenerator extends BaseStructure {
         }
     }
 
+    static Vec3 toVec3(Vector3Int from) {
+        return Vec3.of(from.getX(), from.getY(), from.getZ());
+    }
 
     @Override
     protected void generateSteps(Vector3Int location, WritableWorld world, Random random, Rotation var4) {
@@ -321,10 +324,11 @@ public class HugeCoralGenerator extends BaseStructure {
 
         final TerraPlatformWorld terraWorld = new TerraPlatformWorld(world);
         switch (/*coralType*/1) {
-            case 0 -> generateSpiralCoral(random, terraWorld, location, height, span, coral, coralFan);
-            case 1 -> generateTreeCoral(random, terraWorld, location, height, span, coral, coralFan, this.platform);
-            case 2 -> generateColumnCoral(random, terraWorld, location, height, span, coral, coralFan);
-            case 3 -> generateArchedCoral(random, terraWorld, location, height, coral, coralFan);
+            case 0 -> generateSpiralCoral(random, terraWorld, toVec3(location), height, span, coral, coralFan);
+            case 1 ->
+                    generateTreeCoral(random, terraWorld, toVec3(location), height, span, coral, coralFan, this.platform);
+            case 2 -> generateColumnCoral(random, terraWorld, toVec3(location), height, span, coral, coralFan);
+            case 3 -> generateArchedCoral(random, terraWorld, toVec3(location), height, coral, coralFan);
         }
     }
 }

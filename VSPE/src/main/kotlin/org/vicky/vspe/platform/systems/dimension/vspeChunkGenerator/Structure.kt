@@ -17,6 +17,7 @@ import org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStruct
 import org.vicky.vspe.structure_gen.offset
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.random.RandomGenerator
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.random.Random
@@ -257,6 +258,8 @@ class SchematicStructure<BST>(
     private val transformer: (String) -> BST
 ) : PlatformStructure<BST>
 {
+    private val resolvedCache = LruCache<ResolvedKey, ResolvedStructure<BST>>(128)
+
     override fun place(world: BlockPlacer<BST>, origin: Vec3, context: StructurePlacementContext): Boolean {
         // Backwards-compat: place everything (not chunk-limited)
         val resolved = resolve(origin, context)
@@ -272,6 +275,17 @@ class SchematicStructure<BST>(
         origin: Vec3,
         context: StructurePlacementContext
     ): ResolvedStructure<BST> {
+        val key = ResolvedKey(
+            ResourceLocation.getEMPTY(),
+            origin.x.toInt(),
+            origin.y.toInt(),
+            origin.z.toInt(),
+            context.rotation,
+            context.mirror,
+            0
+        )
+        resolvedCache.get(key)?.let { return it }
+
         val placementsByChunk = mutableMapOf<ChunkCoord, MutableList<BlockPlacement<BST>>>()
         var minX = Int.MAX_VALUE
         var minY = Int.MAX_VALUE
@@ -318,7 +332,10 @@ class SchematicStructure<BST>(
             placementsByChunk.mapValues { it.value.toList() }
                 .forEach { finalMap.put(it.key, it.value) }
 
-        return ResolvedStructure(finalMap, bounds)
+        val resolved = ResolvedStructure(finalMap, bounds)
+        resolvedCache.put(key, resolved)
+
+        return resolved
     }
 
     override fun placeInChunk(
@@ -458,7 +475,14 @@ data class BlockPlacement<T>(
     val z: Int,
     val state: PlatformBlockState<T>?,
     val nbt: ICompoundTag? = null
-)
+) {
+    fun getVecPosition(): Vec3 = Vec3(x.toDouble(), y.toDouble(), z.toDouble())
+
+    override fun equals(other: Any?): Boolean {
+        if (other !is BlockPlacement<T>) return false
+        return this.x == other.x && this.y == other.y && this.z == other.z
+    }
+}
 
 /**
  * Resolved structure contains placements bucketed by chunk coords.
@@ -503,13 +527,13 @@ data class StructurePlacementContext(
     val mirror: Mirror
 )
 
-interface RandomSource {
-    fun nextInt(bound: Int): Int
-    fun nextInt(start: Int, bound: Int): Int
-    fun nextDouble(): Double
-    fun nextFloat(): Float
-    fun nextBoolean(): Boolean
-    fun nextLong(): Long
+interface RandomSource : RandomGenerator {
+    override fun nextInt(bound: Int): Int
+    override fun nextInt(start: Int, bound: Int): Int
+    override fun nextDouble(): Double
+    override fun nextFloat(): Float
+    override fun nextBoolean(): Boolean
+    override fun nextLong(): Long
     fun getSeed(): Long
     fun setSeed(seed: Long)
     fun fork(seedModifier: Long): RandomSource // useful for per-feature randomness
@@ -587,6 +611,8 @@ class SimpleBlockState<T> private constructor(
 
     override fun getNative(): T = blockData
     override fun getProperties(): Map<String, String> = properties
+
+    override fun toString(): String = id
 
     override fun <P : Any?> getProperty(name: String?): P? {
         return name?.let { properties[it] as? P }
@@ -698,11 +724,11 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
                     else -> Rotation.COUNTERCLOCKWISE_90
                 }
                 val transformed = transformSize(Vec3(0.0, 0.0, 0.0), baseSize, rot, Mirror.NONE)
-                possibleTSizeX[rotIdx] = transformed.getX().toInt()
-                possibleTSizeZ[rotIdx] = transformed.getZ().toInt()
+                possibleTSizeX[rotIdx] = transformed.intX.toInt()
+                possibleTSizeZ[rotIdx] = transformed.intZ.toInt()
             }
-            val maxTSizeX = possibleTSizeX.maxOrNull() ?: baseSize.getX().toInt()
-            val maxTSizeZ = possibleTSizeZ.maxOrNull() ?: baseSize.getZ().toInt()
+            val maxTSizeX = possibleTSizeX.maxOrNull() ?: baseSize.intX.toInt()
+            val maxTSizeZ = possibleTSizeZ.maxOrNull() ?: baseSize.intZ.toInt()
 
             // Compute the origin block range that could intersect this chunk (origin is min corner)
             // Intersection condition: origin.x <= chunkMaxX && origin.x + sizeX - 1 >= chunkMinX
@@ -747,8 +773,8 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
                         val mir = if (rng.nextBoolean()) rule.mirror else Mirror.NONE
 
                         val transformedSize = transformSize(Vec3(0.0, 0.0, 0.0), baseSize, rot, mir)
-                        val tSizeX = transformedSize.getX().toInt()
-                        val tSizeZ = transformedSize.getZ().toInt()
+                        val tSizeX = transformedSize.intX.toInt()
+                        val tSizeZ = transformedSize.intZ.toInt()
 
                         // now compute origin offsets inside cell so the structure remains within the cell spacing
                         val maxOffsetX = (cellSizeBlocks - tSizeX).coerceAtLeast(0)
@@ -765,9 +791,9 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
                         val originVec = Vec3(originBlockX.toDouble(), originBlockY.toDouble(), originBlockZ.toDouble())
                         val min = originVec
                         val max = originVec.offset(
-                            (transformedSize.getX() - 1).toInt(),
-                            (transformedSize.getY() - 1).toInt(),
-                            (transformedSize.getZ() - 1).toInt()
+                            (transformedSize.intX - 1).toInt(),
+                            (transformedSize.intY - 1).toInt(),
+                            (transformedSize.intZ - 1).toInt()
                         )
                         val sBox = StructureBox(min, max, rule.resource)
 

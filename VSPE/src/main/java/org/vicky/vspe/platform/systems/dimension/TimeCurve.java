@@ -3,173 +3,187 @@ package org.vicky.vspe.platform.systems.dimension;
 public enum TimeCurve {
     LINEAR {
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double cycle = (double) (dayTime % dayLength) / (double) dayLength;
-            return (float) cycle;
+        public float apply(double t) {
+            return (float) clamp(t);
         }
     },
     QUADRATIC {
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double cycle = (double) (dayTime % dayLength) / (double) dayLength;
-            return (float) (cycle * cycle);
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) (t * t);
         }
     },
     INVERTED_QUADRATIC {
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double cycle = (double) (dayTime % dayLength) / (double) dayLength;
-            return (float) (1.0 - Math.pow(1.0 - cycle, 2));
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) (1.0 - Math.pow(1.0 - t, 2));
         }
     },
     CUBIC {
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double cycle = (double) (dayTime % dayLength) / (double) dayLength;
-            return (float) Math.pow(cycle, 3);
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) Math.pow(t, 3);
         }
     },
     INVERTED_CUBIC {
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double cycle = (double) (dayTime % dayLength) / (double) dayLength;
-            return (float) (1.0 - Math.pow(1.0 - cycle, 3));
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) (1.0 - Math.pow(1.0 - t, 3));
         }
     },
-    B_SPLINE { // smoothstep / cubic Hermite-like
-
+    B_SPLINE {
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            return (float) (t * t * (3 - 2 * t)); // smoothstep
-        }
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) (t * t * (3 - 2 * t));
+        } // smoothstep
     },
-
-    /* --- New curves below --- */
-
     SINE {
-        // Smooth cyclic wave: 0 -> 1 -> 0 over the cycle (dawn->midday->dusk if you want)
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            // 0 at t=0, 1 at t=0.5, 0 at t=1. Use cosine to get correct phase.
+        public float apply(double t) {
+            t = clamp(t);
             return (float) (0.5 * (1 - Math.cos(2 * Math.PI * t)));
         }
     },
-
     COSINE {
-        // Phase-shifted sine — sometimes easier for certain offsets
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
+        public float apply(double t) {
+            t = clamp(t);
             return (float) (0.5 * (1 + Math.sin(2 * Math.PI * (t - 0.25))));
         }
     },
-
     EASE_IN_OUT_CUBIC {
-        // Slow start, fast middle, slow end
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            if (t < 0.5) {
-                return (float) (4.0 * t * t * t);
-            } else {
-                double u = -2.0 * t + 2.0;
-                return (float) (1.0 - (Math.pow(u, 3) / 2.0));
-            }
+        public float apply(double t) {
+            t = clamp(t);
+            if (t < 0.5) return (float) (4.0 * t * t * t);
+            double u = -2.0 * t + 2.0;
+            return (float) (1.0 - (Math.pow(u, 3) / 2.0));
         }
     },
-
     EASE_IN_OUT_QUINT {
-        // Even steeper ease in/out for snappier mid-transition
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            if (t < 0.5) {
-                return (float) (16.0 * Math.pow(t, 5));
-            } else {
-                double u = -2.0 * t + 2.0;
-                return (float) (1.0 - Math.pow(u, 5) / 2.0);
-            }
+        public float apply(double t) {
+            t = clamp(t);
+            if (t < 0.5) return (float) (16.0 * Math.pow(t, 5));
+            double u = -2.0 * t + 2.0;
+            return (float) (1.0 - Math.pow(u, 5) / 2.0);
         }
     },
-
     LOGISTIC {
-        // Sigmoid centered at 0.5: slow until mid, then quick flip, then slow
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            double k = 12.0; // steepness; tweakable
+        public float apply(double t) {
+            t = clamp(t);
+            double k = 12.0;
             double y = 1.0 / (1.0 + Math.exp(-k * (t - 0.5)));
-            // Already in (0,1) approximately — return as float
             return (float) y;
         }
     },
-
-    GAUSSIAN {
-        // Bell curve peaked at mid-cycle (0.5). Good for midday-focused effects.
+    SQRT {
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            double sigma = 0.15; // width of the bell (adjust as needed)
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) Math.sqrt(t);
+        }
+    },
+    EXPONENTIAL {
+        @Override
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) (Math.pow(2, 10 * (t - 1))); // grows very steep
+        }
+    },
+    EXPONENTIAL_OUT {
+        @Override
+        public float apply(double t) {
+            t = clamp(t);
+            return (float) (1 - Math.pow(2, -10 * t));
+        }
+    },
+    GAUSSIAN {
+        @Override
+        public float apply(double t) {
+            t = clamp(t);
+            double sigma = 0.15;
             double x = (t - 0.5) / sigma;
             double y = Math.exp(-0.5 * x * x);
-            return (float) y; // peak 1 at t=0.5
+            return (float) y;
         }
     },
-
     TRIANGLE {
-        // Ramps up then down linearly
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
+        public float apply(double t) {
+            t = clamp(t);
             if (t < 0.5) return (float) (2.0 * t);
-            else return (float) (2.0 * (1.0 - t));
+            return (float) (2.0 * (1.0 - t));
         }
     },
-
     SAWTOOTH {
-        // Repeats 0->1 each cycle (same as LINEAR but explicit name)
         @Override
-        public float apply(long dayTime, long dayLength) {
-            return LINEAR.apply(dayTime, dayLength);
+        public float apply(double t) {
+            return LINEAR.apply(t);
         }
     },
-
     PULSE {
-        // Square-ish pulse: mostly 0, short on-time. Duty cycle fixed at 10%
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            double duty = 0.10; // 10% on-time
+        public float apply(double t) {
+            t = clamp(t);
+            double duty = 0.10;
             return t < duty ? 1f : 0f;
         }
     },
-
     BEZIER_STANDARD {
-        // Cubic Bezier with two interior control points (y1, y2) -> designer-tuned S-curve
-        // control points chosen to give a gentle S: (0.25, 0.1) and (0.75, 0.9)
         @Override
-        public float apply(long dayTime, long dayLength) {
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
+        public float apply(double t) {
+            t = clamp(t);
             double u = 1.0 - t;
-            double y1 = 0.1;
-            double y2 = 0.9;
-            // Bezier formula: B(t) = u^3 * 0 + 3 u^2 t * y1 + 3 u t^2 * y2 + t^3 * 1
+            double y1 = 0.1, y2 = 0.9;
             double y = 3.0 * u * u * t * y1 + 3.0 * u * t * t * y2 + t * t * t;
             return (float) y;
         }
     },
-
     CUSTOM_LAMBDA {
-        // A placeholder: you can set a custom Function<Double,Double> at runtime if you want.
         @Override
-        public float apply(long dayTime, long dayLength) {
-            // default identity (acts like LINEAR) — replace via setter if you add one
-            double t = (double) (dayTime % dayLength) / (double) dayLength;
-            return (float) t;
-        }
+        public float apply(double t) {
+            return LINEAR.apply(t);
+        } // placeholder
     };
 
-    public abstract float apply(long dayTime, long dayLength);
+    // small helper
+    protected static double clamp(double v) {
+        if (v <= 0.0) return 0.0;
+        return Math.min(v, 1.0);
+    }
+
+    /**
+     * New primary method: call this with progress in [0,1].
+     */
+    public abstract float apply(double progress);
+
+    /**
+     * Backwards-compatible overload for callers that still have (dayTime, dayLength).
+     * By default this maps dayTime/dayLength -> [0,1] WITHOUT wrapping to zero for exact boundaries:
+     * - If dayLength less than or equal to 0 returns apply(0)
+     * - Otherwise computes fractional progress in the current cycle and for exact multiples
+     * of dayLength behaves as 1.0 (end of cycle) instead of wrapping to 0.0.
+     * Note: if you relied on circular wrapping behavior (mod), prefer converting to progress
+     * yourself and call apply(double).
+     */
+    public float apply(long dayTime, long dayLength) {
+        if (dayLength <= 0) return apply(0.0);
+        // Prefer a stable mapping: map the fractional position within the current cycle
+        long mod = Math.floorMod(dayTime, dayLength);
+        double frac = (double) mod / (double) dayLength;
+
+        // Special-case an exact multiple of dayLength: if dayTime != 0 and mod == 0, treat as 1.0
+        // This avoids the "1000 % 1000 == 0 -> t==0" surprise at the exact end.
+        if (mod == 0 && dayTime != 0L) {
+            return apply(1.0);
+        }
+        return apply(frac);
+    }
 }

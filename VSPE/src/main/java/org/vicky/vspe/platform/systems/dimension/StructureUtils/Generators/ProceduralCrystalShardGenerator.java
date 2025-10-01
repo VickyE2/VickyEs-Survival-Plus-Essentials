@@ -10,7 +10,6 @@ import org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStruct
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.StructureCacheUtils;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BlockPlacement;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource;
-import org.vicky.vspe.platform.utilities.Math.Vector3;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -163,25 +162,25 @@ public class ProceduralCrystalShardGenerator<T> extends
             for (int i = 0; i < layerOffsets.length; i += 2) {
                 int dx = layerOffsets[i], dz = layerOffsets[i+1];
 
-                Vector3 local = Vector3.at(dx, y, dz);
+                Vec3 local = Vec3.of(dx, y, dz);
 
                 // 2) define the pivot in *that* same local space
-                Vector3 pivot = Vector3.at(0, 0, 0); // base is y=0
+                Vec3 pivot = Vec3.of(0, 0, 0); // base is y=0
 
                 // 3) move point *relative* to pivot
-                Vector3 relative = local.subtract(pivot);
+                Vec3 relative = local.subtract(pivot);
 
                 // 4) apply your yaw & pitch to that relative vector
-                Vector3 rotated = rotateAroundY(relative, yaw);
-                rotated = rotateAroundAxis(rotated, Vector3.at(1,0,0), pitch);
+                Vec3 rotated = rotateAroundY(relative, yaw);
+                rotated = rotateAroundAxis(rotated, Vec3.of(1, 0, 0), pitch);
 
                 // 5) move back by the pivot
-                Vector3 afterPivot = rotated.add(pivot);
+                Vec3 afterPivot = rotated.add(pivot);
 
                 // 6) translate into world space
-                int x  = origin.getX() + (int) Math.round(afterPivot.getX());
-                int yy = origin.getY() + (int) Math.round(afterPivot.getY());
-                int z  = origin.getZ() + (int) Math.round(afterPivot.getZ());
+                int x = origin.getIntX() + Math.round(afterPivot.getIntX());
+                int yy = origin.getIntY() + Math.round(afterPivot.getIntY());
+                int z = origin.getIntZ() + Math.round(afterPivot.getIntZ());
 
                 // optional hollow filter
                 if (hollow && layerR > 0) {
@@ -205,14 +204,14 @@ public class ProceduralCrystalShardGenerator<T> extends
                         // compute the outward neighbor in local coords
                         int sx = Integer.signum(dx);
                         int sz = Integer.signum(dz);
-                        Vector3 glowLocal = Vector3.at(dx + sx, y, dz + sz);
+                        Vec3 glowLocal = Vec3.of(dx + sx, y, dz + sz);
                         // rotate same as the shard block
                         glowLocal = rotateAroundY(glowLocal, yaw);
-                        glowLocal = rotateAroundAxis(glowLocal, Vector3.at(1,0,0), pitch);
+                        glowLocal = rotateAroundAxis(glowLocal, Vec3.of(1, 0, 0), pitch);
 
-                        int gx = origin.getX() + (int)Math.round(glowLocal.getX());
-                        int gy = origin.getY() + (int)Math.round(glowLocal.getY());
-                        int gz = origin.getZ() + (int)Math.round(glowLocal.getZ());
+                        int gx = origin.getIntX() + Math.round(glowLocal.getIntX());
+                        int gy = origin.getIntY() + Math.round(glowLocal.getIntY());
+                        int gz = origin.getIntZ() + Math.round(glowLocal.getIntZ());
 
                         PlatformBlockState<T> glowState = (PlatformBlockState<T>) PlatformPlugin.stateFactory()
                                 .getBlockState("minecraft:light[level=" + (int) (glowLightLevel * 15)
@@ -236,7 +235,7 @@ public class ProceduralCrystalShardGenerator<T> extends
 
         // sample fractional break height in [breakHeightMin, breakHeightMax]
         double frac = breakHeightMin + rnd.nextDouble() * (breakHeightMax - breakHeightMin);
-        int breakY = origin.getY() + (int) Math.round(frac * (double) height);
+        int breakY = origin.getIntY() + (int) Math.round(frac * (double) height);
 
         VSPEPlatformPlugin.platformLogger().info("   → breakY = " + breakY);
 
@@ -253,12 +252,12 @@ public class ProceduralCrystalShardGenerator<T> extends
         );
 
         // 2) compute the plane normal & crack axis
-        Vector3 normal     = Vector3.at(
+        Vec3 normal = Vec3.of(
                 Math.cos(pitchOff) * Math.sin(yawOff),
                 Math.sin(pitchOff),
                 Math.cos(pitchOff) * Math.cos(yawOff)
         ).normalize();
-        Vector3 crackAxis  = normal.cross(Vector3.at(0, 1, 0)).normalize();
+        Vec3 crackAxis = normal.crossProduct(Vec3.of(0, 1, 0)).normalize();
 
         // Prepare lists for chunk above the break
         List<Vec3> removedPos   = new ArrayList<>();
@@ -266,13 +265,13 @@ public class ProceduralCrystalShardGenerator<T> extends
 
         // 3) split your placed blocks into “base” vs. “to move”
         for (Vec3 pos : new ArrayList<>(placed)) {
-            int relY = pos.getY() - origin.getY();
-            if (relY >= (breakY - origin.getY())) {
+            int relY = pos.getIntY() - origin.getIntY();
+            if (relY >= (breakY - origin.getIntY())) {
                 // capture its state (fall back to air if null)
-                PlatformBlockState<T> bs = getQueuedState(pos.getX(), pos.getY(), pos.getZ());
+                PlatformBlockState<T> bs = getQueuedState(pos.getIntX(), pos.getIntY(), pos.getIntZ());
                 removedPos.add(pos);
                 removedState.add(bs);
-                removeAt(pos.getX(), pos.getY(), pos.getZ());
+                removeAt(pos.getIntX(), pos.getIntY(), pos.getIntZ());
                 placed.remove(pos);  // so placed now only contains the base
             }
         }
@@ -283,10 +282,10 @@ public class ProceduralCrystalShardGenerator<T> extends
             PlatformBlockState<T> state  = removedState.get(i);
 
             // a) local vector from the break plane (pivot Y = origin.Y + breakY - origin.Y)
-            Vector3 rel = Vector3.at(
-                    old.getX() - origin.getX(),
-                    old.getY() - breakY,
-                    old.getZ() - origin.getZ()
+            Vec3 rel = Vec3.of(
+                    old.getIntX() - origin.getIntX(),
+                    old.getIntY() - breakY,
+                    old.getIntZ() - origin.getIntZ()
             );
 
             // b) rotate around the crack axis & then yaw
@@ -297,19 +296,19 @@ public class ProceduralCrystalShardGenerator<T> extends
             rel = rel.add(normal.multiply(dist));
 
             // d) back to world coords (pivoted at origin+breakY)
-            Vector3 dest = rel.add(Vector3.at(
-                    origin.getX(),
+            Vec3 dest = rel.add(Vec3.of(
+                    origin.getIntX(),
                     breakY,
-                    origin.getZ()
+                    origin.getIntZ()
             ));
             Vec3 np = new Vec3(
-                    (int) Math.round(dest.getX()),
-                    (int) Math.round(dest.getY()),
-                    (int) Math.round(dest.getZ())
+                    Math.round(dest.getIntX()),
+                    Math.round(dest.getIntY()),
+                    Math.round(dest.getIntZ())
             );
 
             // e) place the original blockstate
-            guardAndStore(np.getX(), np.getY(), np.getZ(), state, false);
+            guardAndStore(np.getIntX(), np.getIntY(), np.getIntZ(), state, false);
         }
 
         // base (placed) remains intact
@@ -325,15 +324,15 @@ public class ProceduralCrystalShardGenerator<T> extends
                                double crackThickness,
                                double crackChance) {
         int h = height;  // your shard total height
-        int centerY = origin.getY() + (int) Math.floor(crackFrac * h);
+        int centerY = origin.getIntY() + (int) Math.floor(crackFrac * h);
         int halfBand = (int) Math.ceil((crackThickness * h) / 2.0);
 
         // Remove a horizontal slab around centerY
         for (Vec3 pos : new ArrayList<>(placed)) {
-            int dy = pos.getY() - centerY;
+            int dy = pos.getIntY() - centerY;
             if (Math.abs(dy) <= halfBand && rnd.nextDouble() < crackChance) {
                 // remove the queued placement (if any)
-                removeAt(pos.getX(), pos.getY(), pos.getZ());
+                removeAt(pos.getIntX(), pos.getIntY(), pos.getIntZ());
                 placed.remove(pos);
             }
         }
@@ -447,7 +446,7 @@ public class ProceduralCrystalShardGenerator<T> extends
             Objects.requireNonNull(distributionFunction,"DistributionFunction required");
         }
 
-        public ProceduralCrystalShardGenerator<T> build() {
+        protected ProceduralCrystalShardGenerator<T> create() {
             return new ProceduralCrystalShardGenerator<>(this);
         }
     }

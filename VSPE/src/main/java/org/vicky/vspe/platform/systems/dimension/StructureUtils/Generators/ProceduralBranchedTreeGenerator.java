@@ -113,7 +113,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
             double curr = (double) maxTrunkThickness * Math.pow(1.0 - yf, taperPower);
             curr = Math.max(0.25, curr);
             int rIter = (int) Math.ceil(curr + 0.5);
-            int worldY = origin.getY() + y;
+            int worldY = origin.getIntY() + y;
 
             // update drift by a smooth random delta (coherent)
             // small gaussian-like via sum of two uniform deltas
@@ -128,8 +128,8 @@ public class ProceduralBranchedTreeGenerator<T> extends
             driftZ = newDriftZ;
 
             // center for this slice
-            int cx = origin.getX() + (int) Math.round(driftX);
-            int cz = origin.getZ() + (int) Math.round(driftZ);
+            int cx = origin.getIntX() + (int) Math.round(driftX);
+            int cz = origin.getIntZ() + (int) Math.round(driftZ);
 
             double innerRadius = hollow ? Math.max(0.0, curr * hollowFactor) : -1.0;
 
@@ -214,7 +214,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
      * @param origin    Center/origin of the leaf‐cluster.
      */
     public void setLeaves(Vec3 origin) {
-        int tx = origin.getX(), ty = origin.getY(), tz = origin.getZ();
+        int tx = origin.getIntX(), ty = origin.getIntY(), tz = origin.getIntZ();
         int thickness = ((Number) params.getOrDefault("thickness", 2)).intValue();
         switch(type) {
             case NORMAL -> {
@@ -252,7 +252,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
     // — Roots as radial spokes that drop into the ground —
     // — Roots as radial spokes that drop into the ground (improved rooting) —
     private void calculateRoots(Vec3 o, RandomSource rnd) {
-        int ox = o.getX(), oy = o.getY(), oz = o.getZ();
+        int ox = o.getIntX(), oy = o.getIntY(), oz = o.getIntZ();
         int maxLen = Math.max(4, maxWidth * 3);
         int spokes = Math.max(6, maxWidth * 2);
 
@@ -329,7 +329,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
             double ny = (radiusY == 0) ? 0 : ry / radiusY;
             double nz = (radiusZ == 0) ? 0 : rz / radiusZ;
             if (nx * nx + ny * ny + nz * nz <= 1.0) {
-                points.add(new Vec3(trunkTop.getX() + rx, trunkTop.getY() + ry, trunkTop.getZ() + rz));
+                points.add(new Vec3(trunkTop.getIntX() + rx, trunkTop.getIntY() + ry, trunkTop.getIntZ() + rz));
             }
         }
         return points;
@@ -365,9 +365,9 @@ public class ProceduralBranchedTreeGenerator<T> extends
                 BranchNode nearest = null;
                 double best2 = Double.POSITIVE_INFINITY;
                 for (BranchNode n : nodes) {
-                    double dx = a.getX() - n.pos.getX();
-                    double dy = a.getY() - n.pos.getY();
-                    double dz = a.getZ() - n.pos.getZ();
+                    double dx = a.getIntX() - n.pos.getIntX();
+                    double dy = a.getIntY() - n.pos.getIntY();
+                    double dz = a.getIntZ() - n.pos.getIntZ();
                     double d2 = dx * dx + dy * dy + dz * dz;
                     if (d2 < best2) {
                         best2 = d2;
@@ -377,7 +377,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
                 if (nearest == null) continue;
                 if (best2 <= infR2) {
                     // add direction vector
-                    Vec3 dir = new Vec3(a.getX() - nearest.pos.getX(), a.getY() - nearest.pos.getY(), a.getZ() - nearest.pos.getZ());
+                    Vec3 dir = new Vec3(a.getIntX() - nearest.pos.getIntX(), a.getIntY() - nearest.pos.getIntY(), a.getIntZ() - nearest.pos.getIntZ());
                     Vec3 prev = sumDir.get(nearest);
                     if (prev == null) sumDir.put(nearest, dir);
                     else sumDir.put(nearest, prev.add(dir)); // Vec3.add assumed
@@ -415,10 +415,10 @@ public class ProceduralBranchedTreeGenerator<T> extends
                 double twistAngle = (rnd.nextDouble() * 2.0 - 1.0) * twistiness * 0.25; // small angle (radians)
                 // rotate rawDir around Y by twistAngle (simple yaw)
                 double cos = Math.cos(twistAngle), sin = Math.sin(twistAngle);
-                double dx = rawDir.getX(), dz = rawDir.getZ();
+                double dx = rawDir.getIntX(), dz = rawDir.getIntZ();
                 double rotatedX = dx * cos - dz * sin;
                 double rotatedZ = dx * sin + dz * cos;
-                Vec3 twisted = new Vec3(rotatedX, rawDir.getY(), rotatedZ).normalize();
+                Vec3 twisted = new Vec3(rotatedX, rawDir.getIntY(), rotatedZ).normalize();
 
                 // final direction = twisted + random perturbation; renormalize
                 Vec3 dir = twisted.add(rndVec).normalize();
@@ -430,9 +430,9 @@ public class ProceduralBranchedTreeGenerator<T> extends
                 double minSpacing = Math.max(0.5, stepSize * 0.6);
                 boolean tooClose = false;
                 for (BranchNode n : nodes) {
-                    double dx2 = newPos.getX() - n.pos.getX();
-                    double dy2 = newPos.getY() - n.pos.getY();
-                    double dz2 = newPos.getZ() - n.pos.getZ();
+                    double dx2 = newPos.getIntX() - n.pos.getIntX();
+                    double dy2 = newPos.getIntY() - n.pos.getIntY();
+                    double dz2 = newPos.getIntZ() - n.pos.getIntZ();
                     if (dx2 * dx2 + dy2 * dy2 + dz2 * dz2 < minSpacing * minSpacing) {
                         tooClose = true;
                         break;
@@ -460,9 +460,9 @@ public class ProceduralBranchedTreeGenerator<T> extends
             while (atRem.hasNext()) {
                 Vec3 a = atRem.next();
                 for (BranchNode n : newNodes) {
-                    double dx = a.getX() - n.pos.getX();
-                    double dy = a.getY() - n.pos.getY();
-                    double dz = a.getZ() - n.pos.getZ();
+                    double dx = a.getIntX() - n.pos.getIntX();
+                    double dy = a.getIntY() - n.pos.getIntY();
+                    double dz = a.getIntZ() - n.pos.getIntZ();
                     if (dx * dx + dy * dy + dz * dz <= killR2) {
                         atRem.remove();
                         continue outer;
@@ -482,9 +482,9 @@ public class ProceduralBranchedTreeGenerator<T> extends
         for (Edge e : skeleton) {
             Vec3 a = e.a.pos;
             Vec3 b = e.b.pos;
-            double dx = b.getX() - a.getX();
-            double dy = b.getY() - a.getY();
-            double dz = b.getZ() - a.getZ();
+            double dx = b.getIntX() - a.getIntX();
+            double dy = b.getIntY() - a.getIntY();
+            double dz = b.getIntZ() - a.getIntZ();
             double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (len <= 0.001) continue;
 
@@ -498,9 +498,9 @@ public class ProceduralBranchedTreeGenerator<T> extends
             for (int s = 0; s <= steps; s++) {
                 double t = s / (double) steps;
                 // pos = a + (b-a)*t but also add small lateral perturbation for curvature (lerp node dirs)
-                double px = a.getX() + dx * t;
-                double py = a.getY() + dy * t;
-                double pz = a.getZ() + dz * t;
+                double px = a.getIntX() + dx * t;
+                double py = a.getIntY() + dy * t;
+                double pz = a.getIntZ() + dz * t;
 
                 // place disk using fractional raster (anti-alias)
                 int ix = (int) Math.round(px);
@@ -804,7 +804,7 @@ public class ProceduralBranchedTreeGenerator<T> extends
         }
 
         @Override
-        public ProceduralBranchedTreeGenerator<T> build() {
+        protected ProceduralBranchedTreeGenerator<T> create() {
             return new ProceduralBranchedTreeGenerator<>(this);
         }
 

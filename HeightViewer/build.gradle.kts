@@ -1,6 +1,7 @@
 plugins {
     `java-library`
     id("org.openjfx.javafxplugin") version "0.0.14"
+    kotlin("jvm") version "2.1.10"
 }
 
 group = "org.vicky.vicky_utils"
@@ -17,6 +18,7 @@ javafx {
 
 dependencies {
     api(project(":VSPE")) // comes from here
+    implementation(kotlin("stdlib-jdk8"))
     implementation("org.openjfx:javafx-controls:20")
     implementation("org.openjfx:javafx-graphics:20")
     testImplementation(platform("org.junit:junit-bom:5.10.0"))

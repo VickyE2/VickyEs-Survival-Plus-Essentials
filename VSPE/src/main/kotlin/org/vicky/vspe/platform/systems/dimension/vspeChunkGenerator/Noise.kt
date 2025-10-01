@@ -18,6 +18,7 @@ fun unsignedShiftRight(x: Long, n: Int): Long {
 
 interface NoiseSampler {
     fun getSeed(): Long
+    fun sample1D(x: Double): Double = 0.0
     fun sample(x: Double, z: Double): Double
     fun sample3D(x: Double, y: Double, z: Double): Double
 }
@@ -431,6 +432,11 @@ class JNoiseNoiseSampler @JvmOverloads constructor(
         return ((v - min) / (max - min)).coerceIn(0.0, 1.0)
     }
 
+    override fun sample1D(x: Double): Double {
+        val v = base.evaluateNoise(x)
+        return ((v - min) / (max - min)).coerceIn(0.0, 1.0)
+    }
+
     override fun sample3D(x: Double, y: Double, z: Double): Double {
         val v = base.evaluateNoise(x, y, z)
         return ((v - min) / (max - min)).coerceIn(0.0, 1.0)
@@ -466,7 +472,15 @@ open class CompositeNoiseLayer(
     }
 }
 
-class FBMGenerator(seed: Long, octaves: Int = 4, amplitude: Float = 1.0f, frequency: Float = 0.01f, lacunarity: Float = 2.0f, gain: Float = 0.5f): NoiseSampler {
+
+class FBMGenerator @JvmOverloads constructor(
+    seed: Long,
+    octaves: Int = 4,
+    amplitude: Float = 1.0f,
+    frequency: Float = 0.01f,
+    lacunarity: Float = 2.0f,
+    gain: Float = 0.5f
+) : NoiseSampler {
     private val noise = FastNoiseLite(seed.toInt()).apply {
         SetNoiseType(FastNoiseLite.NoiseType.Value)
         SetFractalType(FastNoiseLite.FractalType.FBm)
@@ -480,6 +494,8 @@ class FBMGenerator(seed: Long, octaves: Int = 4, amplitude: Float = 1.0f, freque
     override fun getSeed(): Long {
         return noise.mSeed.toLong()
     }
+
+    override fun sample1D(x: Double): Double = noise.GetNoise(x.toFloat(), 0f).toDouble()
     override fun sample(x: Double, z: Double): Double = noise.GetNoise(x.toFloat(), z.toFloat()).toDouble()
     override fun sample3D(x: Double, y: Double, z: Double): Double = noise.GetNoise(x.toFloat(), y.toFloat(), z.toFloat()).toDouble()
 }

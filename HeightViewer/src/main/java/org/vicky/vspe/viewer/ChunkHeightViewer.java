@@ -45,6 +45,7 @@ public class ChunkHeightViewer extends Application {
     private final MeshView meshView = new MeshView();
     private final SubScene subScene;
     private final PerspectiveCamera camera = new PerspectiveCamera(true);
+    private double cameraDistance = 80;
     private final Rotate rotateX = new Rotate(-30, Rotate.X_AXIS);
     private final Rotate rotateY = new Rotate(-30, Rotate.Y_AXIS);
     // Debounce: wait this long after last change before regenerating
@@ -61,7 +62,6 @@ public class ChunkHeightViewer extends Application {
     private double anchorX, anchorY;
     private double anchorAngleX = 0;
     private double anchorAngleY = 0;
-    private double cameraDistance = 80;
     // optional: a flag so we don't schedule two concurrent builds
     private volatile boolean building = false;
     private final int lastChunkX = 0;
@@ -522,7 +522,7 @@ public class ChunkHeightViewer extends Application {
         primaryStage.setTitle("Chunk Height Viewer");
 
         // wire mouse controls for rotate/zoom/pan on subScene
-        installMouseControls(subScene, status);
+        installMouseControls(subScene);
 
         // initial mesh
         regenerateAndBuild();
@@ -536,7 +536,7 @@ public class ChunkHeightViewer extends Application {
         camera.setFieldOfView(50);
     }
 
-    private void installMouseControls(SubScene s, TextArea status) {
+    private void installMouseControls(SubScene s) {
         s.setOnScroll(ev -> {
             double delta = ev.getDeltaY();
             cameraDistance -= delta * 0.2;
@@ -608,7 +608,6 @@ public class ChunkHeightViewer extends Application {
         meshView.setTranslateX(-finalSize / 2.0);
         meshView.setTranslateZ(-finalSize / 2.0);
     }
-
     private void regenerateAndBuildAsync() {
 
         // Avoid concurrent builds

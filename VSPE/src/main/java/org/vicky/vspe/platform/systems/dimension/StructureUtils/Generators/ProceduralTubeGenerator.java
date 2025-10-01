@@ -107,19 +107,19 @@ public class ProceduralTubeGenerator<T>
             double flare = y >= flareStartY ? slopeCoef * (y - flareStartY) * (y - flareStartY) : 0;
             int outerR = tubeRadius + (int) Math.round(flare);
             int innerR = Math.max(outerR - wallThickness, 0);
-            drawRing(origin.getX(), origin.getY() + y, origin.getZ(), outerR, innerR, scanCache);
+            drawRing(origin.getIntX(), origin.getIntY() + y, origin.getIntZ(), outerR, innerR, scanCache);
         }
 
         // Optional rim cap at top
         if (includeRimCap) {
-            int capY = origin.getY() + height + 1;
-            drawRing(origin.getX(), capY, origin.getZ(), tubeRadius, Math.max(tubeRadius - wallThickness, 0), scanCache);
+            int capY = origin.getIntY() + height + 1;
+            drawRing(origin.getIntX(), capY, origin.getIntZ(), tubeRadius, Math.max(tubeRadius - wallThickness, 0), scanCache);
         }
 
         // Optional spherical reservoir beneath the tube (shell only)
         if (includeSphereReservoir) {
-            int centerY = origin.getY() - reservoirRadius;
-            drawSphereShell(origin.getX(), centerY, origin.getZ(), reservoirRadius);
+            int centerY = origin.getIntY() - reservoirRadius;
+            drawSphereShell(origin.getIntX(), centerY, origin.getIntZ(), reservoirRadius);
         }
     }
 
@@ -250,7 +250,7 @@ public class ProceduralTubeGenerator<T>
         }
 
         @Override
-        public ProceduralTubeGenerator<T> build() {
+        protected ProceduralTubeGenerator<T> create() {
             return new ProceduralTubeGenerator<>(this);
         }
     }
