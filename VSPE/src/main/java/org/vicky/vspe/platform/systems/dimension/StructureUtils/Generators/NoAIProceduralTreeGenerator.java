@@ -87,7 +87,20 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
     @Override
     public BlockVec3i getApproximateSize() {
-        return null;
+        // Conservative horizontal radius:
+        // trunk radius + main branch reach + branch thickness + small margin
+        int horizRadius = (int) Math.round(p.trunkWidthRange.value() + (p.trunkWidthRange.value() * (p.branchSizeDecay * p.branchDepth)));
+
+        // Width and depth (square footprint)
+        int width = horizRadius * 2 + 1;
+
+        // Vertical extents:
+        // upward: main trunk height + branch vertical excursion + a margin
+        int up = (int) Math.round(p.trunkHeightRange.value() + (p.trunkHeightRange.value() * (p.branchSizeDecay * p.branchDepth)));
+
+        int height = up + 1; // +1 to be safe (inclusive bounds)
+
+        return new BlockVec3i(width, height, width);
     }
 
     @Override
