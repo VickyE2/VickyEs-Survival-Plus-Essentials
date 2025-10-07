@@ -206,7 +206,6 @@ fun SimpleConstructorBasedBiome.withChanges(
     category: BiomeCategory = this.category,
     heightSampler: List<NoiseLayer> = this.heightSampler,
     precipitation: PrecipitationType = this.precipitation,
-    biomeStructureData: BiomeStructureData = this.biomeStructureData,
     namespace: String = this.namespace
 ): SimpleConstructorBasedBiome {
     return biomeCache.getOrPut(name) {
@@ -227,7 +226,6 @@ fun SimpleConstructorBasedBiome.withChanges(
             category = category,
             heightSampler = heightSampler,
             precipitation = precipitation,
-            biomeStructureData = biomeStructureData
         )
     }
 }
@@ -496,7 +494,6 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
         category = BiomeCategory.PLAINS,
         heightSampler = listOf(),
         precipitation = PrecipitationType.RAIN,
-        biomeStructureData = BiomeStructureData(listOf())
     )
     val forest = plains.withChanges(
         name = "forest",
@@ -505,7 +502,6 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
         rainfall = 0.6,
         category = BiomeCategory.FOREST,
         elevation = 0.4,
-        biomeStructureData = BiomeStructureData(emptyList())
     )
     val rainforest = plains.withChanges(
         name = "rainforest",
@@ -514,7 +510,6 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
         rainfall = 1.0,
         category = BiomeCategory.RAINFOREST,
         elevation = 0.45,
-        biomeStructureData = BiomeStructureData(emptyList())
     )
     val jungle = forest.withChanges(
         name = "jungle",
@@ -523,7 +518,6 @@ object ImageBiomeResolver : BiomeResolver<SimpleConstructorBasedBiome> {
         rainfall = 0.7,
         category = BiomeCategory.JUNGLE,
         elevation = 0.3,
-        biomeStructureData = BiomeStructureData(emptyList())
     )
     val taiga = forest.withChanges(
         name = "taiga",

@@ -632,13 +632,12 @@ enum class VerticalPlacement {
 data class StructureRule(
     val resource: ResourceLocation,
     val tags: Set<StructureTag>,
-    val rotation: Rotation,
-    val mirror: Mirror,
     val weight: Int,
     val frequency: Double,
     val spacing: Int,
     val fixedY: Int,
-    val verticalPlacement: VerticalPlacement
+    val verticalPlacement: VerticalPlacement,
+    val biomes: List<ResourceLocation>
 )
 
 interface StructurePlacer<T> {
@@ -700,7 +699,7 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
         ruleLoop@ for (rule in allRules) {
             // quick biome check (use the chunk center or provided location)
             val biome = context.biomeResolver.resolveBiome(chunkMinX + 8, 64, chunkMinZ + 8, context.random.getSeed())
-            if (biome.biomeStructureData.structureKeys.contains { it == rule.resource }) continue
+            if (rule.biomes.contains { it == ResourceLocation.from(biome.identifier) }) continue
 
             val structurePair = VSPEPlatformPlugin.structureManager().getStructures()[rule.resource] ?: continue
             val structure = structurePair.first
@@ -770,7 +769,11 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
                             2 -> Rotation.CLOCKWISE_180
                             else -> Rotation.COUNTERCLOCKWISE_90
                         }
-                        val mir = if (rng.nextBoolean()) rule.mirror else Mirror.NONE
+                        val mir = when (rng.nextInt(2)) {
+                            0 -> Mirror.NONE
+                            1 -> Mirror.FRONT_BACK
+                            else -> Mirror.LEFT_RIGHT
+                        }
 
                         val transformedSize = transformSize(Vec3(0.0, 0.0, 0.0), baseSize, rot, mir)
                         val tSizeX = transformedSize.intX.toInt()
@@ -993,8 +996,9 @@ open class PlacementInfo(
         StructureBox(Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0), ResourceLocation.getEMPTY()),
         StructureRule(
             ResourceLocation.getEMPTY(), emptySet(),
-            Rotation.NONE, Mirror.NONE, 0, 0.0, 0, 0, VerticalPlacement.SURFACE
-        )
+            0, 0.0, 0, 0, VerticalPlacement.SURFACE,
+            listOf<ResourceLocation>()
+        ),
     )
 }
 class StructurePlacementCache {

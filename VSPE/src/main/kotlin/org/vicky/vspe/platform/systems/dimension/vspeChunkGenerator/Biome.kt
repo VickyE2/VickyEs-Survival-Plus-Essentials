@@ -262,7 +262,6 @@ data class BiomeParameters @JvmOverloads constructor(
     val distributionPalette: BiomeBlockDistributionPalette<*>,
     val heightSampler: List<NoiseLayer> = listOf(),
     val features: List<BiomeFeature<*>> = emptyList(),
-    val biomeStructureData: BiomeStructureData = BiomeStructureData.EMPTY,
     val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
 )
 
@@ -283,7 +282,6 @@ interface PlatformBiome : Identifiable {
     val heightSampler: List<NoiseLayer>
     val precipitation: PrecipitationType
         get() = PrecipitationType.RAIN
-    val biomeStructureData: BiomeStructureData
     val distributionPalette: BiomeBlockDistributionPalette<*>
 
     fun toNativeBiome(): Any
@@ -292,14 +290,6 @@ interface PlatformBiome : Identifiable {
     fun isMountainous(): Boolean = elevation > 0.6
     val features: List<BiomeFeature<*>>
     val spawnSettings: BiomeSpawnSettings
-    // val decorators: List<Decorator>                       // e.g., snow, leaves, post-process
-    // val ambientSettings: BiomeAmbientSettings?
-}
-
-open class BiomeStructureData(
-    val structureKeys: List<ResourceLocation>
-) {
-    object EMPTY : BiomeStructureData(listOf())
 }
 
 class SimpleConstructorBasedBiome(
@@ -319,7 +309,6 @@ class SimpleConstructorBasedBiome(
     override val category: BiomeCategory,
     override val heightSampler: List<NoiseLayer>,
     override val precipitation: PrecipitationType,
-    override val biomeStructureData: BiomeStructureData,
     override val features: List<BiomeFeature<*>> = emptyList(),
     override val spawnSettings: BiomeSpawnSettings = BiomeSpawnSettings(),
     override val distributionPalette: BiomeBlockDistributionPalette<*> = BiomeBlockDistributionPalette.empty()

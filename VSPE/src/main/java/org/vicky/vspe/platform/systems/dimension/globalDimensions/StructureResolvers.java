@@ -2,9 +2,7 @@ package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 
 import kotlin.Pair;
 import org.vicky.platform.PlatformPlugin;
-import org.vicky.platform.utils.Mirror;
 import org.vicky.platform.utils.ResourceLocation;
-import org.vicky.platform.utils.Rotation;
 import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.StructureTag;
 import org.vicky.vspe.platform.NativeTypeMapper;
@@ -53,13 +51,12 @@ public class StructureResolvers<T> {
                     new StructureRule(
                             ResourceLocation.from("crymorra:magenta_frost_tree"),
                             Set.of(StructureTag.TREELIKE),
-                            Rotation.NONE,
-                            Mirror.NONE,
                             5,
                             0.97,
                             1,
                             0,
-                            VerticalPlacement.SURFACE
+                            VerticalPlacement.SURFACE,
+                            List.of(ResourceLocation.from("crymorra:magenta_forest"))
                     )
             )
     );

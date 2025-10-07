@@ -3,6 +3,7 @@ package org.vicky.vspe.platform.systems.dimension;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformBlockState;
+import org.vicky.utilities.Identifiable;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BiomeResolver;
 import org.vicky.vspe.systems.dimension.DimensionSpawnStrategy;
 import org.vicky.vspe.systems.dimension.PortalContext;
@@ -66,7 +67,7 @@ public record DimensionDescriptor(
         @NotNull Function<PlatformPlayer, PortalContext<?, ?>> portalContext,
         @NotNull DimensionSpawnStrategy<?, ?> dimensionStrategy,
         @NotNull TimeCurve worldTimeCurve
-) {
+) implements Identifiable {
 
     public DimensionDescriptor {
         if (minimumY > maximumY) {
@@ -128,5 +129,10 @@ public record DimensionDescriptor(
                 dimensionStrategy,
                 worldTimeCurve
         );
+    }
+
+    @Override
+    public String getIdentifier() {
+        return identifier;
     }
 }

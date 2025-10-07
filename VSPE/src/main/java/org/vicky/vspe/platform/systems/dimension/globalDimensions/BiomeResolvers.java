@@ -3,7 +3,6 @@ package org.vicky.vspe.platform.systems.dimension.globalDimensions;
 import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.platform.PlatformPlugin;
-import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.NativeTypeMapper;
@@ -90,10 +89,7 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                                 NoiseLayer.Mode.HEIGHT
                         )
                 ),
-                List.of(),
-                new BiomeStructureData(List.of(
-                        ResourceLocation.from("crymorra:magenta_frost_tree")
-                ))
+                List.of()
         );
         public static final BiomeParameters FRIGID_SEA = new BiomeParameters(
                 "crymorra:frigid_sea",
