@@ -236,7 +236,6 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
                 if (topY >= chunk.getHeight()) topY = chunk.getHeight() - 1;
 
                 int i2 = chunk.getSectionsCount() - 1;
-                LevelChunkSection levelchunksection = chunk.getSection(i2);
 
                 // BEDROCK at minY
                 mpos.set(worldX, minY, worldZ);
@@ -288,9 +287,7 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
                             mpos.set(worldX, y, worldZ);
                             if (chunk.getBlockState(mpos).isAir()) {
                                 setBlockInSectionFast(chunk, mpos, waterState);
-                                hmMotion.update(localX, y, localZ, waterState);
-                                hmMotionNoLeaves.update(localX, y, localZ, waterState);
-                                // hmOceanFloor.update(localX, y, localZ, waterState);
+                                hmOceanFloor.update(localX, y, localZ, waterState);
                             }
                         }
                     }
@@ -325,7 +322,7 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
     @Override
     public int getMinY() {
         // fixed to -64 as you had previously
-        return -64;
+        return descriptor.minimumY();
     }
 
     @Override
@@ -345,10 +342,10 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         int[] heights = computeSmoothedHeights(provider, chunkX, chunkZ);
 
         int minY = getMinY();
-        int maxY = getSeaLevel();
+        int maxY = world.getHeight();
         int topY = minY;
 
-        if (heights != null && idx >= 0 && idx < heights.length) {
+        if (idx >= 0 && idx < heights.length) {
             int candidate = heights[idx];
             if (candidate >= minY && candidate < maxY) {
                 BlockState forgeData = biome.getDistributionPalette().getFor(localX, candidate, localZ, topY, getSeaLevel()).getNative();
@@ -382,10 +379,8 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
             int topY = heights[idx];
             for (int y = minY; y <= topY && y < minY + total; y++) {
                 PlatformBlockState<BlockState> p = biome.getDistributionPalette().getFor(localX, y, localZ, topY, getSeaLevel());
-                if (p != null) {
-                    BlockState bd = p.getNative();
-                    array[y - minY] = bd;
-                }
+                BlockState bd = p.getNative();
+                array[y - minY] = bd;
             }
         }
 
@@ -428,10 +423,6 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         final BlockPlacer<BlockState> placer = new BlockPlacer<>() {
             @Override
             public int getHighestBlockAt(int worldX, int worldZ) {
-                // compute local coords 0..15
-                final int localX = Math.floorMod(worldX, 16);
-                final int localZ = Math.floorMod(worldZ, 16);
-
                 for (int y = maxY - 1; y >= minY; y--) {
                     mpos.set(worldX, y, worldZ);
                     if (!chunk.getBlockState(mpos).isAir()) return y;
@@ -449,9 +440,13 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
                 // update heightmaps with local coords
                 final int localX = Math.floorMod(worldX, 16);
                 final int localZ = Math.floorMod(worldZ, 16);
-                hmMotion.update(localX, y, localZ, bs);
-                hmMotionNoLeaves.update(localX, y, localZ, bs);
-                hmOceanFloor.update(localX, y, localZ, bs);
+                if (!bs.isAir()) {
+                    if (bs.isSolid()) {
+                        hmMotion.update(localX, y, localZ, bs);
+                        hmMotionNoLeaves.update(localX, y, localZ, bs);
+                        hmOceanFloor.update(localX, y, localZ, bs);
+                    }
+                }
             }
 
             @Override
@@ -470,6 +465,8 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
             }
         };
 
+        SeededRandomSource featureRng = (SeededRandomSource) randomSource.fork(seedForChunk.apply(0xF00D_1L));
+
         // For each column, run PER_COLUMN features
         for (int lz = 0; lz < 16; lz++) {
             for (int lx = 0; lx < 16; lx++) {
@@ -482,9 +479,6 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
                 int topY = topYs[idx];
                 if (topY < minY) topY = minY;
                 if (topY >= maxY) topY = maxY - 1;
-
-                // create a per-column feature RNG (forked from the chunk RNG with your salt)
-                SeededRandomSource featureRng = (SeededRandomSource) randomSource.fork(seedForChunk.apply(0xF00D_1L));
 
                 FeatureContext<BlockState> ctx = new FeatureContext<>(
                         seed,
@@ -893,10 +887,9 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         // compact one-line status for debug screen
         String shortStatus(ChunkPos pos) {
             long now = System.currentTimeMillis();
-            long elapsed = now - startTimeMs;
             String ex = exception == null ? "" : " EX:" + exception;
             return String.format("chunk %d,%d stage=%s t=%dms biomes=%s %n    structs=%s topY[min=%d max=%d avg=%.1f cols=%d] thread=%s%s",
-                    pos.x, pos.z, stage, elapsed, biomesFilled, structuresPlaced,
+                    pos.x, pos.z, stage, lastUpdateMs, biomesFilled, structuresPlaced,
                     topYMin == Integer.MAX_VALUE ? -9999 : topYMin,
                     topYMax == Integer.MIN_VALUE ? -9999 : topYMax,
                     topYAvg, computedColumns, threadName, ex);
