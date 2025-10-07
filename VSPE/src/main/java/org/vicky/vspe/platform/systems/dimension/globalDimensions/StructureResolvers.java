@@ -13,7 +13,6 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRul
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.VerticalPlacement;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * @param <T> the platform block "stated" data
@@ -50,7 +49,7 @@ public class StructureResolvers<T> {
                     ),
                     new StructureRule(
                             ResourceLocation.from("crymorra:magenta_frost_tree"),
-                            Set.of(StructureTag.TREELIKE),
+                            StructureTag.TREELIKE,
                             5,
                             0.97,
                             1,

@@ -631,7 +631,7 @@ enum class VerticalPlacement {
 
 data class StructureRule(
     val resource: ResourceLocation,
-    val tags: Set<StructureTag>,
+    val tags: StructureTag,
     val weight: Int,
     val frequency: Double,
     val spacing: Int,
@@ -954,9 +954,9 @@ class WeightedStructurePlacer<T> : StructurePlacer<T> {
     // reuse transformSize and getPlacementPriority from your class (keep as-is)
     private fun getPlacementPriority(rule: StructureRule): Int {
         return when {
-            StructureTag.ANCIENT in rule.tags -> 0
-            StructureTag.DUNGEON in rule.tags -> 1
-            StructureTag.VILLAGE in rule.tags -> 2
+            StructureTag.ANCIENT == rule.tags -> 0
+            StructureTag.DUNGEON == rule.tags -> 1
+            StructureTag.VILLAGE == rule.tags -> 2
             else -> 3
         }
     }
@@ -995,7 +995,7 @@ open class PlacementInfo(
         Mirror.NONE,
         StructureBox(Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0), ResourceLocation.getEMPTY()),
         StructureRule(
-            ResourceLocation.getEMPTY(), emptySet(),
+            ResourceLocation.getEMPTY(), StructureTag.EMPTY,
             0, 0.0, 0, 0, VerticalPlacement.SURFACE,
             listOf<ResourceLocation>()
         ),
