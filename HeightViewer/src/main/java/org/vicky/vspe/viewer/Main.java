@@ -1,6 +1,7 @@
 package org.vicky.vspe.viewer;
 
 import org.vicky.platform.utils.Vec3;
+import org.vicky.vspe.platform.systems.dimension.MushroomCapProfile;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SeededRandomSource;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState;
@@ -37,7 +38,6 @@ public class Main {
                 .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
                 .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
                 .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.ON_BRANCH_TIP)
-                .taperedFuzz(true)
                 .randomness(0.8)
                 .tipDecoration(realisticRoseTipMulti(
                         SimpleBlockState.Companion.from("990033", (it) -> it),
@@ -49,13 +49,15 @@ public class Main {
                 .vineHeight(0.45)
                 .leafPropagationChance(0.67)
                 .branchPropagationChance(0.78)
-                .branchSizeDecay(1.2)
+                .branchSizeDecay(0.95)
                 .maxBranchAmount(7)
                 .branchingPointRange(0.35, 0.80)
-                .branchMaxDevianceAngle(5)
+                .branchMaxDevianceAngle(7)
                 .branchMaxHorizontalDevianceAngle(20)
                 .branchDepth(2)
                 .slantAngleRange(-50, 50)
+                .mushroomCapWidth(17, 20)
+                .capProfile(MushroomCapProfile.SHARP_SNOUT)
                 .branchVerticalDensity(2)
                 .vineSequenceMaterial(List.of(
                         SimpleBlockState.Companion.from("bb00EE", (it) -> it),

@@ -1,5 +1,7 @@
 package org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import de.pauleff.api.ICompoundTag
 import de.pauleff.api.ITag
 import de.pauleff.api.NBTFileFactory
@@ -14,6 +16,7 @@ import org.vicky.platform.world.PlatformMaterial
 import org.vicky.vspe.*
 import org.vicky.vspe.platform.VSPEPlatformPlugin
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.ProceduralStructureGenerator
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Rarity
 import org.vicky.vspe.structure_gen.offset
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -55,8 +58,7 @@ fun <T> PlatformStructure<T>.placeChunkFallback(
     world: BlockPlacer<T>,
     chunkX: Int,
     chunkZ: Int,
-    resolved: ResolvedStructure<T>,
-    context: StructurePlacementContext
+    resolved: ResolvedStructure<T>
 ): Boolean {
     // naive approach: iterate resolved.placementsByChunk[ChunkCoord(chunkX, chunkZ)]
     val list = resolved.placementsByChunk[ChunkCoord(chunkX, chunkZ)] ?: return true
@@ -70,8 +72,6 @@ fun <T> PlatformStructure<T>.placeChunkFallback(
     }
     return true
 }
-
-
 
 class NbtStructure<T>(
     val nbtFile: File
@@ -139,32 +139,24 @@ class NbtStructure<T>(
 }
 
 // === Structure Implementations ===
-
-class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
+class NBTBasedStructure<T>(
+    val id: ResourceLocation
+) : PlatformStructure<T> {
     private val structure: NbtStructure<T>? =
         VSPEPlatformPlugin.structureManager().getNBTStructure(id) as NbtStructure<T>?
 
     // small LRU per-structure cache (tune size as needed)
-    private val resolvedCache = LruCache<ResolvedKey, ResolvedStructure<T>>(128)
+    private val chunkToKey = ConcurrentHashMap<ChunkCoord, ResolvedKey>()
+    private val resolvedCache: Cache<ResolvedKey, ResolvedStructure<T>> = Caffeine.newBuilder()
+        .maximumSize(256)
+        .removalListener<ResolvedKey, ResolvedStructure<T>> { key, value, _ ->
+            if (key != null && value != null) {
+                value.placementsByChunk.keys.forEach { chunk -> chunkToKey.remove(chunk, key) }
+            }
+        }.build()
 
-    override fun getSize(): BlockVec3i = structure?.size ?: throw NullPointerException("Structure $id does not exist")
-
-    override fun place(world: BlockPlacer<T>, origin: Vec3, context: StructurePlacementContext): Boolean {
-        // fallback: call resolve + place all chunk groups (useful if you want to place whole structure)
-        val resolved = resolve(origin, context)
-        // iterate all chunks and write; note: might write outside currently generating chunk
-        resolved.placementsByChunk.values.flatten().forEach { p ->
-            if (p.nbt != null)
-                world.placeBlock(p.x, p.y, p.z, p.state as PlatformBlockState<T>?, p.nbt)
-            else
-                world.placeBlock(p.x, p.y, p.z, p.state as PlatformBlockState<T>?)
-        }
-        return true
-    }
-
-    @Synchronized
     override fun resolve(origin: Vec3, context: StructurePlacementContext): ResolvedStructure<T> {
-        val seed = context.random.getSeed()
+        val seed = context.random.getSeed() // include if you want seed in key, else 0
         val key = ResolvedKey(
             id,
             origin.x.toInt(),
@@ -174,7 +166,26 @@ class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
             context.mirror,
             seed
         )
-        resolvedCache.get(key)?.let { return it }
+
+        // fast chunk->key lookup
+        val originChunk = ChunkCoord.fromBlock(origin.x.toInt(), origin.z.toInt())
+        chunkToKey[originChunk]?.let { existingKey ->
+            resolvedCache.getIfPresent(existingKey)?.let { return it }
+        }
+
+        val resolved = resolvedCache.get(key) { k ->
+            generateResolvedFromNbt(k)
+        }
+
+        // register chunk->key
+        resolved.placementsByChunk.keys.forEach { chunkToKey.putIfAbsent(it, key) }
+        return resolved
+    }
+
+    // helper that builds ResolvedStructure delegating to your existing parsing and transforms
+    private fun generateResolvedFromNbt(key: ResolvedKey): ResolvedStructure<T> {
+        val origin = Vec3(key.originX.toDouble(), key.originY.toDouble(), key.originZ.toDouble())
+        SeededRandomSource(key.seed)
 
         if (structure == null) error("Unknown structure: $id")
 
@@ -202,8 +213,8 @@ class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
 
             // apply rotation/mirror relative to origin (make util functions for Vec3 / PlatformLocation transforms)
             val transformed = Vec3(localX.toDouble(), localY.toDouble(), localZ.toDouble())
-                .let { if (context.rotation != Rotation.NONE) it.rotate(context.rotation, origin) else it }
-                .let { if (context.mirror != Mirror.NONE) it.mirror(context.mirror, origin) else it }
+                .let { if (key.rotation != Rotation.NONE) it.rotate(key.rotation, origin) else it }
+                .let { if (key.mirror != Mirror.NONE) it.mirror(key.mirror, origin) else it }
 
             val bx = transformed.x.toInt()
             val by = transformed.y.toInt()
@@ -235,6 +246,19 @@ class NBTBasedStructure<T>(val id: ResourceLocation) : PlatformStructure<T> {
         return resolved
     }
 
+    override fun getSize(): BlockVec3i = structure?.size ?: throw NullPointerException("Structure $id does not exist")
+
+    override fun place(world: BlockPlacer<T>, origin: Vec3, context: StructurePlacementContext): Boolean {
+        val resolved = resolve(origin, context)
+        resolved.placementsByChunk.values.flatten().forEach { p ->
+            if (p.nbt != null)
+                world.placeBlock(p.x, p.y, p.z, p.state as PlatformBlockState<T>?, p.nbt)
+            else
+                world.placeBlock(p.x, p.y, p.z, p.state as PlatformBlockState<T>?)
+        }
+        return true
+    }
+
     override fun placeInChunk(
         world: BlockPlacer<T>,
         chunkX: Int,
@@ -258,7 +282,14 @@ class SchematicStructure<BST>(
     private val transformer: (String) -> BST
 ) : PlatformStructure<BST>
 {
-    private val resolvedCache = LruCache<ResolvedKey, ResolvedStructure<BST>>(128)
+    private val chunkToKey = ConcurrentHashMap<ChunkCoord, ResolvedKey>()
+    private val resolvedCache: Cache<ResolvedKey, ResolvedStructure<BST>> = Caffeine.newBuilder()
+        .maximumSize(256)
+        .removalListener<ResolvedKey, ResolvedStructure<BST>> { key, value, _ ->
+            if (key != null && value != null) {
+                value.placementsByChunk.keys.forEach { chunk -> chunkToKey.remove(chunk, key) }
+            }
+        }.build()
 
     override fun place(world: BlockPlacer<BST>, origin: Vec3, context: StructurePlacementContext): Boolean {
         // Backwards-compat: place everything (not chunk-limited)
@@ -275,6 +306,7 @@ class SchematicStructure<BST>(
         origin: Vec3,
         context: StructurePlacementContext
     ): ResolvedStructure<BST> {
+        val seed = context.random.getSeed() // include if you want seed in key, else 0
         val key = ResolvedKey(
             ResourceLocation.getEMPTY(),
             origin.x.toInt(),
@@ -282,9 +314,26 @@ class SchematicStructure<BST>(
             origin.z.toInt(),
             context.rotation,
             context.mirror,
-            0
+            seed
         )
-        resolvedCache.get(key)?.let { return it }
+
+        // fast chunk->key lookup
+        val originChunk = ChunkCoord.fromBlock(origin.x.toInt(), origin.z.toInt())
+        chunkToKey[originChunk]?.let { existingKey ->
+            resolvedCache.getIfPresent(existingKey)?.let { return it }
+        }
+
+        val resolved = resolvedCache.get(key) { k ->
+            generateResolvedFromSchem(k)
+        }
+
+        // register chunk->key
+        resolved.placementsByChunk.keys.forEach { chunkToKey.putIfAbsent(it, key) }
+        return resolved
+    }
+
+    private fun generateResolvedFromSchem(key: ResolvedKey): ResolvedStructure<BST> {
+        val origin = Vec3.of(key.originX.toDouble(), key.originY.toDouble(), key.originZ.toDouble())
 
         val placementsByChunk = mutableMapOf<ChunkCoord, MutableList<BlockPlacement<BST>>>()
         var minX = Int.MAX_VALUE
@@ -303,8 +352,8 @@ class SchematicStructure<BST>(
                 position.z + origin.z
             )
             val transformedPos = absolutePos
-                .let { if (context.rotation != Rotation.NONE) it.rotate(context.rotation, origin) else it }
-                .let { if (context.mirror != Mirror.NONE) it.mirror(context.mirror, origin) else it }
+                .let { if (key.rotation != Rotation.NONE) it.rotate(key.rotation, origin) else it }
+                .let { if (key.mirror != Mirror.NONE) it.mirror(key.mirror, origin) else it }
 
             val bx = transformedPos.x.toInt()
             val by = transformedPos.y.toInt()
@@ -329,8 +378,8 @@ class SchematicStructure<BST>(
         // convert lists to immutable lists
         val finalMap: ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>> =
             ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>>()
-            placementsByChunk.mapValues { it.value.toList() }
-                .forEach { finalMap.put(it.key, it.value) }
+        placementsByChunk.mapValues { it.value.toList() }
+            .forEach { finalMap.put(it.key, it.value) }
 
         val resolved = ResolvedStructure(finalMap, bounds)
         resolvedCache.put(key, resolved)
@@ -362,8 +411,20 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
     private val generator: T
 ) : PlatformStructure<BST>
 {
-    // LRU cache keyed by ResolvedKey (resource can be derived from generator class)
-    private val resolvedCache = LruCache<ResolvedKey, ResolvedStructure<BST>>(128)
+    private val chunkToKey = ConcurrentHashMap<ChunkCoord, ResolvedKey>()
+    private val resolvedCache: Cache<ResolvedKey, ResolvedStructure<BST>> = Caffeine.newBuilder()
+        .maximumSize(1024)
+        .removalListener<ResolvedKey, ResolvedStructure<BST>> { key, value, _ ->
+            if (key != null && value != null) {
+                // remove any chunk -> key mappings that still point to this key
+                value.placementsByChunk.keys.forEach { chunk ->
+                    chunkToKey.remove(chunk, key)
+                }
+            }
+        }
+        .build()
+
+    override fun getSize(): BlockVec3i = generator.getApproximateSize()
 
     override fun place(world: BlockPlacer<BST>, origin: Vec3, context: StructurePlacementContext): Boolean {
         val resolved = resolve(origin, context)
@@ -374,31 +435,19 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
         return true
     }
 
-    @Synchronized
-    override fun resolve(
-        origin: Vec3,
-        context: StructurePlacementContext
-    ): ResolvedStructure<BST> {
-        val seed = context.random.getSeed()
-        // build a stable resource id for this procedural generator (tweak if you've got a canonical id)
-        val resource = ResourceLocation.from("procedural", generator.javaClass.simpleName.lowercase())
+    // helper that actually runs generator using a Random source derived from seed and key
+    private fun generateResolvedFromKey(key: ResolvedKey): ResolvedStructure<BST> {
+        // Reconstruct canonical origin from key
+        val origin = Vec3(key.originX.toDouble(), key.originY.toDouble(), key.originZ.toDouble())
 
-        val key = ResolvedKey(
-            resource,
-            origin.x.toInt(),
-            origin.y.toInt(),
-            origin.z.toInt(),
-            context.rotation,
-            context.mirror,
-            seed
-        )
-        resolvedCache.get(key)?.let { return it }
+        // Create a deterministic Random/RandomSource from the seed.
+        // Replace `SeededRandomSource` with your engine's constructor — keep deterministic.
+        val rnd = SeededRandomSource(key.seed) // <- adapt if your API differs
 
-        // call the generator to produce block placements (assume it returns List<BlockPlacement<BST>>)
-        // If your generator returns a GenerationResult (placements+actions), adapt this line:
-        val placements: List<BlockPlacement<BST>> = generator.generate(context.random, origin).placements
+        // call generator
+        val placements: List<BlockPlacement<BST>> = generator.generate(rnd, origin).placements
 
-        // bucket by chunk
+        // bucket by chunk and compute bounds
         val placementsByChunk = mutableMapOf<ChunkCoord, MutableList<BlockPlacement<BST>>>()
         var minX = Int.MAX_VALUE
         var minY = Int.MAX_VALUE
@@ -408,7 +457,6 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
         var maxZ = Int.MIN_VALUE
 
         placements.forEach { p ->
-            // NOTE: BlockPlacement likely already stores absolute coordinates as ints
             val bx = p.x
             val by = p.y
             val bz = p.z
@@ -423,17 +471,47 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
         val bounds = StructureBox(
             Vec3(minX.toDouble(), minY.toDouble(), minZ.toDouble()),
             Vec3(maxX.toDouble(), maxY.toDouble(), maxZ.toDouble()),
-            resource
+            key.resource
         )
 
+        val finalMap = ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>>()
+        placementsByChunk.forEach { (chunk, list) -> finalMap[chunk] = list.toList() }
 
-        val finalMap: ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>> =
-            ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>>()
-        placementsByChunk.mapValues { it.value.toList() }
-            .forEach { finalMap.put(it.key, it.value) }
+        return ResolvedStructure(finalMap, bounds)
+    }
 
-        val resolved = ResolvedStructure(finalMap, bounds)
-        resolvedCache.put(key, resolved)
+    override fun resolve(origin: Vec3, context: StructurePlacementContext): ResolvedStructure<BST> {
+        val seed = context.random.getSeed()
+        val resource = ResourceLocation.from("procedural", generator.javaClass.simpleName.lowercase())
+
+        val key = ResolvedKey(
+            resource,
+            origin.x.toInt(),
+            origin.y.toInt(),
+            origin.z.toInt(),
+            context.rotation,
+            context.mirror,
+            seed
+        )
+
+        // 1) fast path: if chunkToKey already points to a key, try to return that
+        val originChunk = ChunkCoord.fromBlock(origin.x.toInt(), origin.z.toInt())
+        chunkToKey[originChunk]?.let { existingKey ->
+            resolvedCache.getIfPresent(existingKey)?.let { return it }
+        }
+
+        // 2) compute-or-get: mapping function executes atomically once per missing key
+        val resolved = resolvedCache.get(key) { k ->
+            // mapping function runs once; do not mutate external state here that relies on other callers
+            generateResolvedFromKey(k)
+        }
+
+        // 3) register chunk->key mapping for quick lookups
+        // (multiple threads may do this concurrently — put is idempotent)
+        resolved.placementsByChunk.keys.forEach { chunk ->
+            chunkToKey.putIfAbsent(chunk, key)
+        }
+
         return resolved
     }
 
@@ -451,8 +529,6 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
         }
         return true
     }
-
-    override fun getSize(): BlockVec3i = generator.getApproximateSize()
 }
 
 
@@ -472,6 +548,12 @@ data class ChunkCoord(val cx: Int, val cz: Int) {
         return if (other !is ChunkCoord) false
         else other.cx == this.cx && other.cz == this.cz
     }
+
+    override fun hashCode(): Int {
+        var result = cx
+        result = 31 * result + cz
+        return result
+    }
 }
 
 data class BlockPlacement<T>(
@@ -486,6 +568,15 @@ data class BlockPlacement<T>(
     override fun equals(other: Any?): Boolean {
         if (other !is BlockPlacement<T>) return false
         return this.x == other.x && this.y == other.y && this.z == other.z
+    }
+
+    override fun hashCode(): Int {
+        var result = x
+        result = 31 * result + y
+        result = 31 * result + z
+        result = 31 * result + (state?.hashCode() ?: 0)
+        result = 31 * result + (nbt?.hashCode() ?: 0)
+        return result
     }
 }
 
@@ -505,7 +596,7 @@ data class ResolvedKey(
     val originZ: Int,
     val rotation: Rotation,
     val mirror: Mirror,
-    val seed: Long // include if procedural or randomness depend on it
+    val seed: Long
 )
 
 class LruCache<K, V>(private val maxEntries: Int) {
@@ -516,9 +607,9 @@ class LruCache<K, V>(private val maxEntries: Int) {
     }
 
     @Synchronized
-    fun get(k: K): V? = map[k]
+    operator fun get(k: K): V? = map[k]
     @Synchronized
-    fun put(k: K, v: V) {
+    operator fun set(k: K, v: V) {
         map[k] = v
     }
 
@@ -637,6 +728,7 @@ enum class VerticalPlacement {
 data class StructureRule(
     val resource: ResourceLocation,
     val tags: StructureTag,
+    val rarity: Rarity,
     val weight: Int,
     val frequency: Double,
     val spacing: Int,
@@ -1000,7 +1092,7 @@ open class PlacementInfo(
         Mirror.NONE,
         StructureBox(Vec3(0.0, 0.0, 0.0), Vec3(0.0, 0.0, 0.0), ResourceLocation.getEMPTY()),
         StructureRule(
-            ResourceLocation.getEMPTY(), StructureTag.EMPTY,
+            ResourceLocation.getEMPTY(), StructureTag.EMPTY, Rarity.COMMON,
             0, 0.0, 0, 0, VerticalPlacement.SURFACE,
             listOf<ResourceLocation>()
         ),

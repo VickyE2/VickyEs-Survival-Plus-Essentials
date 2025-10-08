@@ -313,7 +313,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
                 var points = CorePointsFactory.generate(
                         CorePointsFactory.Params.builder()
-                                .type(new HelixPointFactory(rnd.nextInt(1, 3) + rnd.nextDouble() + p.randomness, 0.0, 1))
+                                .type(new StraightPointFactory())
                                 .divergenceDecay(0.2 + p.randomness)
                                 .origin(origin)
                                 .segments((int) (30 * p.quality))
@@ -322,7 +322,8 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                                 .divergenceProbability(0.5 + p.randomness)
                                 .divergenceStrength(0.4 + p.randomness)
                                 .noiseSmooth(0.1)
-                                .noiseStrength(0.3)
+                                .noiseStrength(0.7 * p.randomness)
+                                .noiseWidthFactor(3)
                                 // .pitchDegrees(-90)
                                 .build());
 

@@ -8,6 +8,7 @@ import org.vicky.vspe.StructureTag;
 import org.vicky.vspe.platform.NativeTypeMapper;
 import org.vicky.vspe.platform.systems.dimension.MushroomCapProfile;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Rarity;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ProceduralStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRule;
@@ -43,7 +44,7 @@ public class StructureResolvers<T> {
                                     .leafPropagationChance(0.67)
                                     .branchPropagationChance(0.78)
                                     .branchSizeDecay(0.95)
-                                    .maxBranchAmount(3)
+                                    .maxBranchAmount(7)
                                     .branchingPointRange(0.35, 0.80)
                                     .branchMaxDevianceAngle(7)
                                     .branchMaxHorizontalDevianceAngle(20)
@@ -59,9 +60,10 @@ public class StructureResolvers<T> {
                     new StructureRule(
                             ResourceLocation.from("crymorra:magenta_frost_tree"),
                             StructureTag.TREELIKE,
+                            Rarity.EPIC,
                             2,
                             0.97,
-                            2,
+                            10,
                             0,
                             VerticalPlacement.SURFACE,
                             List.of(ResourceLocation.from("crymorra:magenta_forest"))
