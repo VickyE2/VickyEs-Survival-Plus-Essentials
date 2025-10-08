@@ -7,6 +7,7 @@ import javafx.scene.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
@@ -41,7 +42,7 @@ public class VoxelizerViewer extends Application {
     private final Rotate rotateY = new Rotate(-30, Rotate.Y_AXIS);
     private double lastMouseX, lastMouseY;
     private boolean isMousePressed = false;
-    private double anchorX, anchorY;
+    private final javafx.scene.control.Label cameraCoordsLabel = new javafx.scene.control.Label();
 
     public VoxelizerViewer() {
         subScene = new SubScene(worldGroup, 900, 800, true, SceneAntialiasing.BALANCED);
@@ -122,6 +123,25 @@ public class VoxelizerViewer extends Application {
         renderResolvedStructure(SAMPLE);
 
         rootPane.setCenter(subScene);
+
+// --- Camera Coordinates Overlay ---
+        cameraCoordsLabel.setTextFill(Color.WHITE);
+        cameraCoordsLabel.setStyle("""
+                -fx-font-size: 16px;
+                -fx-font-weight: bold;
+                -fx-background-color: rgba(0,0,0,0.45);
+                -fx-padding: 6 10 6 10;
+                -fx-background-radius: 8;
+                """);
+
+        // Use a StackPane overlay for positioning
+        StackPane overlay = new StackPane(cameraCoordsLabel);
+        overlay.setMouseTransparent(true); // let mouse go through to 3D scene
+        StackPane.setAlignment(cameraCoordsLabel, javafx.geometry.Pos.TOP_RIGHT);
+
+        BorderPane wrapper = new BorderPane(overlay);
+        rootPane.setCenter(new StackPane(subScene, wrapper));
+
         Scene scene = new Scene(rootPane, 900, 800, true);
         stage.setScene(scene);
 
@@ -224,6 +244,30 @@ public class VoxelizerViewer extends Application {
             @Override
             public void handle(long now) {
                 double speed = 2.2; // units per frame
+                Platform.runLater(() -> {
+                    double x = cameraPosition.getX();
+                    double y = cameraPosition.getY();
+                    double z = cameraPosition.getZ();
+
+                    String text = String.format(
+                            "X: %.1f   Y: %.1f   Z: %.1f",
+                            x, y, z
+                    );
+
+                    // Color each coordinate differently
+                    cameraCoordsLabel.setText(text);
+
+                    // Optional: colorize with CSS text spans (requires rich text)
+                    cameraCoordsLabel.setStyle("""
+                            -fx-font-size: 16px;
+                            -fx-font-weight: bold;
+                            -fx-background-color: rgba(0,0,0,0.45);
+                            -fx-padding: 6 10 6 10;
+                            -fx-background-radius: 8;
+                            -fx-text-fill: linear-gradient(to right, #ff5050 0%%, #50ff50 50%%, #50aaff 100%%);
+                            """);
+                });
+
 
                 // Convert angles to radians
                 double yawRad = Math.toRadians(cameraYaw.getAngle());

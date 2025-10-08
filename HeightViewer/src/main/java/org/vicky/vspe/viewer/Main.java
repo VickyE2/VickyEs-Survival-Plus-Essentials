@@ -1,8 +1,6 @@
 package org.vicky.vspe.viewer;
 
 import org.vicky.platform.utils.Vec3;
-import org.vicky.vspe.Direction;
-import org.vicky.vspe.platform.systems.dimension.MushroomCapProfile;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SeededRandomSource;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState;
@@ -13,6 +11,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.parts.RealisticRose.realisticRoseTipMulti;
 import static org.vicky.vspe.viewer.VoxelizerViewer.computeBounds;
 
 public class Main {
@@ -35,47 +34,76 @@ public class Main {
         var tree = new NoAIProceduralTreeGenerator.NoAIPTGBuilder<String>()
                 .trunkWidth(10, 15)
                 .trunkHeight(70, 110)
-                .trunkType(NoAIProceduralTreeGenerator.TrunkType.CONIFEROUS)
-                .branchType(NoAIProceduralTreeGenerator.BranchingType.CONIFEROUS)
-                .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.NO_LEAVES)
-                .capProfile(MushroomCapProfile.GAUSSIAN)
-                .maxMushDang(20)
-                .mushroomCapWidth(20, 30)
-                .mushroomCapHeight(3, 7)
+                .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
+                .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
+                .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.ON_BRANCH_TIP)
+                .taperedFuzz(true)
+                .randomness(0.8)
+                .tipDecoration(realisticRoseTipMulti(
+                        SimpleBlockState.Companion.from("990033", (it) -> it),
+                        SimpleBlockState.Companion.from("BB0033", (it) -> it),
+                        SimpleBlockState.Companion.from("FF0033", (it) -> it),
+                        2
+                ))
+                .spacing(5)
+                .vineHeight(0.45)
+                .leafPropagationChance(0.67)
+                .branchPropagationChance(0.78)
+                .branchSizeDecay(1.2)
+                .maxBranchAmount(7)
+                .branchingPointRange(0.35, 0.80)
+                .branchMaxDevianceAngle(5)
+                .branchMaxHorizontalDevianceAngle(20)
+                .branchDepth(2)
+                .slantAngleRange(-50, 50)
+                .branchVerticalDensity(2)
                 .vineSequenceMaterial(List.of(
                         SimpleBlockState.Companion.from("bb00EE", (it) -> it),
                         SimpleBlockState.Companion.from("bb00AA", (it) -> it),
                         SimpleBlockState.Companion.from("88009A", (it) -> it),
                         SimpleBlockState.Companion.from("440055", (it) -> it)
                 ))
-                .spacing(5)
-                .leafPropagationChance(1.0)
-                .branchPropagationChance(0.78)
-                .windFlowDirection(Direction.NORTHEAST)
-                .branchSizeDecay(0.75)
-                .branchingPointRange(0.21, 0.90)
-                .branchMaxDevianceAngle(5)
-                .branchMaxHorizontalDevianceAngle(20)
-                .branchDepth(2)
-                .maxBranchAmount(5)
-                .slantAngleRange(-50, 50)
-                .branchVerticalDensity(2)
-                .maxVinePerBranch(10)
-                .coniferousBranchRange(2, 5)
                 .woodMaterial(SimpleBlockState.Companion.from("220022", (it) -> it))
                 .leafMaterial(SimpleBlockState.Companion.from("FF00FF", (it) -> it))
                 .build()
                 .generate(
                         new SeededRandomSource(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()).getInt()),
-                        new Vec3(0, 0, 0)
+                        new Vec3(-700, 0, 700)
                 );
 
         int idx = 0;
+        var highX = 0;
+        var highY = 0;
+        var highZ = 0;
+        var lowX = 0;
+        var lowY = 0;
+        var lowZ = 0;
         for (var pos : tree.placements) {
             idx++;
             list.add(new VoxelizerViewer.BlockPlacement<>(pos.getX(), pos.getY(), pos.getZ(), pos.getState()));
+            if (highX < pos.getX()) {
+                highX = pos.getX();
+            }
+            if (highY < pos.getY()) {
+                highY = pos.getY();
+            }
+            if (highZ < pos.getZ()) {
+                highZ = pos.getZ();
+            }
+
+            if (lowX > pos.getX()) {
+                lowX = pos.getX();
+            }
+            if (lowY > pos.getY()) {
+                lowY = pos.getY();
+            }
+            if (lowZ > pos.getZ()) {
+                lowZ = pos.getZ();
+            }
         }
         System.out.println("size: " + idx);
+        System.out.printf("%nlowX: %s lowY: %s lowZ: %s, highX: %s, highY %s, highZ: %s%n", lowX, lowY, lowZ, highX, highY, highZ);
+
         map.put(new VoxelizerViewer.ChunkCoord(0, 0), list);
         VoxelizerViewer.StructureBox bounds = computeBounds(new VoxelizerViewer.ResolvedStructure<>(map, null));
         VoxelizerViewer.SAMPLE = new VoxelizerViewer.ResolvedStructure<>(map, bounds);

@@ -444,7 +444,7 @@ class ProceduralStructure<T : ProceduralStructureGenerator<BST>, BST>(
         resolved: ResolvedStructure<BST>,
         context: StructurePlacementContext
     ): Boolean {
-        val list = resolved.placementsByChunk[ChunkCoord(chunkX, chunkZ)] ?: return true
+        val list = resolved.placementsByChunk[ChunkCoord(chunkX, chunkZ)] ?: return false
         list.forEach { p ->
             val pos = Vec3(p.x.toDouble(), p.y.toDouble(), p.z.toDouble())
             world.placeBlock(pos, p.state as PlatformBlockState<BST>?)
@@ -466,6 +466,11 @@ data class ChunkCoord(val cx: Int, val cz: Int) {
             val cz = floorDiv(z, 16)
             return ChunkCoord(cx, cz)
         }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        return if (other !is ChunkCoord) false
+        else other.cx == this.cx && other.cz == this.cz
     }
 }
 
