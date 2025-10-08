@@ -3,6 +3,7 @@ package org.vicky.vspe_forge.dimension;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
@@ -51,15 +52,17 @@ public class UnImpressedBiomeSource extends BiomeSource {
             val = i.getInvertedPaletteMap().keySet().stream()
                     .map(forgeBiome -> {
                         ResourceKey<Biome> key = forgeBiome.getResourceKey();
-                        return registryAccess.registryOrThrow(net.minecraft.core.registries.Registries.BIOME)
-                                .getHolderOrThrow(key);
+                        return registryAccess
+                                .lookup(Registries.BIOME)
+                                .get().getOrThrow(key);
                     });
         } else {
             val = biomeProvider.getBiomePalette().getPaletteMap().values().stream()
                     .map(forgeBiome -> {
                         ResourceKey<Biome> key = forgeBiome.getResourceKey();
-                        return registryAccess.registryOrThrow(net.minecraft.core.registries.Registries.BIOME)
-                                .getHolderOrThrow(key);
+                        return registryAccess
+                                .lookup(Registries.BIOME)
+                                .get().getOrThrow(key);
                     });
         }
         return val;
@@ -69,8 +72,9 @@ public class UnImpressedBiomeSource extends BiomeSource {
     public @NotNull Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.@NotNull Sampler noise) {
         ForgeBiome resolved = biomeProvider.resolveBiome(x, y, z, 0);
         ResourceKey<Biome> key = resolved.getResourceKey();
-        return registryAccess.registryOrThrow(net.minecraft.core.registries.Registries.BIOME)
-                .getHolderOrThrow(key);
+        return registryAccess
+                .lookup(Registries.BIOME)
+                .get().getOrThrow(key);
     }
 
     public BiomeResolver<ForgeBiome> getBiomeProvider() {

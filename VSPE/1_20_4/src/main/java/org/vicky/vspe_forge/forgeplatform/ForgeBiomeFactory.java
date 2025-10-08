@@ -11,10 +11,20 @@ import org.vicky.vspe_forge.dimension.ForgeBiome;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ForgeBiomeFactory implements PlatformBiomeFactory<ForgeBiome> {
 
     public static final Set<ForgeBiome> REGISTERED_BIOMES = new HashSet<>();
+
+    static {
+        try {
+            Class.forName("org.vicky.vspe.platform.systems.dimension.globalDimensions.BiomeResolvers")
+                    .getSimpleName();
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public static void boostrap(BootstapContext<Biome> context) {
         REGISTERED_BIOMES.forEach((b) -> {
@@ -25,7 +35,12 @@ public class ForgeBiomeFactory implements PlatformBiomeFactory<ForgeBiome> {
 
     @Override
     public Optional<ForgeBiome> getFor(ResourceLocation loc) {
-        return REGISTERED_BIOMES.stream().filter(it -> it.getResourceKey().location().toString().equals(loc.asString())).findAny()
+        VspeForge.LOGGER.info("This is the list of biomes: {}",
+                REGISTERED_BIOMES.stream()
+                        .map(ForgeBiome::getIdentifier)
+                        .collect(Collectors.joining(", ", "[", "]"))
+        );
+        return REGISTERED_BIOMES.stream().filter(it -> it.getResourceKey().location().toString().equals(loc.asString())).findAny();
     }
 
     @Override

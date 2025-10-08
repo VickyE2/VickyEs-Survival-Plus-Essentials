@@ -3,10 +3,9 @@
   "generator": {
     "type": "vspe:unimpressed",
     "biome_source": {
-      "type": "vspe:unimpressed",
       "descriptor_id": "vspe:crymorra",
       "descriptor_name": "Crymorra"
     },
-    "seed": 978628087511901213
+    "seed": -8763419309440545108
   }
 }

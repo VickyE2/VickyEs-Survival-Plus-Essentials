@@ -2,9 +2,10 @@ package org.vicky.vspe_forge;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -40,6 +41,7 @@ import org.vicky.vspe_forge.dimension.WorldManager;
 import org.vicky.vspe_forge.forgeplatform.*;
 import org.vicky.vspe_forge.forgeplatform.useables.VSPEDimensionEffects;
 import org.vicky.vspe_forge.registers.Blocks;
+import org.vicky.vspe_forge.registers.Dimensions;
 import org.vicky.vspe_forge.registers.Items;
 import org.vicky.vspe_forge.registers.Tabs;
 
@@ -54,20 +56,24 @@ public class VspeForge implements VSPEPlatformPlugin {
     public static final String MODID = "vspe";
     public static final Logger LOGGER = LogUtils.getLogger();
     public static MinecraftServer server;
-    public static RegistryAccess registryAccess;
+    public static HolderLookup.Provider registryAccess;
+    public static net.minecraft.core.HolderGetter<Biome> datagenBiomeAccess;
 
     public VspeForge() {
         VSPEPlatformPlugin.set(this);
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
-
         modEventBus.addListener(this::commonSetup);
+
         Blocks.BLOCKS.register(modEventBus);
         Blocks.BLOCK_ITEMS.register(modEventBus);
         Items.ITEMS.register(modEventBus);
+        Dimensions.STRUCTURE_TYPES.register(modEventBus);
         Tabs.CREATIVE_MODE_TABS.register(modEventBus);
-        MinecraftForge.EVENT_BUS.register(this);
 
+        MinecraftForge.EVENT_BUS.register(this);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+        ForgeStructureManager.createInstance(() -> null);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -85,6 +91,7 @@ public class VspeForge implements VSPEPlatformPlugin {
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("HELLO from server starting");
         try {
+            ForgeStructureManager.destroyInstance();
             ForgeStructureManager.createInstance(() -> event.getServer().getResourceManager());
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -94,11 +101,6 @@ public class VspeForge implements VSPEPlatformPlugin {
     @SubscribeEvent
     public void onServerStopping(ServerStoppedEvent event) {
         LOGGER.info("GOODBYE from server ending");
-        try {
-            ForgeStructureManager.destroyInstance();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @SubscribeEvent
@@ -204,6 +206,8 @@ public class VspeForge implements VSPEPlatformPlugin {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             // Some client setup code
+            ForgeStructureManager.destroyInstance();
+            ForgeStructureManager.createInstance(() -> Minecraft.getInstance().getResourceManager());
             LOGGER.info("HELLO FROM CLIENT SETUP");
             LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
         }

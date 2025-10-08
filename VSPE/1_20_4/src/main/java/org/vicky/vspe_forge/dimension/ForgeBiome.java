@@ -14,7 +14,6 @@ import org.vicky.forge.forgeplatform.useables.ForgePlatformBlockStateAdapter;
 import org.vicky.vspe.BiomeCategory;
 import org.vicky.vspe.PrecipitationType;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
-import org.vicky.vspe_forge.VspeForge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +35,6 @@ public class ForgeBiome implements PlatformBiome {
     private final @NotNull List<NoiseLayer> heightSampler;
     private final @NotNull BiomeCategory biomeCategory;
     private final @NotNull PrecipitationType precipitationType;
-    private final @NotNull BiomeStructureData structureData;
     private final @NotNull List<BiomeFeature<BlockState>> features;
     private final @NotNull BiomeBlockDistributionPalette<ForgePlatformBlockStateAdapter> distributionPalette;
     private final @NotNull BiomeSpawnSettings spawnSettings;
@@ -69,7 +67,6 @@ public class ForgeBiome implements PlatformBiome {
         this.heightSampler = builder.heightSampler;
         this.biomeCategory = builder.biomeCategory;
         this.precipitationType = builder.precipitationType;
-        this.structureData = builder.structureData;
         this.features = builder.features;
         this.distributionPalette = builder.distributionPalette;
         this.spawnSettings = builder.spawnSettings;
@@ -77,9 +74,8 @@ public class ForgeBiome implements PlatformBiome {
         this.isMountainous = builder.isMountainous;
         this.isHumid = builder.isHumid;
         this.isCold = builder.isCold;
-        this.resourceKey = ResourceKey.create(Registries.BIOME, ResourceLocation.fromNamespaceAndPath(VspeForge.MODID, identifier.split(":", 2)[1]));
+        this.resourceKey = ResourceKey.create(Registries.BIOME, new ResourceLocation(identifier));
     }
-
     public ForgeBiome(BiomeParameters params) {
         this.name = params.getName();
         this.biomeColor = params.getBiomeColor();
@@ -96,7 +92,6 @@ public class ForgeBiome implements PlatformBiome {
         this.heightSampler = params.getHeightSampler();
         this.biomeCategory = params.getCategory();
         this.precipitationType = params.getPrecipitation();
-        this.structureData = params.getBiomeStructureData();
         this.features = (List<BiomeFeature<BlockState>>) (List<?>) params.getFeatures();
         this.distributionPalette = (BiomeBlockDistributionPalette<ForgePlatformBlockStateAdapter>) params.getDistributionPalette();
         this.spawnSettings = params.getSpawnSettings();
@@ -104,7 +99,7 @@ public class ForgeBiome implements PlatformBiome {
         this.isMountainous = params.isMountainous();
         this.isHumid = params.isHumid();
         this.isCold = params.isCold();
-        this.resourceKey = ResourceKey.create(Registries.BIOME, ResourceLocation.fromNamespaceAndPath(VspeForge.MODID, identifier.split(":", 2)[1]));
+        this.resourceKey = ResourceKey.create(Registries.BIOME, new ResourceLocation(identifier));
     }
 
     // Translate your fields to a vanilla Biome
@@ -121,12 +116,6 @@ public class ForgeBiome implements PlatformBiome {
 
         BiomeGenerationSettings.Builder biomeBuilder =
                 new BiomeGenerationSettings.Builder(context.lookup(Registries.PLACED_FEATURE), context.lookup(Registries.CONFIGURED_CARVER));
-
-        // TODO: translate each Platform BiomeFeature<BlockState> to a ConfiguredFeature / PlacedFeature and add:
-        // Example: genBuilder.addFeature(GenerationStep.Decoration.UNDERGROUND_ORES, yourPlacedFeatureHolder);
-        for (BiomeFeature<BlockState> f : this.features) {
-            // Adapter.translateFeature(f, genBuilder); // implement this: map your feature -> configured/placed feature and add
-        }
 
         // 3) Mob spawn settings
         MobSpawnSettings.Builder spawnBuilder = new MobSpawnSettings.Builder();
@@ -220,11 +209,6 @@ public class ForgeBiome implements PlatformBiome {
     }
 
     @Override
-    public @NotNull BiomeStructureData getBiomeStructureData() {
-        return structureData;
-    }
-
-    @Override
     public @NotNull BiomeBlockDistributionPalette<ForgePlatformBlockStateAdapter> getDistributionPalette() {
         return distributionPalette;
     }
@@ -290,7 +274,6 @@ public class ForgeBiome implements PlatformBiome {
         private List<NoiseLayer> heightSampler = new ArrayList<>();
         private BiomeCategory biomeCategory = BiomeCategory.PLAINS;
         private PrecipitationType precipitationType = PrecipitationType.RAIN;
-        private BiomeStructureData structureData = BiomeStructureData.EMPTY.INSTANCE;
         private List<BiomeFeature<BlockState>> features = new ArrayList<>();
         private BiomeBlockDistributionPalette<ForgePlatformBlockStateAdapter> distributionPalette = new BiomeBlockDistributionPalette<>();
         private BiomeSpawnSettings spawnSettings = new BiomeSpawnSettings();
@@ -388,11 +371,6 @@ public class ForgeBiome implements PlatformBiome {
 
         public Builder precipitationType(PrecipitationType type) {
             this.precipitationType = type;
-            return this;
-        }
-
-        public Builder structureData(BiomeStructureData data) {
-            this.structureData = data;
             return this;
         }
 

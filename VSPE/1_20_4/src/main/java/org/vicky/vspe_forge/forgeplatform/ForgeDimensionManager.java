@@ -50,7 +50,7 @@ public class ForgeDimensionManager implements PlatformDimensionManager<BlockStat
         }
         CoreDimensionRegistry.getRegisteredDescriptors().forEach(it -> {
             DIMENSION_DESCRIPTOR_SET.add(it);
-            UnImpressedChunkGenerator gen = new UnImpressedChunkGenerator(new UnImpressedBiomeSource(it), stringToSeed(it.description()));
+            UnImpressedChunkGenerator gen = new UnImpressedChunkGenerator(new UnImpressedBiomeSource(it), stringToSeed(it.description() + UUID.randomUUID()));
             GENERATORS.put(cleanNamespace(it.name()).toUpperCase(), gen);
         });
     }

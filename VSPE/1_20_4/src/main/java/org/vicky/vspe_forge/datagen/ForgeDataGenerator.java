@@ -10,7 +10,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.registries.RegisterEvent;
 import org.jetbrains.annotations.NotNull;
-import org.vicky.vspe_forge.VspeForge;
 import org.vicky.vspe_forge.dimension.ForgeWorldGenProvider;
 import org.vicky.vspe_forge.dimension.UnImpressedBiomeSource;
 import org.vicky.vspe_forge.dimension.UnImpressedChunkGenerator;
@@ -20,26 +19,21 @@ import org.vicky.vspe_forge.forgeplatform.ForgeDimensionManager;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-@Mod.EventBusSubscriber(modid = VspeForge.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
+import static org.vicky.vspe_forge.VspeForge.MODID;
+import static org.vicky.vspe_forge.VspeForge.registryAccess;
+
+@Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class ForgeDataGenerator {
     @SubscribeEvent
     public static void gatherData(GatherDataEvent event) {
+        registryAccess = event.getLookupProvider().join();
         CompletableFuture<HolderLookup.Provider> chained = getProviderCompletableFuture(event);
 
         DataGenerator generator = event.getGenerator();
         PackOutput packOutput = generator.getPackOutput();
         ExistingFileHelper existingFileHelper = event.getExistingFileHelper();
 
-        /* generator.addProvider(event.includeServer(), new ModRecipeProvider(packOutput));
-        // generator.addProvider(event.includeServer(), ModLootTableProvider.create(packOutput));
-        // generator.addProvider(event.includeClient(), new ModBlockStateProvider(packOutput, existingFileHelper));
-        // generator.addProvider(event.includeClient(), new ModItemModelProvider(packOutput, existingFileHelper));
-        // ModBlockTagGenerator blockTagGenerator = generator.addProvider(event.includeServer(),
-        //         new ModBlockTagGenerator(packOutput, lookupProvider, existingFileHelper));
-        // generator.addProvider(event.includeServer(), new ModItemTagGenerator(packOutput, lookupProvider, blockTagGenerator.contentsGetter(), existingFileHelper));
-        // generator.addProvider(event.includeServer(), new ModGlobalLootModifiersProvider(packOutput));
-        // generator.addProvider(event.includeServer(), new ModPoiTypeTagsProvider(packOutput, lookupProvider, existingFileHelper));
-        */
+        // Add the datagen provider which will write the jsons to the output.
         generator.addProvider(event.includeServer(), new ForgeWorldGenProvider(packOutput, chained));
     }
 

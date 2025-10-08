@@ -2,43 +2,48 @@ package org.vicky.vspe_forge.dimension;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import de.pauleff.api.ICompoundTag;
 import net.minecraft.Util;
-import net.minecraft.core.BlockPos;
+import net.minecraft.core.*;
 import net.minecraft.server.level.WorldGenRegion;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.LevelHeightAccessor;
-import net.minecraft.world.level.NoiseColumn;
-import net.minecraft.world.level.StructureManager;
+import net.minecraft.world.level.*;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
 import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.level.levelgen.GenerationStep;
-import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.level.levelgen.*;
 import net.minecraft.world.level.levelgen.blending.Blender;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructureSet;
+import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.vicky.platform.utils.ResourceLocation;
-import org.vicky.platform.utils.Vec3;
 import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ChunkHeightProvider;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.MultiParameterBiomeResolver;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.WeightedStructurePlacer;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.function.Predicate;
 
 public class UnImpressedChunkGenerator extends ChunkGenerator {
     public static final Codec<UnImpressedChunkGenerator> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UnImpressedBiomeSource.CODEC.fieldOf("biome_source").forGetter(gen -> (UnImpressedBiomeSource) gen.biomeSource),
-            Codec.LONG.fieldOf("seed").forGetter(gen -> gen.seed)
+            Codec.LONG.fieldOf("seed").forGetter(gen -> gen.seed)/*,
+            RegistryCodecs.homogeneousList(Registries.STRUCTURE_SET)
+                    .fieldOf("structure_sets")
+                    .forGetter(gen -> gen.structureSets)*/
     ).apply(instance, UnImpressedChunkGenerator::new));
     private static final WeightedStructurePlacer<BlockState> structurePlacer = new WeightedStructurePlacer<>();
     private static final Map<String, ChunkHeightProvider> heightProviderCache = new ConcurrentHashMap<>();
@@ -85,18 +90,9 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         return CODEC;
     }
 
-    // === Biomes phase (like vanilla createBiomes) ===
-    @Override
-    public CompletableFuture<ChunkAccess> createBiomes(Executor executor, RandomState randomState,
-                                                       Blender blender, StructureManager structureManager,
-                                                       ChunkAccess chunk) {
-        return CompletableFuture.supplyAsync(Util.wrapThreadWithTaskName("init_biomes", () -> {
-            logProgress("UnImpressedChunkGenerator.createBiomes for chunk " + chunk.getPos());
-            GenerationDebug g = debugFor(chunk.getPos());
-            g.setStage(GenStage.BIOMES_INIT);
-            doCreateBiomes(blender, randomState, structureManager, chunk);
-            return chunk;
-        }), Util.backgroundExecutor());
+    private static int fetchReferences(StructureManager manager, ChunkAccess chunk, SectionPos sectionPos, Structure structure) {
+        StructureStart existing = manager.getStartForStructure(sectionPos, structure, chunk);
+        return existing != null ? existing.getReferences() : 0;
     }
 
     @Override
@@ -119,13 +115,18 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         return getSeaLevel() - getMinY();
     }
 
-    private void doCreateBiomes(Blender blender, RandomState randomState,
-                                StructureManager structureManager, ChunkAccess chunk) {
-        // Use biome resolver from the RandomState if available (vanilla does this)
-        BiomeResolver resolver = blender.getBiomeResolver(this.biomeSource);
-        chunk.fillBiomesFromNoise(resolver, randomState.sampler());
-        GenerationDebug g = debugFor(chunk.getPos());
-        g.setBiomesFilled(true);
+    // === Biomes phase (like vanilla createBiomes) ===
+    @Override
+    public CompletableFuture<ChunkAccess> createBiomes(Executor executor, RandomState randomState,
+                                                       Blender blender, StructureManager structureManager,
+                                                       ChunkAccess chunk) {
+        return CompletableFuture.supplyAsync(Util.wrapThreadWithTaskName("init_biomes", () -> {
+            logProgress("UnImpressedChunkGenerator.createBiomes for chunk " + chunk.getPos());
+            GenerationDebug g = debugFor(chunk.getPos());
+            g.setStage(GenStage.BIOMES_INIT);
+            doCreateBiomes(blender, randomState, chunk);
+            return chunk;
+        }), Util.backgroundExecutor());
     }
 
     // === Fill phase ===
@@ -164,6 +165,101 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         }), Util.backgroundExecutor()).whenCompleteAsync((c, t) -> {
             for (LevelChunkSection sec : acquired) sec.release();
         }, executor);
+    }
+
+    private void doCreateBiomes(Blender blender, RandomState randomState,
+                                ChunkAccess chunk) {
+        // Use biome resolver from the RandomState if available (vanilla does this)
+        BiomeResolver resolver = blender.getBiomeResolver(this.biomeSource);
+        chunk.fillBiomesFromNoise(resolver, randomState.sampler());
+        GenerationDebug g = debugFor(chunk.getPos());
+        g.setBiomesFilled(true);
+    }
+
+
+    @Override
+    public int getSeaLevel() {
+        if (((UnImpressedBiomeSource) biomeSource).getBiomeProvider() instanceof MultiParameterBiomeResolver<ForgeBiome> resolver)
+            return (int) (resolver.getSeaLevel() * 319);
+        return descriptor.oceanLevel();
+    }
+
+    @Override
+    public int getMinY() {
+        // fixed to -64 as you had previously
+        return descriptor.minimumY();
+    }
+
+    @Override
+    public int getBaseHeight(int x, int z, @NotNull Heightmap.Types heightmap,
+                             @NotNull LevelHeightAccessor world, @NotNull RandomState noiseConfig) {
+
+        // determine chunk & index
+        int chunkX = Math.floorDiv(x, 16);
+        int chunkZ = Math.floorDiv(z, 16);
+        int localX = Math.floorMod(x, 16);
+        int localZ = Math.floorMod(z, 16);
+        int idx = localX + localZ * 16;
+
+        // Find the biome from our biome source
+        ForgeBiome biome = ((UnImpressedBiomeSource) biomeSource).getBiomeProvider().resolveBiome(x, 0, z, seed);
+        ChunkHeightProvider provider = getOrCreateProviderForBiome(biome);
+        int[] heights = computeSmoothedHeights(provider, chunkX, chunkZ);
+
+        int minY = getMinY();
+        int maxY = world.getHeight();
+        int topY = minY;
+
+        if (idx >= 0 && idx < heights.length) {
+            int candidate = heights[idx];
+            if (candidate >= minY && candidate < maxY) {
+                BlockState forgeData = biome.getDistributionPalette().getFor(localX, candidate, localZ, topY, getSeaLevel()).getNative();
+                if (heightmap.isOpaque().test(forgeData)) {
+                    topY = candidate;
+                }
+            }
+        }
+
+        return topY;
+    }
+
+    @Override
+    public @NotNull NoiseColumn getBaseColumn(int x, int z, @NotNull LevelHeightAccessor world, @NotNull RandomState noiseConfig) {
+        int minY = getMinY();
+        int total = world.getHeight();
+        BlockState[] array = new BlockState[total];
+        Arrays.fill(array, Blocks.AIR.defaultBlockState());
+
+        // compute topY from provider/palette
+        ForgeBiome biome = ((UnImpressedBiomeSource) biomeSource).getBiomeProvider().resolveBiome(x, 0, z, seed);
+        int chunkX = Math.floorDiv(x, 16);
+        int chunkZ = Math.floorDiv(z, 16);
+        ChunkHeightProvider provider = getOrCreateProviderForBiome(biome);
+        int[] heights = provider.getChunkHeights(chunkX, chunkZ);
+        int localX = Math.floorMod(x, 16);
+        int localZ = Math.floorMod(z, 16);
+        int idx = localX + localZ * 16;
+
+        if (heights != null && idx >= 0 && idx < heights.length) {
+            int topY = heights[idx];
+            for (int y = minY; y <= topY && y < minY + total; y++) {
+                PlatformBlockState<BlockState> p = biome.getDistributionPalette().getFor(localX, y, localZ, topY, getSeaLevel());
+                BlockState bd = p.getNative();
+                array[y - minY] = bd;
+            }
+        }
+
+        return new NoiseColumn(minY, array);
+    }
+
+    // -------------------------
+    // Replace your heavy logic inside helpers:
+    // -------------------------
+    private PlatformBlockState<BlockState> getBlockForHeight(int localX, int y, int localZ, int topY, ForgeBiome[] padded, int paddedW, int idx) {
+        // Look up biome from padded grid. Keep this lightweight, avoid registry lookups here.
+        ForgeBiome biome = padded[(localX + 3) + (localZ + 3) * paddedW]; // example if radius=3; adapt accordingly
+        if (biome == null) return null;
+        return biome.getDistributionPalette().getFor(localX, y, localZ, topY, getSeaLevel()); // keep this fast
     }
 
     private ChunkAccess doFill(Blender blender, StructureManager structureAccessor,
@@ -306,243 +402,138 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
 
         // Place per-column features (invoke your existing feature placement but avoid heavy allocations)
         g.setStage(GenStage.FEATURES);
-        placePerColumnFeatures(chunk, pos, topYs, padded, paddedW, biomeForColumn, new SeededRandomSource(seed), seedForChunk, seed);
+
         g.setStage(GenStage.DONE);
         return chunk;
     }
 
-
     @Override
-    public int getSeaLevel() {
-        if (((UnImpressedBiomeSource) biomeSource).getBiomeProvider() instanceof MultiParameterBiomeResolver<ForgeBiome> resolver)
-            return (int) (resolver.getSeaLevel() * 319);
-        return descriptor.oceanLevel();
+    public int getSpawnHeight(@NotNull LevelHeightAccessor world) {
+        // Return the average "sea level" or something a bit higher
+        return Math.max(getSeaLevel() + 5, getMinY() + 64);
     }
 
     @Override
-    public int getMinY() {
-        // fixed to -64 as you had previously
-        return descriptor.minimumY();
-    }
-
-    @Override
-    public int getBaseHeight(int x, int z, @NotNull Heightmap.Types heightmap,
-                             @NotNull LevelHeightAccessor world, @NotNull RandomState noiseConfig) {
-
-        // determine chunk & index
-        int chunkX = Math.floorDiv(x, 16);
-        int chunkZ = Math.floorDiv(z, 16);
-        int localX = Math.floorMod(x, 16);
-        int localZ = Math.floorMod(z, 16);
-        int idx = localX + localZ * 16;
-
-        // Find the biome from our biome source
-        ForgeBiome biome = ((UnImpressedBiomeSource) biomeSource).getBiomeProvider().resolveBiome(x, 0, z, seed);
-        ChunkHeightProvider provider = getOrCreateProviderForBiome(biome);
-        int[] heights = computeSmoothedHeights(provider, chunkX, chunkZ);
-
-        int minY = getMinY();
-        int maxY = world.getHeight();
-        int topY = minY;
-
-        if (idx >= 0 && idx < heights.length) {
-            int candidate = heights[idx];
-            if (candidate >= minY && candidate < maxY) {
-                BlockState forgeData = biome.getDistributionPalette().getFor(localX, candidate, localZ, topY, getSeaLevel()).getNative();
-                if (heightmap.isOpaque().test(forgeData)) {
-                    topY = candidate;
-                }
-            }
-        }
-
-        return topY;
-    }
-
-    @Override
-    public @NotNull NoiseColumn getBaseColumn(int x, int z, @NotNull LevelHeightAccessor world, @NotNull RandomState noiseConfig) {
-        int minY = getMinY();
-        int total = world.getHeight();
-        BlockState[] array = new BlockState[total];
-        Arrays.fill(array, Blocks.AIR.defaultBlockState());
-
-        // compute topY from provider/palette
-        ForgeBiome biome = ((UnImpressedBiomeSource) biomeSource).getBiomeProvider().resolveBiome(x, 0, z, seed);
-        int chunkX = Math.floorDiv(x, 16);
-        int chunkZ = Math.floorDiv(z, 16);
-        ChunkHeightProvider provider = getOrCreateProviderForBiome(biome);
-        int[] heights = provider.getChunkHeights(chunkX, chunkZ);
-        int localX = Math.floorMod(x, 16);
-        int localZ = Math.floorMod(z, 16);
-        int idx = localX + localZ * 16;
-
-        if (heights != null && idx >= 0 && idx < heights.length) {
-            int topY = heights[idx];
-            for (int y = minY; y <= topY && y < minY + total; y++) {
-                PlatformBlockState<BlockState> p = biome.getDistributionPalette().getFor(localX, y, localZ, topY, getSeaLevel());
-                BlockState bd = p.getNative();
-                array[y - minY] = bd;
-            }
-        }
-
-        return new NoiseColumn(minY, array);
-    }
-
-    // -------------------------
-    // Replace your heavy logic inside helpers:
-    // -------------------------
-    private PlatformBlockState<BlockState> getBlockForHeight(int localX, int y, int localZ, int topY, ForgeBiome[] padded, int paddedW, int idx) {
-        // Look up biome from padded grid. Keep this lightweight, avoid registry lookups here.
-        ForgeBiome biome = padded[(localX + 3) + (localZ + 3) * paddedW]; // example if radius=3; adapt accordingly
-        if (biome == null) return null;
-        return biome.getDistributionPalette().getFor(localX, y, localZ, topY, getSeaLevel()); // keep this fast
-    }
-
-    private void placePerColumnFeatures(
-            ChunkAccess chunk,
-            ChunkPos pos,
-            int[] topYs,                    // per-column top Y (16*16)
-            ForgeBiome[] padded,            // padded biome grid
-            int paddedW,                    // padded width (16 + 2*radius)
-            ForgeBiome[] biomeForColumn,    // direct per-column biome (16*16)
-            SeededRandomSource randomSource,// your seeded RNG instance (the one you created earlier)
-            java.util.function.LongFunction<Long> seedForChunk, // same function used earlier
-            long seed                       // base seed value
+    public void applyBiomeDecoration(
+            @NotNull WorldGenLevel level,
+            @NotNull ChunkAccess chunk,
+            @NotNull StructureManager structureManager
     ) {
-        final int minY = getMinY();
-        final int maxY = chunk.getHeight();
-        final int startX = pos.getMinBlockX();
-        final int startZ = pos.getMinBlockZ();
+        ChunkPos chunkPos = chunk.getPos();
 
-        // Reused objects to avoid allocations
-        final BlockPos.MutableBlockPos mpos = new BlockPos.MutableBlockPos();
-        final Heightmap hmMotion = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.MOTION_BLOCKING);
-        final Heightmap hmMotionNoLeaves = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES);
-        final Heightmap hmOceanFloor = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.OCEAN_FLOOR_WG);
-
-        // Lightweight placer that updates heightmaps when placing blocks
-        final BlockPlacer<BlockState> placer = new BlockPlacer<>() {
-            @Override
-            public int getHighestBlockAt(int worldX, int worldZ) {
-                for (int y = maxY - 1; y >= minY; y--) {
-                    mpos.set(worldX, y, worldZ);
-                    if (!chunk.getBlockState(mpos).isAir()) return y;
-                }
-                return minY;
-            }
-
-            @Override
-            public void placeBlock(int worldX, int y, int worldZ, @Nullable PlatformBlockState<BlockState> platformBlockState) {
-                if (platformBlockState == null) return;
-                BlockState bs = platformBlockState.getNative();
-                mpos.set(worldX, y, worldZ);
-                setBlockInSectionFast(chunk, mpos, bs);
-
-                // update heightmaps with local coords
-                final int localX = Math.floorMod(worldX, 16);
-                final int localZ = Math.floorMod(worldZ, 16);
-                if (!bs.isAir()) {
-                    if (bs.isSolid()) {
-                        hmMotion.update(localX, y, localZ, bs);
-                        hmMotionNoLeaves.update(localX, y, localZ, bs);
-                        hmOceanFloor.update(localX, y, localZ, bs);
-                    }
-                }
-            }
-
-            @Override
-            public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockState> platformBlockState) {
-                placeBlock((int) vec3.x, (int) vec3.y, (int) vec3.z, platformBlockState);
-            }
-
-            @Override
-            public void placeBlock(@NotNull Vec3 vec3, @Nullable PlatformBlockState<BlockState> platformBlockState, @NotNull ICompoundTag tag) {
-                placeBlock(vec3, platformBlockState);
-            }
-
-            @Override
-            public void placeBlock(int x, int y, int z, @Nullable PlatformBlockState<BlockState> platformBlockState, @NotNull ICompoundTag tag) {
-                placeBlock(x, y, z, platformBlockState);
-            }
-        };
-
-        SeededRandomSource featureRng = (SeededRandomSource) randomSource.fork(seedForChunk.apply(0xF00D_1L));
-
-        // For each column, run PER_COLUMN features
-        for (int lz = 0; lz < 16; lz++) {
-            for (int lx = 0; lx < 16; lx++) {
-                int idx = lx + lz * 16;
-                ForgeBiome platformBiome = biomeForColumn[idx];
-                if (platformBiome == null) continue;
-
-                int worldX = startX + lx;
-                int worldZ = startZ + lz;
-                int topY = topYs[idx];
-                if (topY < minY) topY = minY;
-                if (topY >= maxY) topY = maxY - 1;
-
-                FeatureContext<BlockState> ctx = new FeatureContext<>(
-                        seed,
-                        pos.x,
-                        pos.z,
-                        featureRng,
-                        placer,
-                        new NoiseSamplerProvider() {
-                            @NotNull
-                            @Override
-                            public NoiseSampler getSampler(@NotNull ResourceLocation resourceLocation) {
-                                return new FBMGenerator(seed, 2, 0.03f, 0.003f, 0.7f, 2);
-                            }
-                        }
-                );
-
-                for (BiomeFeature<?> feature : platformBiome.getFeatures()) {
-                    if (feature.getPlacement() != FeaturePlacement.PER_COLUMN) continue;
-
-                    @SuppressWarnings("unchecked")
-                    BiomeFeature<BlockState> bf = (BiomeFeature<BlockState>) feature;
-
-                    try {
-                        if (bf.shouldPlace(worldX, topY, worldZ, ctx)) {
-                            bf.place(worldX, topY, worldZ, ctx);
-                        }
-                    } catch (Exception ex) {
-                        VSPEPlatformPlugin.platformLogger().error("Feature placement error at chunk " + pos + " column ("
-                                + worldX + "," + worldZ + "): " + ex.getMessage(), ex);
-                    }
-                }
-            }
-        }
-
-        // Structures: create chunkGenerateContext and call structurePlacer
-        ChunkGenerateContext<BlockState, ForgeBiome> chunkGenerateContext = new ChunkGenerateContext<>(
-                pos.x, pos.z,
-                ((UnImpressedBiomeSource) biomeSource).getBiomeProvider(),
-                randomSource, // base RNG (structure placer may fork it further)
-                placer,
-                Vec3::new
+        BoundingBox bounds = new BoundingBox(
+                chunkPos.getMinBlockX(), getMinY(),
+                chunkPos.getMinBlockZ(),
+                chunkPos.getMaxBlockX(), getSeaLevel() + 50,
+                chunkPos.getMaxBlockZ()
         );
 
-        try {
-            structurePlacer.placeStructuresInChunk(pos.x, pos.z, chunkGenerateContext, new ChunkData<>() {
-                @Override
-                public void setBiome(int x, int y, int z, @NotNull PlatformBiome forgeBiome) {
-                    // NO-OP: biomes should already be filled once via chunk.fillBiomesFromNoise(...)
-                    // Avoid filling biomes here (it caused duplicate/frequent biome fills and errors).
-                }
+        WorldgenRandom random = new WorldgenRandom(new LegacyRandomSource(level.getSeed()));
 
-                @Override
-                public void setBlock(int x, int y, int z, @NotNull PlatformBlockState<BlockState> platformBlockState) {
-                    // Delegates to the placer (which updates heightmaps)
-                    placer.placeBlock(x, y, z, platformBlockState);
+        structureManager.startsForStructure(chunkPos, structure -> true).forEach(start -> {
+            if (start.isValid()) {
+                try {
+                    start.placeInChunk(
+                            level,              // The level being generated
+                            structureManager,   // Structure manager
+                            this,               // The chunk generator
+                            random,             // RNG
+                            bounds,             // Bounding box for placement
+                            chunkPos            // Chunk position
+                    );
+                } catch (Exception e) {
+                    System.err.println("⚠ Error placing structure " + start + " in chunk " + chunkPos);
+                    e.printStackTrace();
                 }
-            });
-            GenerationDebug g = debugFor(chunk.getPos());
-            g.setStructuresPlaced(true);
-            g.setStage(GenStage.STRUCTURES);
-        } catch (Exception ex) {
-            VSPEPlatformPlugin.platformLogger().error("Structure placement failed for chunk " + pos + ": " + ex.getMessage(), ex);
+            }
+        });
+    }
+
+    // Call this from your generator's createStructures(...) override or similar generation entrypoint
+    @Override
+    public void createStructures(@NotNull RegistryAccess registryAccess,
+                                 ChunkGeneratorStructureState chunkStructState,
+                                 @NotNull StructureManager structureManager,
+                                 ChunkAccess chunk,
+                                 @NotNull StructureTemplateManager templateManager) {
+        ChunkPos chunkPos = chunk.getPos();
+        SectionPos sectionPos = SectionPos.bottomOf(chunk);
+        RandomState randomState = chunkStructState.randomState();
+
+        // For each StructureSet that could generate here
+        chunkStructState.possibleStructureSets().forEach(structureSetHolder -> {
+            StructurePlacement placement = structureSetHolder.value().placement();
+            List<StructureSet.StructureSelectionEntry> entries = structureSetHolder.value().structures();
+
+            // Quick bail if any existing start already covers this chunk for any of the set's structures
+            for (StructureSet.StructureSelectionEntry sel : entries) {
+                StructureStart existing = structureManager.getStartForStructure(sectionPos, sel.structure().value(), chunk);
+                if (existing != null && existing.isValid()) return;
+            }
+
+            // If chunk is marked as a structure chunk by placement - try generate
+            if (placement.isStructureChunk(chunkStructState, chunkPos.x, chunkPos.z)) {
+                if (entries.size() == 1) {
+                    tryGenerateStructure(entries.get(0), structureManager, registryAccess, randomState, templateManager,
+                            chunkStructState.getLevelSeed(), chunk, chunkPos, sectionPos);
+                } else {
+                    // Weighted pick among entries (vanilla behavior)
+                    ArrayList<StructureSet.StructureSelectionEntry> arrayList = new ArrayList<>(entries);
+                    WorldgenRandom worldgenRandom = new WorldgenRandom(new LegacyRandomSource(0L));
+                    worldgenRandom.setLargeFeatureSeed(chunkStructState.getLevelSeed(), chunkPos.x, chunkPos.z);
+                    int totalWeight = arrayList.stream().mapToInt(StructureSet.StructureSelectionEntry::weight).sum();
+
+                    while (!arrayList.isEmpty()) {
+                        int pick = worldgenRandom.nextInt(totalWeight);
+                        int idx = 0;
+                        for (; idx < arrayList.size(); idx++) {
+                            pick -= arrayList.get(idx).weight();
+                            if (pick < 0) break;
+                        }
+                        var chosen = arrayList.get(idx);
+                        if (tryGenerateStructure(chosen, structureManager, registryAccess, randomState, templateManager,
+                                chunkStructState.getLevelSeed(), chunk, chunkPos, sectionPos)) {
+                            return; // structure generated, don't try others
+                        }
+                        totalWeight -= chosen.weight();
+                        arrayList.remove(idx);
+                    }
+                }
+            }
+        });
+    }
+
+    private boolean tryGenerateStructure(StructureSet.StructureSelectionEntry sel,
+                                         StructureManager structureManager,
+                                         RegistryAccess registryAccess,
+                                         RandomState randomState,
+                                         StructureTemplateManager templateManager,
+                                         long levelSeed,
+                                         ChunkAccess chunk,
+                                         ChunkPos chunkPos,
+                                         SectionPos sectionPos) {
+
+        Structure structure = sel.structure().value();
+
+        // fetch existing references (vanilla uses references count to influence generation)
+        int references = fetchReferences(structureManager, chunk, sectionPos, structure);
+
+        HolderSet<Biome> biomes = structure.biomes();
+        Predicate<Holder<Biome>> biomePredicate = biomes::contains;
+
+        // structure.generate(...) -> returns StructureStart
+        StructureStart start = structure.generate(registryAccess, this, this.biomeSource, randomState, templateManager,
+                levelSeed, chunkPos, references, chunk, biomePredicate);
+
+        if (start.isValid()) {
+            // store the start in the StructureManager for this section (vanilla does exactly this)
+            structureManager.setStartForStructure(sectionPos, structure, start, chunk);
+            return true;
+        } else {
+            return false;
         }
     }
+
 
     @Override
     public void addDebugScreenInfo(@NotNull List<String> text, @NotNull RandomState noiseConfig, @NotNull BlockPos pos) {

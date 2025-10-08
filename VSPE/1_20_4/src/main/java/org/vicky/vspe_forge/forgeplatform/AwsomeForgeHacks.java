@@ -9,7 +9,9 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.util.valueproviders.ConstantInt;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
+import org.jetbrains.annotations.NotNull;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource;
 import org.vicky.vspe_forge.forgeplatform.useables.VSPEDimensionEffects;
 
 import java.util.List;
@@ -22,6 +24,55 @@ public class AwsomeForgeHacks {
         ResourceLocation id = new ResourceLocation(dimensionName);
         ResourceKey<Level> key = ResourceKey.create(Registries.DIMENSION, id);
         return server.getLevel(key);
+    }
+
+    public static RandomSource fromForge(net.minecraft.util.RandomSource forge) {
+        return new RandomSource() {
+            @Override
+            public int nextInt(int i) {
+                return forge.nextInt(i);
+            }
+
+            @Override
+            public int nextInt(int i, int i1) {
+                return forge.nextInt(i, i1);
+            }
+
+            @Override
+            public double nextDouble() {
+                return forge.nextDouble();
+            }
+
+            @Override
+            public float nextFloat() {
+                return forge.nextFloat();
+            }
+
+            @Override
+            public boolean nextBoolean() {
+                return forge.nextBoolean();
+            }
+
+            @Override
+            public long nextLong() {
+                return forge.nextLong();
+            }
+
+            @Override
+            public long getSeed() {
+                return forge.nextLong();
+            }
+
+            @Override
+            public void setSeed(long l) {
+                forge.setSeed(l);
+            }
+
+            @Override
+            public @NotNull RandomSource fork(long l) {
+                return fromForge(forge.fork());
+            }
+        };
     }
 
     public static void moveAllPlayersToOverworld(ServerLevel fromLevel) {
