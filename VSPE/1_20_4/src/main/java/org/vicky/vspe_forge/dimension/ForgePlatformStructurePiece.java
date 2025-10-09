@@ -38,7 +38,7 @@ public class ForgePlatformStructurePiece extends StructurePiece {
             @NotNull WorldGenLevel level,
             @NotNull StructureManager templates,
             @NotNull ChunkGenerator generator,
-            RandomSource random,
+            @NotNull RandomSource random,
             @NotNull BoundingBox box,
             @NotNull ChunkPos chunkPos,
             @NotNull BlockPos structureCenter
@@ -80,8 +80,10 @@ public class ForgePlatformStructurePiece extends StructurePiece {
         // 3. Resolve the structure
         stepStart = System.nanoTime();
         var resolved = nativeStructure.resolve(origin, placementCtx);
-        if (LOG_STRUCTURE_TIMING)
+        if (LOG_STRUCTURE_TIMING) {
             VspeForge.LOGGER.info("[STRUCT] Resolved structure in {} ms", elapsedMs(stepStart));
+            VspeForge.LOGGER.info("Resolved: {}", resolved.getPlacementsByChunk().keySet());
+        }
 
         final int[] times = {0};
 
@@ -133,9 +135,11 @@ public class ForgePlatformStructurePiece extends StructurePiece {
 
         // 5. Place blocks belonging to this chunk only
         stepStart = System.nanoTime();
-        nativeStructure.place(
+        nativeStructure.placeInChunk(
                 placer,
-                origin,
+                chunkPos.x,
+                chunkPos.z,
+                resolved,
                 placementCtx
         );
         if (LOG_STRUCTURE_TIMING)
@@ -144,7 +148,9 @@ public class ForgePlatformStructurePiece extends StructurePiece {
         // Total
         if (LOG_STRUCTURE_TIMING)
             VspeForge.LOGGER.info("[STRUCT] Finished placement for {} in {} ms", chunkPos, elapsedMs(totalStart));
-    }    public static final StructurePieceType TYPE = ForgePlatformStructurePiece::new;
+    }
+
+    public static final StructurePieceType TYPE = ForgePlatformStructurePiece::new;
     private final StructureRule rule;
     public ForgePlatformStructurePiece(@NotNull BlockPos pos, @NotNull PlatformStructure<BlockState> nativeStructure, @NotNull StructureRule rule) {
         super(TYPE, 0, BoundingBox.fromCorners(

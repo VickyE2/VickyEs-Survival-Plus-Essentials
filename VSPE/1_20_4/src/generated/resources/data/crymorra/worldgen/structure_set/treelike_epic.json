@@ -2,13 +2,13 @@
   "placement": {
     "type": "minecraft:random_spread",
     "salt": 2147483647,
-    "separation": 3,
-    "spacing": 8
+    "separation": 4,
+    "spacing": 11
   },
   "structures": [
     {
       "structure": "crymorra:magenta_frost_tree",
-      "weight": 5
+      "weight": 2
     }
   ]
 }

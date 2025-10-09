@@ -20,6 +20,7 @@ import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.StructureTag;
 import org.vicky.vspe.platform.PlatformStructureManager;
 import org.vicky.vspe.platform.systems.dimension.globalDimensions.StructureResolvers;
+import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Rarity;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NBTBasedStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NbtStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
@@ -43,7 +44,7 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
             = new HashMap<>();
     private static final Map<ResourceLocation, RegistryObject<Structure>> structureHolders = new HashMap<>();
     private static final List<Holder<StructureSet>> HOLDERS = new ArrayList<>();
-    private static final Map<Pair<String, StructureTag>, List<StructureSet.StructureSelectionEntry>> STRUCTURE_SETS = new HashMap<>();
+    private static final Map<Pair<String, Pair<StructureTag, Rarity>>, List<StructureSet.StructureSelectionEntry>> STRUCTURE_SETS = new HashMap<>();
     private static ForgeStructureManager INSTANCE;
 
     static {
@@ -104,15 +105,15 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
         });
 
         STRUCTURE_SETS.forEach((key, sets) -> {
-            var oop = getRecommendedSpacing(key.getSecond());
+            var oop = getRecommendedSpacing(key.getSecond().getFirst(), key.getSecond().getSecond());
             HOLDERS.add(
                     context.register(
-                            ResourceKey.create(Registries.STRUCTURE_SET, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(key.getFirst(), key.getSecond().name().toLowerCase())),
+                            ResourceKey.create(Registries.STRUCTURE_SET, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(key.getFirst(), key.getSecond().getFirst().name().toLowerCase() + "_" + key.getSecond().getSecond().name().toLowerCase())),
                             new StructureSet(sets, new RandomSpreadStructurePlacement(
                                     oop.spacing,
                                     oop.separation,
                                     RandomSpreadType.LINEAR,
-                                    Math.abs(Math.round(stringToSeed(key.getSecond().name())))
+                                    Math.abs(Math.round(stringToSeed(key.getSecond().getFirst().name())))
                             ))
                     )
             );
@@ -124,7 +125,7 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
         StructureSet.StructureSelectionEntry entry =
                 new StructureSet.StructureSelectionEntry(myStructure, it.getSecond().getWeight());
         STRUCTURE_SETS.computeIfAbsent(
-                new Pair<>(it.getSecond().getResource().getNamespace(), it.getSecond().getTags()), us -> new ArrayList<>()).add(entry);
+                new Pair<>(it.getSecond().getResource().getNamespace(), new Pair<>(it.getSecond().getTags(), it.getSecond().getRarity())), us -> new ArrayList<>()).add(entry);
     }
 
     @Override
@@ -170,21 +171,43 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
         return temp;
     }
 
-    public static StructureSpacing getRecommendedSpacing(StructureTag type) {
-        return switch (type) {
-            case TREELIKE -> new StructureSpacing(8, 3);       // Common, small features
-            case HOUSE -> new StructureSpacing(10, 4);          // Small overworld buildings
-            case RUINS -> new StructureSpacing(20, 6);          // Scattered ruins
-            case DUNGEON -> new StructureSpacing(24, 6);        // Underground, medium rarity
-            case FROZEN -> new StructureSpacing(28, 7);         // Special biome substructures
-            case VILLAGE -> new StructureSpacing(40, 8);        // Large population centers
-            case OCEAN -> new StructureSpacing(48, 10);         // Big oceanic structures
-            case SKY -> new StructureSpacing(56, 12);           // Floating, should feel rare
-            case NETHER -> new StructureSpacing(64, 12);        // Harsh environment, spaced apart
-            case ANCIENT -> new StructureSpacing(80, 16);       // Very rare, major lore structures
-            case EMPTY -> new StructureSpacing(120, 20);        // Placeholder or unused category
+    public static StructureSpacing getRecommendedSpacing(StructureTag type, Rarity rarity) {
+        StructureSpacing base = switch (type) {
+            case TREELIKE -> new StructureSpacing(8, 3);
+            case HOUSE -> new StructureSpacing(10, 4);
+            case RUINS -> new StructureSpacing(20, 6);
+            case DUNGEON -> new StructureSpacing(24, 6);
+            case FROZEN -> new StructureSpacing(28, 7);
+            case VILLAGE -> new StructureSpacing(40, 8);
+            case OCEAN -> new StructureSpacing(48, 10);
+            case SKY -> new StructureSpacing(56, 12);
+            case NETHER -> new StructureSpacing(64, 12);
+            case ANCIENT -> new StructureSpacing(80, 16);
+            case EMPTY -> new StructureSpacing(120, 20);
         };
+
+        // Apply rarity scaling
+        return scaleSpacingByRarity(base, rarity);
     }
+
+    private static StructureSpacing scaleSpacingByRarity(StructureSpacing base, Rarity rarity) {
+        // You can tweak this multiplier scale
+        double rarityMultiplier = 1.0 + ((20.0 - rarity.getRarityValue()) / 20.0);
+        // Example:
+        // VERY_COMMON → 1.0x
+        // COMMON → 1.1x
+        // RARE → 1.25x
+        // EPIC → 1.4x
+        // LEGENDARY → 1.55x
+        // MYTHIC → 1.7x
+        // GOD_TIER → 1.9x
+
+        int spacing = (int) Math.round(base.spacing() * rarityMultiplier);
+        int separation = (int) Math.round(base.separation() * rarityMultiplier * 0.9);
+
+        return new StructureSpacing(spacing, separation);
+    }
+
 
     public record StructureSpacing(int spacing, int separation) {
     }

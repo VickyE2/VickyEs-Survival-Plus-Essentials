@@ -1,7 +1,7 @@
-// 1.20.4	2025-10-08T15:54:01.4929806	Registries
+// 1.20.4	2025-10-09T03:22:06.7763333	Registries
 0987b90a56612508626b92cce6b1f3d976939b90 data/crymorra/worldgen/biome/frigid_sea.json
 a30efe0f7e77348f9c35353899db8f7393739086 data/crymorra/worldgen/biome/magenta_forest.json
 aede1dbda7bf5f414e8ddf15744eaa57a4ed1fbb data/crymorra/worldgen/structure/magenta_frost_tree.json
-9a3b0b085db7d6584173c2ccb0bc5ff3a9ea6d1e data/crymorra/worldgen/structure_set/treelike.json
-cc9b79dabef605b2f138cb815df612d01ecc3f21 data/vspe/dimension/crymorra.json
+ceb62cb1f9469ec66d1f077824fd1f52f7e46cff data/crymorra/worldgen/structure_set/treelike_epic.json
+a72e759dacf9f45a3c3ad9575970285f9748276a data/vspe/dimension/crymorra.json
 c9b032b1da34d45098185a8383f71b582efc407b data/vspe/dimension_type/crymorra.json
