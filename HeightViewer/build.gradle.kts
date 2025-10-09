@@ -23,6 +23,7 @@ dependencies {
     implementation("org.openjfx:javafx-graphics:20")
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
 }
 
 tasks.test {

@@ -5,13 +5,21 @@ import org.vicky.platform.utils.Rotation
 import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.PlatformBlockState
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*
+import java.lang.AutoCloseable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.*
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.stream.Collectors
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.random.Random
+
 
 fun createTerrainSampler(seed: Long): CompositeNoiseLayer {
     // low-frequency "mountain" ridges (FBM) — big scale, fewer features
@@ -280,4 +288,151 @@ enum class Direction(val dx: Int, val dz: Int) {
     NORTHWEST(-1, -1),
     SOUTHEAST(1, 1),
     SOUTHWEST(-1, 1)
+}
+
+class KeyedLock<K> @JvmOverloads constructor(private val fair: Boolean = false) {
+    class LockEntry(fair: Boolean) {
+        val lock: ReentrantLock = ReentrantLock(fair)
+        val refs: AtomicInteger = AtomicInteger(1)
+    }
+
+    internal val map = ConcurrentHashMap<K, LockEntry>()
+
+    /**
+     * Acquire the lock for the given key. Blocks until the lock is obtained.
+     * Must call close() on the returned LockToken (try-with-resources).
+     */
+    @Synchronized
+    fun acquire(key: K): LockToken<K> {
+        // create or bump ref count atomically
+        val entry: LockEntry = map.compute(key) { k: K, existing: LockEntry? ->
+            if (existing == null) {
+                return@compute LockEntry(fair)
+            } else {
+                existing.refs.incrementAndGet()
+                return@compute existing
+            }
+        }!!
+
+        // now obtain the lock (this will block if another thread holds it)
+        entry.lock.lock()
+        return LockToken<K>(key, entry, map)
+    }
+
+    /**
+     * Token that represents ownership. AutoCloseable so it works with try-with-resources.
+     */
+    class LockToken<K> internal constructor(key: K, entry: LockEntry, val map: ConcurrentHashMap<K, LockEntry>) :
+        AutoCloseable {
+        private val key: K = Objects.requireNonNull(key, "key")
+        private val entry: LockEntry = Objects.requireNonNull(entry, "entry")!!
+        private var closed = false
+
+        /**
+         * Release the lock and decrement ref count. If ref count drops to zero the entry
+         * is removed from the internal map (using remove(key, entry) to avoid races).
+         */
+        override fun close() {
+            if (closed) return
+            try {
+                entry.lock.unlock()
+            } finally {
+                val remaining = entry.refs.decrementAndGet()
+                if (remaining <= 0) {
+                    // remove only if the same entry is still present (avoid removing newer entry)
+                    map.remove(key, entry)
+                }
+                closed = true
+            }
+        }
+    }
+}
+
+class KeyedRWLock<K> {
+    private val map = ConcurrentHashMap<K, ReentrantReadWriteLock>()
+
+    @Synchronized
+    fun <T> withRead(
+        key: K,
+        block: () -> T,
+        ifLocked: (() -> T)? = null
+    ): T {
+        val lock = map.computeIfAbsent(key) { ReentrantReadWriteLock(true) }
+        val readLock = lock.readLock()
+
+        // Try non-blocking acquire
+        return if (readLock.tryLock()) {
+            try {
+                block()
+            } finally {
+                readLock.unlock()
+                cleanupIfUnused(key, lock)
+            }
+        } else {
+            // Fallback: either call alternate or throw
+            ifLocked?.invoke()
+                ?: throw IllegalStateException("Lock for key $key is currently held")
+        }
+    }
+
+    @Synchronized
+    fun <T> withWrite(
+        key: K,
+        block: () -> T
+    ): T {
+        val lock = map.computeIfAbsent(key) { ReentrantReadWriteLock(true) }
+        val writeLock = lock.writeLock()
+
+        return try {
+            writeLock.lock()
+            block()
+        } finally {
+            writeLock.unlock()
+            cleanupIfUnused(key, lock)
+        }
+    }
+
+    // Optional cleanup if no threads are holding this lock
+    private fun cleanupIfUnused(key: K, lock: ReentrantReadWriteLock) {
+        if (!lock.isWriteLocked && lock.readLockCount == 0) {
+            map.remove(key, lock)
+        }
+    }
+}
+
+class SingleFlightCache<K, V>(
+    private val cache: (K) -> V?
+) {
+    private val inflight = ConcurrentHashMap<K, CompletableFuture<V>>()
+    private val lock = KeyedRWLock<K>()
+
+    fun getOrGenerate(key: K, generator: (K) -> V): V {
+        // Check cache immediately — no need to wait for inflight lock
+        cache(key)?.let { return it }
+
+        // Atomically create or reuse a single future
+        val future = inflight.computeIfAbsent(key) {
+            CompletableFuture.supplyAsync {
+                try {
+                    // Check again inside async (to avoid race)
+                    cache(key)?.let { return@supplyAsync it }
+
+                    // Do the generation — lock only inside this
+                    lock.withWrite(key) {
+                        // One thread per key gets here
+                        val existing = cache(key)
+                        if (existing != null) return@withWrite existing
+                        val generated = generator(key)
+                        println("Generated new structure for $key")
+                        generated
+                    }
+                } finally {
+                    inflight.remove(key)
+                }
+            }
+        }
+
+        // This will return the same result for all concurrent callers
+        return future.join()
+    }
 }

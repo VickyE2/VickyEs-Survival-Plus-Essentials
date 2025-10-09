@@ -51,6 +51,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.10")
     compileOnly("org.hibernate.orm:hibernate-core:6.4.1.Final")
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
 }
 
 group = "org.vicky.vspe"

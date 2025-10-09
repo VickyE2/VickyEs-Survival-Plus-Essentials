@@ -1,21 +1,24 @@
 package org.vicky.vspe.viewer;
 
+import org.vicky.platform.utils.Mirror;
+import org.vicky.platform.utils.Rotation;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.vspe.platform.systems.dimension.MushroomCapProfile;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SeededRandomSource;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SimpleBlockState;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.parts.RealisticRose.realisticRoseTipMulti;
-import static org.vicky.vspe.viewer.VoxelizerViewer.computeBounds;
 
 public class Main {
+    /*
     public static void main(String[] args) {
 
         // var mapper = new ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.getHeightSampler());
@@ -32,7 +35,7 @@ public class Main {
         // ChunkHeightViewer.main(args);
         ConcurrentHashMap<VoxelizerViewer.ChunkCoord, List<VoxelizerViewer.BlockPlacement<Object>>> map = new ConcurrentHashMap<>();
         List<VoxelizerViewer.BlockPlacement<Object>> list = new ArrayList<>();
-        var tree = new NoAIProceduralTreeGenerator.NoAIPTGBuilder<String>()
+        var treeL = new NoAIProceduralTreeGenerator.NoAIPTGBuilder<String>()
                 .trunkWidth(10, 15)
                 .trunkHeight(70, 110)
                 .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
@@ -66,7 +69,10 @@ public class Main {
                         SimpleBlockState.Companion.from("440055", (it) -> it)
                 ))
                 .woodMaterial(SimpleBlockState.Companion.from("220022", (it) -> it))
-                .leafMaterial(SimpleBlockState.Companion.from("FF00FF", (it) -> it))
+                .leafMaterial(SimpleBlockState.Companion.from("FF00FF", (it) -> it));
+        new ProceduralStructure<>(treeL);
+
+        var tree = treeL
                 .build()
                 .generate(
                         new SeededRandomSource(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()).getInt()),
@@ -111,45 +117,100 @@ public class Main {
         VoxelizerViewer.SAMPLE = new VoxelizerViewer.ResolvedStructure<>(map, bounds);
         VoxelizerViewer.main(args);
     }
+     */
 
-    // Resize (bilinear) utility - up/down samples cleanly
-    private static int[] resizeHeights(int[] src, int srcSize, int dstSize) {
-        int[] out = new int[dstSize * dstSize];
-        if (srcSize <= 1) {
-            // degenerate: just fill
-            int v = src.length > 0 ? src[0] : 0;
-            for (int i = 0; i < out.length; i++) out[i] = v;
-            return out;
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        var treeL = new NoAIProceduralTreeGenerator.NoAIPTGBuilder<String>()
+                .trunkWidth(10, 15)
+                .trunkHeight(70, 110)
+                .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
+                .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
+                .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.ON_BRANCH_TIP)
+                .randomness(0.8)
+                .tipDecoration(realisticRoseTipMulti(
+                        SimpleBlockState.Companion.from("990033", (it) -> it),
+                        SimpleBlockState.Companion.from("BB0033", (it) -> it),
+                        SimpleBlockState.Companion.from("FF0033", (it) -> it),
+                        2
+                ))
+                .spacing(5)
+                .vineHeight(0.45)
+                .leafPropagationChance(0.67)
+                .branchPropagationChance(0.78)
+                .branchSizeDecay(0.95)
+                .maxBranchAmount(7)
+                .branchingPointRange(0.35, 0.80)
+                .branchMaxDevianceAngle(7)
+                .branchMaxHorizontalDevianceAngle(20)
+                .branchDepth(2)
+                .slantAngleRange(-50, 50)
+                .mushroomCapWidth(17, 20)
+                .capProfile(MushroomCapProfile.SHARP_SNOUT)
+                .branchVerticalDensity(2)
+                .vineSequenceMaterial(List.of(
+                        SimpleBlockState.Companion.from("bb00EE", (it) -> it),
+                        SimpleBlockState.Companion.from("bb00AA", (it) -> it),
+                        SimpleBlockState.Companion.from("88009A", (it) -> it),
+                        SimpleBlockState.Companion.from("440055", (it) -> it)
+                ))
+                .woodMaterial(SimpleBlockState.Companion.from("220022", (it) -> it))
+                .leafMaterial(SimpleBlockState.Companion.from("FF00FF", (it) -> it));
+        var structure = new ProceduralStructure<>(treeL);
+        StructurePlacementContext context = new StructurePlacementContext(
+                new SeededRandomSource(1234L),
+                Rotation.NONE,
+                Mirror.NONE
+        );
+
+        int threads = 8;
+        int totalStructures = 13;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        List<Future<ResolvedStructure<String>>> tasks = new ArrayList<>();
+
+        // Generate 1000 unique origins
+        List<Vec3> origins = new ArrayList<>();
+        for (int i = 0; i < totalStructures; i++) {
+            origins.add(new Vec3(0.0, 0.0, 16.0));
         }
 
-        for (int z = 0; z < dstSize; z++) {
-            double gz = (z / (double) (dstSize - 1)) * (srcSize - 1);
-            int iz = (int) Math.floor(gz);
-            double tz = gz - iz;
-            iz = Math.min(iz, srcSize - 2);
+        long start = System.currentTimeMillis();
 
-            for (int x = 0; x < dstSize; x++) {
-                double gx = (x / (double) (dstSize - 1)) * (srcSize - 1);
-                int ix = (int) Math.floor(gx);
-                double tx = gx - ix;
-                ix = Math.min(ix, srcSize - 2);
-
-                int a = src[iz * srcSize + ix];
-                int b = src[iz * srcSize + (ix + 1)];
-                int c = src[(iz + 1) * srcSize + ix];
-                int d = src[(iz + 1) * srcSize + (ix + 1)];
-
-                double v = bilerp(a, b, c, d, tx, tz);
-                out[z * dstSize + x] = (int) Math.round(v);
-            }
+        for (Vec3 origin : origins) {
+            tasks.add(executor.submit(() -> structure.resolve(origin, context)));
         }
-        return out;
-    }
 
-    private static double bilerp(double a, double b, double c, double d, double tx, double ty) {
-        double ab = a + (b - a) * tx;
-        double cd = c + (d - c) * tx;
-        return ab + (cd - ab) * ty;
+        for (Future<ResolvedStructure<String>> task : tasks) {
+            var tasked = task.get(); // wait for all to complete
+            System.out.printf(
+                    """
+                            Bounds:
+                                %s
+                            """,
+                    tasked.getBounds()
+                    //,tasked.getPlacementsByChunk().keySet()
+            );
+        }
+
+        long elapsed = System.currentTimeMillis() - start;
+
+        System.out.println("\n Resolved " + tasks.size() + " structures in " + elapsed + "ms");
+        System.out.println("Cache size = " + structure.cacheSize());
+
+        // Test many threads resolving the same origin to ensure single generation
+        System.out.println("\nTesting repeated concurrent resolves of the same key...");
+        Vec3 sameOrigin = new Vec3(100.0, 64.0, 100.0);
+        AtomicInteger generateCount = structure.resetGenerationCounter();
+        start = System.currentTimeMillis();
+
+        tasks.clear();
+        for (int i = 0; i < 100; i++) {
+            tasks.add(executor.submit(() -> structure.resolve(sameOrigin, context)));
+        }
+        for (Future<ResolvedStructure<String>> task : tasks) task.get();
+        elapsed = System.currentTimeMillis() - start;
+
+        System.out.println("GenerateResolved() called " + generateCount.get() + " time(s) for same key, elapsed(ms): " + elapsed);
+        executor.shutdown();
     }
 }
 

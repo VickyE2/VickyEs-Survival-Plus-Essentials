@@ -6,7 +6,6 @@ import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.vspe.StructureTag;
 import org.vicky.vspe.platform.NativeTypeMapper;
-import org.vicky.vspe.platform.systems.dimension.MushroomCapProfile;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Rarity;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
@@ -32,15 +31,11 @@ public class StructureResolvers<T> {
                                     .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
                                     .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.ON_BRANCH_TIP)
                                     .randomness(0.8)
-                                    .vineSequenceMaterial(List.of(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_vine"))
-                                    ))
                                     .tipDecoration(realisticRoseTipSingle(
                                             (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
                                             2
                                     ))
                                     .spacing(5)
-                                    .vineHeight(0.45)
                                     .leafPropagationChance(0.67)
                                     .branchPropagationChance(0.78)
                                     .branchSizeDecay(0.95)
@@ -50,12 +45,9 @@ public class StructureResolvers<T> {
                                     .branchMaxHorizontalDevianceAngle(20)
                                     .branchDepth(2)
                                     .slantAngleRange(-50, 50)
-                                    .mushroomCapWidth(17, 20)
-                                    .capProfile(MushroomCapProfile.SHARP_SNOUT)
                                     .branchVerticalDensity(2)
                                     .woodMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log")))
                                     .leafMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")))
-                                    .build()
                     ),
                     new StructureRule(
                             ResourceLocation.from("crymorra:magenta_frost_tree"),
