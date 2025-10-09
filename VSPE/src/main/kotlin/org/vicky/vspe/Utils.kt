@@ -258,6 +258,13 @@ data class BlockVec3i(val x: Int, val y: Int, val z: Int) {
     operator fun times(scalar: Int): BlockVec3i =
         BlockVec3i(x * scalar, y * scalar, z * scalar)
 
+    operator fun div(scalar: Int): BlockVec3i =
+        BlockVec3i(
+            (x.toDouble() / scalar).roundToInt(),
+            (y.toDouble() / scalar).roundToInt(),
+            (z.toDouble() / scalar).roundToInt()
+        )
+
     fun toChunkPos(): Pair<Int, Int> =
         x.shr(4) to z.shr(4)
 

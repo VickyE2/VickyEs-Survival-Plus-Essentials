@@ -44,6 +44,7 @@ dependencies {
     api("net.sandrohc:schematic4j:1.1.0")
     api("com.google.guava:guava:33.1.0-jre")
     api("org.yaml:snakeyaml:2.4")
+    api("com.github.ben-manes.caffeine:caffeine:3.1.8")
     implementationBundled("de.articdive:jnoise:3.0.2")
     implementationBundled("de.articdive:jnoise-pipeline:4.1.0")
     compileOnly("com.dfsek.terra:api:6.5.0-BETA+060cbfd0c")
@@ -51,7 +52,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.10")
     compileOnly("org.hibernate.orm:hibernate-core:6.4.1.Final")
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
 }
 
 group = "org.vicky.vspe"

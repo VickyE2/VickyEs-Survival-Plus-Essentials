@@ -60,15 +60,15 @@ interface PlatformStructure<T> {
     fun getSize(): BlockVec3i
 
     fun generateKey(origin: Vec3, context: StructurePlacementContext, id: ResourceLocation): ResolvedKey {
-        val size = getSize() // BlockVec3i: deterministic
+        val size = getSize() / 2 // BlockVec3i: deterministic
         val spacingBlocks = max(size.x, size.z)
         val spacingChunks = max(1, (spacingBlocks + 15) / 16) // ceil -> chunks
 
         // 2) snap origin to CHUNK grid (use chunk coordinates)
         val originChunkX = origin.x.toInt() shr 4
         val originChunkZ = origin.z.toInt() shr 4
-        val baseChunkX = Math.floorDiv(originChunkX, spacingChunks) * spacingChunks
-        val baseChunkZ = Math.floorDiv(originChunkZ, spacingChunks) * spacingChunks
+        val baseChunkX = originChunkX - (spacingChunks / 2)
+        val baseChunkZ = originChunkZ - (spacingChunks / 2)
 
         // 3) back to BLOCK coords for canonical origin used by generator
         val baseX = baseChunkX shl 4
