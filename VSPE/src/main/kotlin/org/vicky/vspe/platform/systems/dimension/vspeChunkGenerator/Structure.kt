@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.random.RandomGenerator
 import kotlin.math.abs
 import kotlin.math.floor
-import kotlin.math.max
 import kotlin.random.Random
 
 
@@ -60,20 +59,9 @@ interface PlatformStructure<T> {
     fun getSize(): BlockVec3i
 
     fun generateKey(origin: Vec3, context: StructurePlacementContext, id: ResourceLocation): ResolvedKey {
-        val size = getSize() / 2 // BlockVec3i: deterministic
-        val spacingBlocks = max(size.x, size.z)
-        val spacingChunks = max(1, (spacingBlocks + 15) / 16) // ceil -> chunks
-
-        // 2) snap origin to CHUNK grid (use chunk coordinates)
-        val originChunkX = origin.x.toInt() shr 4
-        val originChunkZ = origin.z.toInt() shr 4
-        val baseChunkX = originChunkX - (spacingChunks / 2)
-        val baseChunkZ = originChunkZ - (spacingChunks / 2)
-
-        // 3) back to BLOCK coords for canonical origin used by generator
-        val baseX = baseChunkX shl 4
-        val baseZ = baseChunkZ shl 4
+        val baseX = origin.round().intX
         val baseY = origin.round().intY
+        val baseZ = origin.round().intZ
 
         return ResolvedKey(
             id,
@@ -435,18 +423,21 @@ class ProceduralStructure<T : ProceduralStructureGenerator.BaseBuilder<BST, *>, 
     private val generator: T
 ) : PlatformStructure<BST>
 {
+    private val chunkToKey = ConcurrentHashMap<ChunkCoord, ResolvedKey>()
+    private val generationLimit = Semaphore(1)
+    private val generationCounter = AtomicInteger()
+    private val locks = SingleFlightCache<ResolvedKey, ResolvedStructure<BST>> { key ->
+        resolvedCache.getIfPresent(key)
+    }
     private val resolvedCache: Cache<ResolvedKey, ResolvedStructure<BST>> = Caffeine.newBuilder()
         .maximumSize(1024)
         .removalListener<ResolvedKey, ResolvedStructure<BST>> { key, value, _ ->
             if (key != null && value != null) {
                 // remove any chunk -> key mappings that still point to this key
-                value.placementsByChunk.keys.forEach { chunk ->
-
-                }
+                value.placementsByChunk.keys.forEach { chunk -> chunkToKey.remove(chunk, key) }
             }
         }
         .build()
-    private val generationCounter = AtomicInteger()
 
     fun resetGenerationCounter(): AtomicInteger {
         generationCounter.set(0)
@@ -468,18 +459,39 @@ class ProceduralStructure<T : ProceduralStructureGenerator.BaseBuilder<BST, *>, 
         return true
     }
 
-    private fun generateResolvedFromKey(key: ResolvedKey): ResolvedStructure<BST> {
+    override fun resolve(origin: Vec3, context: StructurePlacementContext): ResolvedStructure<BST> {
+        val resource = ResourceLocation.from("procedural", generator.javaClass.simpleName.lowercase())
+        val coord = ChunkCoord.fromBlock(origin.round().intX, origin.round().intZ)
+        val existingKey = chunkToKey[coord]
+        val key = existingKey ?: generateKey(origin, context, resource)
+        return locks.getOrGenerate(key) { k ->
+
+            generationLimit.acquire()
+            try {
+                generateResolvedFromKey(k)
+            } finally {
+
+                generationLimit.release()
+            }
+        }
+    }
+
+    private fun generateResolvedFromKey(requestKey: ResolvedKey): ResolvedStructure<BST> {
         generationCounter.incrementAndGet()
-        val origin = Vec3(key.originX.toDouble(), key.originY.toDouble(), key.originZ.toDouble())
+        val origin = Vec3(requestKey.originX.toDouble(), requestKey.originY.toDouble(), requestKey.originZ.toDouble())
+        val coord = ChunkCoord.fromBlock(origin.round().intX, origin.round().intZ)
+        val existingKey = chunkToKey[coord]
+        val requestKey = existingKey ?: requestKey
 
-        // Create a deterministic Random/RandomSource from the seed.
-        // Replace `SeededRandomSource` with your engine's constructor — keep deterministic.
-        val rnd = SeededRandomSource(key.seed) // <- adapt if your API differs
+        resolvedCache.getIfPresent(requestKey)?.let { return it }
 
-        // call generator
+        // Use the same key for origin and seed (no shadowing).
+        val rnd = SeededRandomSource(requestKey.seed)
+
+        // Generate placements using the generator (deterministic from key/seed)
         val placements: List<BlockPlacement<BST>> = generator.build().generate(rnd, origin).placements
 
-        // bucket by chunk and compute bounds
+        // Bucket by chunk and compute bounds
         val placementsByChunk = mutableMapOf<ChunkCoord, MutableList<BlockPlacement<BST>>>()
         var minX = Int.MAX_VALUE
         var minY = Int.MAX_VALUE
@@ -497,40 +509,30 @@ class ProceduralStructure<T : ProceduralStructureGenerator.BaseBuilder<BST, *>, 
             maxX = maxOf(maxX, bx); maxY = maxOf(maxY, by); maxZ = maxOf(maxZ, bz)
 
             val chunk = ChunkCoord.fromBlock(bx, bz)
-            placementsByChunk.computeIfAbsent(chunk) { mutableListOf() }.add(p)
+            placementsByChunk.computeIfAbsent(chunk) {
+                mutableListOf()
+            }.add(p)
+        }
+
+        // Build final map and claim chunk -> key mapping
+        val finalMap = ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>>()
+        placementsByChunk.forEach { (chunk, list) ->
+            finalMap[chunk] = list.toList()
+            // claim ownership of this chunk for this key
+            chunkToKey[chunk] = requestKey
         }
 
         val bounds = StructureBox(
             Vec3(minX.toDouble(), minY.toDouble(), minZ.toDouble()),
             Vec3(maxX.toDouble(), maxY.toDouble(), maxZ.toDouble()),
-            key.resource
+            requestKey.resource
         )
 
-        val finalMap = ConcurrentHashMap<ChunkCoord, List<BlockPlacement<BST>>>()
-        placementsByChunk.forEach { (chunk, list) -> finalMap[chunk] = list.toList() }
+        val resolved = ResolvedStructure(finalMap, bounds)
+        resolvedCache.put(requestKey, resolved) // single cache write
 
-        return ResolvedStructure(finalMap, bounds)
-    }
 
-    private val generationLimit = Semaphore(30)
-    private val locks = SingleFlightCache<ResolvedKey, ResolvedStructure<BST>> { key ->
-        resolvedCache.getIfPresent(key)
-    }
-
-    @Synchronized
-    override fun resolve(origin: Vec3, context: StructurePlacementContext): ResolvedStructure<BST> {
-        val resource = ResourceLocation.from("procedural", generator.javaClass.simpleName.lowercase())
-        val key = generateKey(origin, context, resource)
-        println(key)
-
-        return locks.getOrGenerate(key) {
-            generationLimit.acquire()
-            println("Generating new structure for $it")
-            val resolved = generateResolvedFromKey(it)
-            resolvedCache.put(it, resolved)
-            generationLimit.release()
-            resolved
-        }
+        return resolved
     }
 
     override fun placeInChunk(

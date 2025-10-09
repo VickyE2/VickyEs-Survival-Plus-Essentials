@@ -163,54 +163,69 @@ public class Main {
         );
 
         int threads = 8;
-        int totalStructures = 13;
-        ExecutorService executor = Executors.newFixedThreadPool(threads);
-        List<Future<ResolvedStructure<String>>> tasks = new ArrayList<>();
+        int totalStructures = 4;
+        try (ExecutorService executor = Executors.newFixedThreadPool(threads)) {
+            List<Future<ResolvedStructure<String>>> tasks = new ArrayList<>();
 
-        // Generate 1000 unique origins
-        List<Vec3> origins = new ArrayList<>();
-        for (int i = 0; i < totalStructures; i++) {
-            origins.add(new Vec3(0.0, 0.0, 16.0));
-        }
-
-        long start = System.currentTimeMillis();
-
-        for (Vec3 origin : origins) {
-            tasks.add(executor.submit(() -> structure.resolve(origin, context)));
-        }
-
-        for (Future<ResolvedStructure<String>> task : tasks) {
-            var tasked = task.get(); // wait for all to complete
-            System.out.printf(
-                    """
-                            Bounds:
-                                %s
-                            """,
-                    tasked.getBounds()
-                    //,tasked.getPlacementsByChunk().keySet()
+            // Generate 1000 unique origins
+            List<Vec3> origins = List.of(
+                    Vec3.of(0, 0, 0),
+                    Vec3.of(0, 0, 16),
+                    Vec3.of(0, 0, 32),
+                    Vec3.of(16, 0, 0),
+                    Vec3.of(32, 0, 0),
+                    Vec3.of(16, 0, 16),
+                    Vec3.of(32, 0, 32),
+                    Vec3.of(120, 0, 0),
+                    Vec3.of(120, 0, 16),
+                    Vec3.of(120, 0, 32)
             );
+
+            long start = System.currentTimeMillis();
+
+            for (Vec3 origin : origins) {
+                tasks.add(executor.submit(() -> structure.resolve(origin, context)));
+            }
+
+            List<ResolvedStructure<String>> taskedes = new ArrayList<>();
+            for (Future<ResolvedStructure<String>> task : tasks) {
+                var tasked = task.get(); // wait for all to complete
+                taskedes.add(tasked);
+            }
+
+            for (var tasked : taskedes) {
+                System.out.printf(
+                        """
+                                Bounds:
+                                    %s
+                                """,
+                        tasked.getBounds(),
+                        tasked.getPlacementsByChunk().keySet()
+                        //,tasked.getPlacementsByChunk().keySet()
+                );
+            }
+
+            long elapsed = System.currentTimeMillis() - start;
+
+            System.out.println("\n Resolved " + tasks.size() + " structures in " + elapsed + "ms");
+            System.out.println("Cache size = " + structure.cacheSize());
+
+            // Test many threads resolving the same origin to ensure single generation
+            System.out.println("\nTesting repeated concurrent resolves of the same key...");
+            Vec3 sameOrigin = new Vec3(100.0, 64.0, 100.0);
+            AtomicInteger generateCount = structure.resetGenerationCounter();
+            start = System.currentTimeMillis();
+
+            tasks.clear();
+            for (int i = 0; i < 100; i++) {
+                tasks.add(executor.submit(() -> structure.resolve(sameOrigin, context)));
+            }
+            for (Future<ResolvedStructure<String>> task : tasks) task.get();
+            elapsed = System.currentTimeMillis() - start;
+
+            System.out.println("GenerateResolved() called " + generateCount.get() + " time(s) for same key, elapsed(ms): " + elapsed);
+            executor.shutdown();
         }
-
-        long elapsed = System.currentTimeMillis() - start;
-
-        System.out.println("\n Resolved " + tasks.size() + " structures in " + elapsed + "ms");
-        System.out.println("Cache size = " + structure.cacheSize());
-
-        // Test many threads resolving the same origin to ensure single generation
-        System.out.println("\nTesting repeated concurrent resolves of the same key...");
-        Vec3 sameOrigin = new Vec3(100.0, 64.0, 100.0);
-        AtomicInteger generateCount = structure.resetGenerationCounter();
-        start = System.currentTimeMillis();
-
-        tasks.clear();
-        for (int i = 0; i < 100; i++) {
-            tasks.add(executor.submit(() -> structure.resolve(sameOrigin, context)));
-        }
-        for (Future<ResolvedStructure<String>> task : tasks) task.get();
-        elapsed = System.currentTimeMillis() - start;
-
-        System.out.println("GenerateResolved() called " + generateCount.get() + " time(s) for same key, elapsed(ms): " + elapsed);
-        executor.shutdown();
     }
 }
 

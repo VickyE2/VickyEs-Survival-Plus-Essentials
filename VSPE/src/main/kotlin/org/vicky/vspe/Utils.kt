@@ -411,35 +411,60 @@ class SingleFlightCache<K, V>(
     private val cache: (K) -> V?
 ) {
     private val inflight = ConcurrentHashMap<K, CompletableFuture<V>>()
-    private val lock = KeyedRWLock<K>()
+    private val threadGenerating = ThreadLocal.withInitial { mutableSetOf<K>() }
 
+    /**
+     * Returns a cached value or runs [generator] exactly once for a given key.
+     * This implementation avoids holding external locks while waiting and handles
+     * re-entrant calls from the same thread (warn: re-entrancy usually indicates a logic issue).
+     */
     fun getOrGenerate(key: K, generator: (K) -> V): V {
-        // Check cache immediately — no need to wait for inflight lock
+        // fast path: already cached
         cache(key)?.let { return it }
 
-        // Atomically create or reuse a single future
-        val future = inflight.computeIfAbsent(key) {
-            CompletableFuture.supplyAsync {
-                try {
-                    // Check again inside async (to avoid race)
-                    cache(key)?.let { return@supplyAsync it }
-
-                    // Do the generation — lock only inside this
-                    lock.withWrite(key) {
-                        // One thread per key gets here
-                        val existing = cache(key)
-                        if (existing != null) return@withWrite existing
-                        val generated = generator(key)
-                        println("Generated new structure for $key")
-                        generated
-                    }
-                } finally {
-                    inflight.remove(key)
-                }
-            }
+        // If this thread is already generating the same key -> reentrant call.
+        // Avoid joining our own future (deadlock). We delegate directly to generator.
+        val generatingSet = threadGenerating.get()
+        if (generatingSet.contains(key)) {
+            // Re-entrant: don't try to wait for inflight future (we created it).
+            // Directly call generator. This may still recurse or be a logic bug in your generator.
+            return generator(key)
         }
 
-        // This will return the same result for all concurrent callers
-        return future.join()
+        // Try to create a promise; if someone else already created one, we'll wait on it.
+        val promise = CompletableFuture<V>()
+        val existing = inflight.putIfAbsent(key, promise)
+
+        if (existing == null) {
+            // we "own" generation for this key
+            generatingSet.add(key)
+            try {
+                // double-check cache (race)
+                cache(key)?.let {
+                    promise.complete(it)
+                    return it
+                }
+
+                val generated = generator(key)
+                promise.complete(generated)
+                return generated
+            } catch (t: Throwable) {
+                promise.completeExceptionally(t)
+                throw t
+            } finally {
+                generatingSet.remove(key)
+                inflight.remove(key)
+            }
+        } else {
+            // someone else is generating -> wait for their result (no locks held)
+            return existing.join()
+        }
     }
+}
+
+
+fun <K, V> Map<K, V>.toConcurrentMap(): ConcurrentHashMap<K, V> {
+    val map = ConcurrentHashMap<K, V>()
+    this.forEach { (k, v) -> map[k] = v }
+    return map
 }

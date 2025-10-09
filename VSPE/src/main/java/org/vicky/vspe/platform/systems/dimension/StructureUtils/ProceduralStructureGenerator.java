@@ -498,7 +498,7 @@ public abstract class ProceduralStructureGenerator<T> {
     protected boolean guardAndStore(Vec3 vec,
                                     PlatformBlockState<T> st,
                                     boolean useSphere) {
-        return guardAndStore(vec.getIntX(), vec.getIntY(), vec.getIntZ(), st, useSphere, 1);
+        return guardAndStore(vec.round().getIntX(), vec.round().getIntY(), vec.round().getIntZ(), st, useSphere, 1);
     }
 
     /**
@@ -635,11 +635,11 @@ public abstract class ProceduralStructureGenerator<T> {
         }
 
         public boolean guardAndStore(Vec3 vec, PlatformBlockState<T> st, boolean useSphere) {
-            return guardAndStore(vec.getIntX(), vec.getIntY(), vec.getIntZ(), st, useSphere, 1);
+            return guardAndStore(vec.round().getIntX(), vec.round().getIntY(), vec.round().getIntZ(), st, useSphere, 1);
         }
 
         public boolean guardAndStore(Vec3 vec, PlatformBlockState<T> st, boolean useSphere, int fixedR) {
-            return guardAndStore(vec.getIntX(), vec.getIntY(), vec.getIntZ(), st, useSphere, fixedR);
+            return guardAndStore(vec.round().getIntX(), vec.round().getIntY(), vec.round().getIntZ(), st, useSphere, fixedR);
         }
 
         public void guardAndAction(int x, int y, int z, BiConsumer<PlatformWorld<T, ?>, Vec3> act) {
