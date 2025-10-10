@@ -2,56 +2,62 @@ package org.vicky.vspe_forge.dimension;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.*;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.QuartPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureType;
 import net.minecraft.world.level.levelgen.structure.TerrainAdjustment;
 import org.jetbrains.annotations.NotNull;
-import org.vicky.platform.utils.ResourceLocation;
+import org.vicky.platform.utils.Mirror;
+import org.vicky.platform.utils.Rotation;
+import org.vicky.platform.utils.Vec3;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructurePlacementContext;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRule;
 import org.vicky.vspe_forge.VspeForge;
 import org.vicky.vspe_forge.registers.Dimensions;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
+import static org.vicky.vspe_forge.dimension.CodecCORE.BIOME_HOLDER_SET_CODEC;
+import static org.vicky.vspe_forge.forgeplatform.AwsomeForgeHacks.fromForge;
+
+@SuppressWarnings("unchecked")
 public class ForgeTypePlatformStructure extends Structure {
     public static final Codec<ForgeTypePlatformStructure> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.STRING.fieldOf("resource_location").forGetter(src -> src.rule.getResource().asString())
-    ).apply(instance, (loc) -> {
+            Codec.STRING.fieldOf("resource_location").forGetter(src -> VspeForge.MODID + ":" + src.rule.getResource().getPath()),
+            Codec.STRING.fieldOf("previous_namespace").forGetter(src -> src.rule.getResource().getNamespace()),
+            settingsCodec(instance),
+            BIOME_HOLDER_SET_CODEC
+                    .fieldOf("resolved_biomes")
+                    .forGetter(s -> s.resolvedBiomes)
+    ).apply(instance, (loc, prev, settings, biomes) -> {
         var pair =
-                VSPEPlatformPlugin.structureManager().getStructures().values().stream().filter(it -> it.getSecond().getResource().asString().equals(loc)).findFirst().get();
-        return new ForgeTypePlatformStructure((PlatformStructure<BlockState>) pair.getFirst(), pair.getSecond());
+                VSPEPlatformPlugin.structureManager().getStructures().values().stream().filter(it -> it.getSecond().getResource().asString().equals(prev + ":" + loc.split(":", 2)[1])).findFirst().get();
+        return new ForgeTypePlatformStructure((PlatformStructure<BlockState>) pair.getFirst(), pair.getSecond(), settings, biomes);
     }));
 
     private final PlatformStructure<BlockState> nativeStructure;
     private final StructureRule rule;
-    private final List<ResourceLocation> biomeKeys;
-    private transient HolderSet<Biome> resolvedBiomes;
+    private final transient HolderSet<Biome> resolvedBiomes;
 
-    public ForgeTypePlatformStructure(PlatformStructure<BlockState> nativeStructure, StructureRule rule) {
-        super(new StructureSettings(
-                HolderSet.direct(),
-                Map.of(),
-                toStep(rule),
-                toTerrain(rule)
-        ));
+    public ForgeTypePlatformStructure(PlatformStructure<BlockState> nativeStructure, StructureRule rule, StructureSettings settings, HolderSet<Biome> biomes) {
+        super(settings);
         this.nativeStructure = nativeStructure;
         this.rule = rule;
-        this.biomeKeys = rule.getBiomes().stream().toList();
+        this.resolvedBiomes = biomes;
     }
 
-    private static TerrainAdjustment toTerrain(StructureRule rule) {
+    public static TerrainAdjustment toTerrain(StructureRule rule) {
         return switch (rule.getTags()) {
             case RUINS, NETHER, HOUSE -> TerrainAdjustment.BEARD_THIN;
             case DUNGEON, VILLAGE -> TerrainAdjustment.BEARD_BOX;
@@ -60,7 +66,7 @@ public class ForgeTypePlatformStructure extends Structure {
         };
     }
 
-    private static GenerationStep.Decoration toStep(StructureRule rule) {
+    public static GenerationStep.Decoration toStep(StructureRule rule) {
         return switch (rule.getTags()) {
             case FROZEN, TREELIKE, SKY, HOUSE, VILLAGE -> GenerationStep.Decoration.SURFACE_STRUCTURES;
             case DUNGEON, NETHER, EMPTY -> GenerationStep.Decoration.UNDERGROUND_STRUCTURES;
@@ -74,21 +80,32 @@ public class ForgeTypePlatformStructure extends Structure {
         return Dimensions.PLATFORM_STRUCTURE.get();
     }
 
+    private static @NotNull StructurePlacementContext getStructurePlacementContext(@NotNull GenerationContext context) {
+        var random = context.random();
+        return new StructurePlacementContext(
+                fromForge(random),
+                switch (random.nextInt(1, 4)) {
+                    case 1 -> Rotation.CLOCKWISE_90;
+                    case 2 -> Rotation.CLOCKWISE_180;
+                    case 3 -> Rotation.COUNTERCLOCKWISE_90;
+                    default -> Rotation.NONE;
+                },
+                switch (random.nextInt(1, 3)) {
+                    case 1 -> Mirror.FRONT_BACK;
+                    case 2 -> Mirror.LEFT_RIGHT;
+                    default -> Mirror.NONE;
+                }
+        );
+    }
+
+    @Override
+    public @NotNull BoundingBox adjustBoundingBox(@NotNull BoundingBox p_226570_) {
+        return super.adjustBoundingBox(p_226570_);
+    }
+
     @Override
     protected @NotNull Optional<GenerationStub> findGenerationPoint(@NotNull GenerationContext context) {
-        if (resolvedBiomes == null) {
-            HolderGetter<Biome> biomeGetter = context.registryAccess().lookupOrThrow(Registries.BIOME);
-            resolvedBiomes = HolderSet.direct(biomeKeys.stream()
-                    .map(it -> ((ForgeBiome) VSPEPlatformPlugin.biomeFactory().getFor(it).orElseThrow()).getResourceKey())
-                    .map(biomeGetter::getOrThrow)
-                    .toList());
-        }
-
-        VspeForge.LOGGER.info("Resolved structure biomes: {}", resolvedBiomes.stream()
-                .map(b -> b.unwrapKey().map(ResourceKey::location).orElse(null))
-                .toList());
-
-        // if (context.random().nextDouble() > rule.getFrequency()) return Optional.empty();
+        if (context.random().nextDouble() > rule.getFrequency()) return Optional.empty();
         ChunkPos chunkPos = context.chunkPos();
 
         // Biome match
@@ -99,16 +116,12 @@ public class ForgeTypePlatformStructure extends Structure {
                 QuartPos.fromBlock(pos.getZ()),
                 context.randomState().sampler()
         );
-        VspeForge.LOGGER.info("Biome at pos {} is {}", pos, biome.unwrapKey().map(ResourceKey::location).orElse(null));
 
         boolean biomeMatches = resolvedBiomes.stream()
                 .anyMatch(b -> b.unwrapKey().isPresent() && biome.unwrapKey().isPresent() &&
                         b.unwrapKey().get().equals(biome.unwrapKey().get()));
-        // if (!biomeMatches) return Optional.empty();
+        if (!biomeMatches) return Optional.empty();
 
-
-        // Height placement
-        VspeForge.LOGGER.info("Starting to choose Y Placement");
         int y;
         switch (rule.getVerticalPlacement()) {
             case SKY -> y = context.chunkGenerator().getFirstFreeHeight(pos.getX(), pos.getZ(),
@@ -119,17 +132,17 @@ public class ForgeTypePlatformStructure extends Structure {
                     Heightmap.Types.WORLD_SURFACE_WG, context.heightAccessor(), context.randomState()) - rule.getFixedY();
             default -> y = 64;
         }
-        VspeForge.LOGGER.info("We finna chose {}", y);
 
         BlockPos genPos = new BlockPos(pos.getX(), y, pos.getZ());
 
         // Return final generation stub
         return Optional.of(new GenerationStub(genPos, builder -> {
-            long start = System.currentTimeMillis();
-            VspeForge.LOGGER.info("Structure piece placement started {} ms", start);
-            builder.addPiece(new ForgePlatformStructurePiece(genPos, nativeStructure, rule));
-            long end = System.currentTimeMillis();
-            VspeForge.LOGGER.info("Structure piece placement took {} ms", (end - start));
+            StructurePlacementContext placementCtx = getStructurePlacementContext(context);
+            var resolved = nativeStructure.resolve(Vec3.of(pos.getX(), y, pos.getZ()), placementCtx);
+            for (var chunkCoords : resolved.getPlacementsByChunk().entrySet()) {
+                BlockPos piecePos = new BlockPos(chunkCoords.getKey().getCx() * 16, y, chunkCoords.getKey().getCz() * 16);
+                builder.addPiece(new ForgePlatformStructurePiece(piecePos, chunkCoords.getValue()));
+            }
         }));
     }
 }

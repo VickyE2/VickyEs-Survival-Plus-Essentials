@@ -1,10 +1,14 @@
 package org.vicky.vspe_forge.dimension;
 
 import com.mojang.serialization.Codec;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BootstapContext;
+import net.minecraft.resources.RegistryFixedCodec;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import org.vicky.vspe_forge.VspeForge;
@@ -27,4 +31,9 @@ public class CodecCORE {
         context.register(UNIMPRESSED_BIOME_SOURCE, UnImpressedBiomeSource.CODEC);
         VspeForge.LOGGER.info("Bootstrapped UnImpressedBiomeSource codec for datagen");
     }
+
+    public static final Codec<Holder<Biome>> BIOME_HOLDER_CODEC =
+            RegistryFixedCodec.create(Registries.BIOME);
+    public static final Codec<HolderSet<Biome>> BIOME_HOLDER_SET_CODEC =
+            BIOME_HOLDER_CODEC.listOf().xmap(HolderSet::direct, holders -> holders.stream().toList());
 }

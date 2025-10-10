@@ -3,6 +3,7 @@ package org.vicky.vspe_forge.forgeplatform;
 import kotlin.Pair;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderGetter;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BootstapContext;
 import net.minecraft.resources.ResourceKey;
@@ -19,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.vspe.StructureTag;
 import org.vicky.vspe.platform.PlatformStructureManager;
+import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.globalDimensions.StructureResolvers;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Rarity;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NBTBasedStructure;
@@ -26,6 +28,7 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.NbtStructure
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRule;
 import org.vicky.vspe_forge.VspeForge;
+import org.vicky.vspe_forge.dimension.ForgeBiome;
 import org.vicky.vspe_forge.dimension.ForgeTypePlatformStructure;
 
 import java.io.*;
@@ -38,6 +41,8 @@ import java.util.function.Supplier;
 import static org.vicky.forge.forgeplatform.useables.ForgeHacks.fromVicky;
 import static org.vicky.vspe_forge.VspeForge.datagenBiomeAccess;
 import static org.vicky.vspe_forge.dimension.ForgeDescriptorBasedDimension.stringToSeed;
+import static org.vicky.vspe_forge.dimension.ForgeTypePlatformStructure.toStep;
+import static org.vicky.vspe_forge.dimension.ForgeTypePlatformStructure.toTerrain;
 
 public class ForgeStructureManager implements PlatformStructureManager<BlockState> {
     private static final Map<ResourceLocation, Pair<PlatformStructure<BlockState>, StructureRule>> structures
@@ -85,9 +90,19 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
     public static void registerPlatformStructure(BootstapContext<Structure> ctx) {
         structures.values().forEach(it -> {
             datagenBiomeAccess = ctx.lookup(Registries.BIOME);
-            var struct = new ForgeTypePlatformStructure(it.getFirst(), it.getSecond());
+            var resolvedBiomes = HolderSet.direct(it.getSecond().getBiomes().stream()
+                    .map(it2 -> ((ForgeBiome) VSPEPlatformPlugin.biomeFactory().getFor(ResourceLocation.from(VspeForge.MODID, it2.getPath())).orElseThrow()).getResourceKey())
+                    .map(datagenBiomeAccess::getOrThrow)
+                    .toList());
+            var struct = new ForgeTypePlatformStructure(it.getFirst(), it.getSecond(),
+                    new Structure.StructureSettings(
+                            resolvedBiomes,
+                            Map.of(),
+                            toStep(it.getSecond()),
+                            toTerrain(it.getSecond())
+                    ), resolvedBiomes);
             ctx.register(
-                    ResourceKey.create(Registries.STRUCTURE, fromVicky(it.getSecond().getResource())),
+                    ResourceKey.create(Registries.STRUCTURE, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(VspeForge.MODID, it.getSecond().getResource().getPath())),
                     struct
             );
         });
@@ -97,7 +112,7 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
         structures.values().forEach(it -> {
             HolderGetter<Structure> structureLookup = context.lookup(Registries.STRUCTURE);
             Holder<Structure> structureType = structureLookup.getOrThrow(
-                    ResourceKey.create(Registries.STRUCTURE, new net.minecraft.resources.ResourceLocation(it.getSecond().getResource().asString()))
+                    ResourceKey.create(Registries.STRUCTURE, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(VspeForge.MODID, it.getSecond().getResource().getPath()))
             );
 
             createStructureSet(it, structureType);
@@ -108,7 +123,7 @@ public class ForgeStructureManager implements PlatformStructureManager<BlockStat
             var oop = getRecommendedSpacing(key.getSecond().getFirst(), key.getSecond().getSecond());
             HOLDERS.add(
                     context.register(
-                            ResourceKey.create(Registries.STRUCTURE_SET, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(key.getFirst(), key.getSecond().getFirst().name().toLowerCase() + "_" + key.getSecond().getSecond().name().toLowerCase())),
+                            ResourceKey.create(Registries.STRUCTURE_SET, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(VspeForge.MODID, key.getFirst() + "_" + key.getSecond().getFirst().name().toLowerCase() + "_" + key.getSecond().getSecond().name().toLowerCase())),
                             new StructureSet(sets, new RandomSpreadStructurePlacement(
                                     oop.spacing,
                                     oop.separation,

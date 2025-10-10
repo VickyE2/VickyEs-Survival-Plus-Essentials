@@ -3,5 +3,7 @@
   "block.vspe.magenta_frost_leaves": "Magenta Frost Leaves",
   "block.vspe.magenta_frost_vine": "Magenta Frost Vine",
   "block.vspe.pink_sand": "Pink Sand",
-  "block.vspe.magenta_moss_block": "Magenta Moss Block"
+  "block.vspe.magenta_moss_block": "Magenta Moss Block",
+  "biome.vspe.magenta_forest": "Magenta Forest",
+  "biome.vspe.frigid_sea": "The Frigid Sea"
 }

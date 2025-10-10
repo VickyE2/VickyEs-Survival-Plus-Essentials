@@ -21,23 +21,26 @@ import static org.vicky.vspe_forge.VspeForge.registryAccess;
 public class UnImpressedBiomeSource extends BiomeSource {
     public static final Codec<UnImpressedBiomeSource> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("descriptor_name").forGetter(src -> src.descriptor.name()),
-            Codec.STRING.fieldOf("descriptor_id").forGetter(src -> src.descriptor.identifier())
-    ).apply(instance, (name, id) -> {
+            Codec.STRING.fieldOf("descriptor_id").forGetter(src -> src.descriptor.identifier()),
+            Codec.LONG.fieldOf("seed").forGetter(src -> src.seed)
+    ).apply(instance, (name, id, seed) -> {
         try {
             Class.forName("org.vicky.vspe.platform.systems.dimension.globalDimensions.DimensionDescriptors");
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
         DimensionDescriptor desc = CoreDimensionRegistry.getRegisteredDescriptors().stream().filter(it -> it.identifier().equals(id)).findFirst().get();
-        return new UnImpressedBiomeSource(desc);
+        return new UnImpressedBiomeSource(desc, seed);
     }));
 
     private final BiomeResolver<ForgeBiome> biomeProvider;
+    private final long seed;
     final DimensionDescriptor descriptor;
 
-    public UnImpressedBiomeSource(DimensionDescriptor resolver) {
+    public UnImpressedBiomeSource(DimensionDescriptor resolver, long seed) {
         this.biomeProvider = (BiomeResolver<ForgeBiome>) resolver.resolver();
         this.descriptor = resolver;
+        this.seed = seed;
     }
 
     @Override
@@ -70,7 +73,7 @@ public class UnImpressedBiomeSource extends BiomeSource {
 
     @Override
     public @NotNull Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.@NotNull Sampler noise) {
-        ForgeBiome resolved = biomeProvider.resolveBiome(x, y, z, 0);
+        ForgeBiome resolved = biomeProvider.resolveBiome(x, 0, z, seed);
         ResourceKey<Biome> key = resolved.getResourceKey();
         return registryAccess
                 .lookup(Registries.BIOME)

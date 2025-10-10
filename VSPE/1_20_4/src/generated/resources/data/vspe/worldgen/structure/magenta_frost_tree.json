@@ -1,0 +1,11 @@
+{
+  "type": "vspe:forge_platform_structure",
+  "biomes": "vspe:magenta_forest",
+  "previous_namespace": "crymorra",
+  "resolved_biomes": [
+    "vspe:magenta_forest"
+  ],
+  "resource_location": "vspe:magenta_frost_tree",
+  "spawn_overrides": {},
+  "step": "surface_structures"
+}

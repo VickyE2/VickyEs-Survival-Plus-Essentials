@@ -2,6 +2,8 @@ package org.vicky.vspe_forge;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -68,6 +70,7 @@ public class VspeForge implements VSPEPlatformPlugin {
         Blocks.BLOCK_ITEMS.register(modEventBus);
         Items.ITEMS.register(modEventBus);
         Dimensions.STRUCTURE_TYPES.register(modEventBus);
+        Dimensions.STRUCTURE_PIECES.register(modEventBus);
         Tabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         MinecraftForge.EVENT_BUS.register(this);
@@ -83,8 +86,9 @@ public class VspeForge implements VSPEPlatformPlugin {
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerAboutToStart(ServerAboutToStartEvent event) {
-        server = event.getServer();
+        LOGGER.info("HELLO from server about starting");
         registryAccess = event.getServer().registryAccess();
+        server = event.getServer();
     }
 
     @SubscribeEvent
@@ -210,6 +214,10 @@ public class VspeForge implements VSPEPlatformPlugin {
             ForgeStructureManager.createInstance(() -> Minecraft.getInstance().getResourceManager());
             LOGGER.info("HELLO FROM CLIENT SETUP");
             LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+            event.enqueueWork(() -> {
+                ItemBlockRenderTypes.setRenderLayer(Blocks.MAGENTA_FROST_VINE.get(), RenderType.cutout());
+                ItemBlockRenderTypes.setRenderLayer(Blocks.MAGENTA_FROST_LEAVES.get(), RenderType.cutoutMipped());
+            });
         }
     }
 }

@@ -29,7 +29,6 @@ import org.vicky.vspe.platform.VSPEPlatformPlugin;
 import org.vicky.vspe.platform.systems.dimension.DimensionDescriptor;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.ChunkHeightProvider;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.MultiParameterBiomeResolver;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.WeightedStructurePlacer;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -40,12 +39,8 @@ import java.util.function.Predicate;
 public class UnImpressedChunkGenerator extends ChunkGenerator {
     public static final Codec<UnImpressedChunkGenerator> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UnImpressedBiomeSource.CODEC.fieldOf("biome_source").forGetter(gen -> (UnImpressedBiomeSource) gen.biomeSource),
-            Codec.LONG.fieldOf("seed").forGetter(gen -> gen.seed)/*,
-            RegistryCodecs.homogeneousList(Registries.STRUCTURE_SET)
-                    .fieldOf("structure_sets")
-                    .forGetter(gen -> gen.structureSets)*/
+            Codec.LONG.fieldOf("seed").forGetter(gen -> gen.seed)
     ).apply(instance, UnImpressedChunkGenerator::new));
-    private static final WeightedStructurePlacer<BlockState> structurePlacer = new WeightedStructurePlacer<>();
     private static final Map<String, ChunkHeightProvider> heightProviderCache = new ConcurrentHashMap<>();
     private final long seed;
     private final DimensionDescriptor descriptor;
@@ -96,17 +91,17 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
     }
 
     @Override
-    public void applyCarvers(WorldGenRegion p_223043_, long p_223044_, RandomState p_223045_, BiomeManager p_223046_, StructureManager p_223047_, ChunkAccess p_223048_, GenerationStep.Carving p_223049_) {
+    public void applyCarvers(@NotNull WorldGenRegion region, long seed, @NotNull RandomState random, @NotNull BiomeManager biomeManager, @NotNull StructureManager structureManager, @NotNull ChunkAccess chunk, GenerationStep.@NotNull Carving carving) {
 
     }
 
     @Override
-    public void buildSurface(WorldGenRegion p_223050_, StructureManager p_223051_, RandomState p_223052_, ChunkAccess p_223053_) {
+    public void buildSurface(@NotNull WorldGenRegion region, @NotNull StructureManager structureManager, @NotNull RandomState random, @NotNull ChunkAccess chunk) {
 
     }
 
     @Override
-    public void spawnOriginalMobs(WorldGenRegion p_62167_) {
+    public void spawnOriginalMobs(@NotNull WorldGenRegion region) {
 
     }
 
@@ -117,9 +112,9 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
 
     // === Biomes phase (like vanilla createBiomes) ===
     @Override
-    public CompletableFuture<ChunkAccess> createBiomes(Executor executor, RandomState randomState,
-                                                       Blender blender, StructureManager structureManager,
-                                                       ChunkAccess chunk) {
+    public @NotNull CompletableFuture<ChunkAccess> createBiomes(@NotNull Executor executor, @NotNull RandomState randomState,
+                                                                @NotNull Blender blender, @NotNull StructureManager structureManager,
+                                                                @NotNull ChunkAccess chunk) {
         return CompletableFuture.supplyAsync(Util.wrapThreadWithTaskName("init_biomes", () -> {
             logProgress("UnImpressedChunkGenerator.createBiomes for chunk " + chunk.getPos());
             GenerationDebug g = debugFor(chunk.getPos());
@@ -131,8 +126,8 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
 
     // === Fill phase ===
     @Override
-    public @NotNull CompletableFuture<ChunkAccess> fillFromNoise(Executor executor, Blender blender,
-                                                                 RandomState noiseConfig, StructureManager structureAccessor,
+    public @NotNull CompletableFuture<ChunkAccess> fillFromNoise(@NotNull Executor executor, @NotNull Blender blender,
+                                                                 @NotNull RandomState noiseConfig, @NotNull StructureManager structureAccessor,
                                                                  ChunkAccess chunk) {
         logProgress("UnImpressedChunkGenerator.createNoise for chunk " + chunk.getPos());
         GenerationDebug g = debugFor(chunk.getPos());
@@ -173,7 +168,7 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         BiomeResolver resolver = blender.getBiomeResolver(this.biomeSource);
         chunk.fillBiomesFromNoise(resolver, randomState.sampler());
         GenerationDebug g = debugFor(chunk.getPos());
-        g.setBiomesFilled(true);
+        g.setBiomesFilled();
     }
 
 
@@ -308,17 +303,6 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
         Heightmap hmOceanFloor = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.OCEAN_FLOOR_WG); // or OCEAN_FLOOR
 
         t0 = System.nanoTime();
-        ForgeBiome[] biomeForColumn = new ForgeBiome[16 * 16];
-        for (int lz = 0; lz < 16; lz++) {
-            for (int lx = 0; lx < 16; lx++) {
-                int idx = lx + lz * 16;
-                logProgress("biomeForColumn START chunk " + pos + " x, z: " + "[" + lx + ", " + lz + "]");
-                biomeForColumn[idx] = padded[(lx + radius) + (lz + radius) * paddedW];
-                long t1 = System.nanoTime();
-                logProgress(String.format("biomeForColumn DONE chunk %s time=%.3fms x: z: [%s, %s]", pos, (t1 - t0) / 1_000_000.0, lx, lz));
-            }
-        }
-
         logProgress("UnImpressedChunkGenerator: doFill chunk before locals " + pos);
         // Fill columns
         for (int localZ = 0; localZ < 16; localZ++) {
@@ -330,8 +314,6 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
                 int topY = topYs[idx];
                 if (topY < minY) topY = minY;
                 if (topY >= chunk.getHeight()) topY = chunk.getHeight() - 1;
-
-                int i2 = chunk.getSectionsCount() - 1;
 
                 // BEDROCK at minY
                 mpos.set(worldX, minY, worldZ);
@@ -474,7 +456,7 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
             // If chunk is marked as a structure chunk by placement - try generate
             if (placement.isStructureChunk(chunkStructState, chunkPos.x, chunkPos.z)) {
                 if (entries.size() == 1) {
-                    tryGenerateStructure(entries.get(0), structureManager, registryAccess, randomState, templateManager,
+                    tryGenerateStructure(entries.getFirst(), structureManager, registryAccess, randomState, templateManager,
                             chunkStructState.getLevelSeed(), chunk, chunkPos, sectionPos);
                 } else {
                     // Weighted pick among entries (vanilla behavior)
@@ -673,7 +655,7 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
             for (int px = 0; px < paddedW; px++) {
                 int worldX = baseX + px;
                 int worldZ = baseZ + pz;
-                ForgeBiome b = nmsSrc.getBiomeProvider().resolveBiome(worldX, 64, worldZ, seed);
+                ForgeBiome b = nmsSrc.getBiomeProvider().resolveBiome(worldX, 0, worldZ, seed);
                 grid[px + pz * paddedW] = b;
             }
         }
@@ -773,9 +755,9 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
                         }
 
                         // final defensive check before indexing
-                        if (sampleIdx < 0 || sampleIdx >= sampleHeights.length) {
+                        if (sampleIdx >= sampleHeights.length) {
                             VSPEPlatformPlugin.platformLogger().error(String.format("Sample index out of range when blending heights. sampleIdx=%s, sampleHeights.length=%s, sampleChunk=(%s,%s), sampleLocalInChunk=(%s,%s), sampleWorld=(%s,%s), chunkX=%s, chunkZ=%s",
-                                    sampleIdx, (sampleHeights == null ? -1 : sampleHeights.length),
+                                    sampleIdx, sampleHeights.length,
                                     sampleChunkX, sampleChunkZ, sampleLocalXInChunk, sampleLocalZInChunk, sampleWorldX, sampleWorldZ, chunkX, chunkZ));
                             // fallback: skip this sample contribution (safer than throwing)
                             continue;
@@ -837,8 +819,8 @@ public class UnImpressedChunkGenerator extends ChunkGenerator {
             touch();
         }
 
-        void setBiomesFilled(boolean v) {
-            biomesFilled = v;
+        void setBiomesFilled() {
+            biomesFilled = true;
             touch();
         }
 

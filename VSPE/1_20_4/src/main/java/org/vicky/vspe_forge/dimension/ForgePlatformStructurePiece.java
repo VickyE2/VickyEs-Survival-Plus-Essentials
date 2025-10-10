@@ -1,8 +1,11 @@
 package org.vicky.vspe_forge.dimension;
 
 import de.pauleff.api.ICompoundTag;
+import de.pauleff.api.NBTFactory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.StructureManager;
@@ -15,23 +18,120 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.vicky.platform.utils.Mirror;
-import org.vicky.platform.utils.Rotation;
+import org.vicky.forge.forgeplatform.useables.ForgePlatformBlockStateAdapter;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.platform.world.PlatformBlockState;
-import org.vicky.vspe.platform.VSPEPlatformPlugin;
+import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BlockPlacement;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BlockPlacer;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformStructure;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructurePlacementContext;
-import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.StructureRule;
 import org.vicky.vspe_forge.VspeForge;
+import org.vicky.vspe_forge.registers.Dimensions;
 
-import static org.vicky.vspe_forge.forgeplatform.AwsomeForgeHacks.fromForge;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ForgePlatformStructurePiece extends StructurePiece {
-    private final PlatformStructure<BlockState> nativeStructure;
+    public static final StructurePieceType TYPE =
+            Dimensions.FORGE_PLATFORM_PIECE.get();
+    private final BlockPos origin;
+    private final @NotNull List<BlockPlacement<BlockState>> blockPlacements;
+
+    public ForgePlatformStructurePiece(@NotNull BlockPos pos, @NotNull List<BlockPlacement<BlockState>> blockPlacements) {
+        super(TYPE, 0, computeBoundingBox(pos, blockPlacements));
+        this.setOrientation(null);
+        this.origin = pos;
+        this.blockPlacements = blockPlacements;
+    }
+
+    public ForgePlatformStructurePiece(StructurePieceSerializationContext structurePieceSerializationContext,
+                                       CompoundTag tag) {
+        super(TYPE, tag);
+        this.origin = new BlockPos(
+                tag.getInt("OriginX"),
+                tag.getInt("OriginY"),
+                tag.getInt("OriginZ")
+        );
+
+        ListTag placementList = tag.getList("placements", Tag.TAG_COMPOUND);
+        List<BlockPlacement<BlockState>> blockPlacements = new ArrayList<>();
+        for (int i = 0; i < placementList.size(); i++) {
+            CompoundTag single = placementList.getCompound(i);
+            int[] posArray = single.getIntArray("pos");
+            if (posArray.length < 3) continue;
+
+            Vec3 pos = new Vec3(posArray[0], posArray[1], posArray[2]);
+
+            // You’ll need to resolve the state string -> BlockState
+            String stateStr = single.getString("state");
+            BlockState state =
+                    ForgeRegistries.BLOCKS.getValue(new net.minecraft.resources.ResourceLocation(stateStr)).defaultBlockState();
+
+            // optional NBT
+            ICompoundTag blockNbt = null;
+            if (single.contains("nbt")) {
+                try {
+                    blockNbt = NBTFactory.parseCompoundFromSNBT(single.getString("nbt"));
+                } catch (Exception e) {
+                    // ignore or log
+                }
+            }
+
+            blockPlacements.add(new BlockPlacement<>(pos.getIntX(), pos.getIntY(), pos.getIntZ(),
+                    new ForgePlatformBlockStateAdapter(state), blockNbt));
+        }
+
+        this.blockPlacements = blockPlacements;
+    }
+
+    // Utility helper
+    private static String elapsedMs(long startTime) {
+        return String.format("%.3f", (System.nanoTime() - startTime) / 1_000_000.0);
+    }
+
+    private static BoundingBox computeBoundingBox(BlockPos origin, List<BlockPlacement<BlockState>> placements) {
+        if (placements.isEmpty()) {
+            return new BoundingBox(origin);
+        }
+
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+
+        for (BlockPlacement<BlockState> p : placements) {
+            Vec3 pos = p.getVecPosition();
+            minX = Math.min(minX, pos.getIntX());
+            minY = Math.min(minY, pos.getIntY());
+            minZ = Math.min(minZ, pos.getIntZ());
+            maxX = Math.max(maxX, pos.getIntX());
+            maxY = Math.max(maxY, pos.getIntY());
+            maxZ = Math.max(maxZ, pos.getIntZ());
+        }
+
+        return BoundingBox.fromCorners(new BlockPos(minX - 1, minY - 1, minZ - 1), new BlockPos(maxX + 1, maxY + 1, maxZ + 1));
+    }
+
+    @Override
+    protected void addAdditionalSaveData(@NotNull StructurePieceSerializationContext context, CompoundTag tag) {
+        tag.putInt("OriginX", origin.getX());
+        tag.putInt("OriginY", origin.getY());
+        tag.putInt("OriginZ", origin.getZ());
+
+        ListTag placementList = new ListTag();
+        for (BlockPlacement<BlockState> p : blockPlacements) {
+            if (p.getState() != null) {
+                CompoundTag single = new CompoundTag();
+                Vec3 pos = p.getVecPosition().round();
+                single.putIntArray("pos", new int[]{pos.getIntX(), pos.getIntY(), pos.getIntZ()});
+                single.putString("state", p.getState().getNative().getBlock().toString().replace("Block{", "").replace("}", ""));
+                if (p.getNbt() != null) {
+                    single.putString("nbt", NBTFactory.toSNBT(p.getNbt()));
+                }
+                placementList.add(single);
+            }
+        }
+        tag.put("placements", placementList);
+    }
 
     @Override
     public void postProcess(
@@ -43,7 +143,7 @@ public class ForgePlatformStructurePiece extends StructurePiece {
             @NotNull ChunkPos chunkPos,
             @NotNull BlockPos structureCenter
     ) {
-        final boolean LOG_STRUCTURE_TIMING = true; // toggle this on/off
+        final boolean LOG_STRUCTURE_TIMING = false; // toggle this on/off
 
         long totalStart = System.nanoTime();
 
@@ -54,36 +154,6 @@ public class ForgePlatformStructurePiece extends StructurePiece {
 
         // 1. Build placement context
         long stepStart = System.nanoTime();
-        StructurePlacementContext placementCtx = new StructurePlacementContext(
-                fromForge(random),
-                switch (random.nextInt(1, 4)) {
-                    case 1 -> Rotation.CLOCKWISE_90;
-                    case 2 -> Rotation.CLOCKWISE_180;
-                    case 3 -> Rotation.COUNTERCLOCKWISE_90;
-                    default -> Rotation.NONE;
-                },
-                switch (random.nextInt(1, 3)) {
-                    case 1 -> Mirror.FRONT_BACK;
-                    case 2 -> Mirror.LEFT_RIGHT;
-                    default -> Mirror.NONE;
-                }
-        );
-        if (LOG_STRUCTURE_TIMING)
-            VspeForge.LOGGER.info("[STRUCT] Built placement context in {} ms", elapsedMs(stepStart));
-
-        // 2. Compute structure origin
-        stepStart = System.nanoTime();
-        Vec3 origin = new Vec3(structureCenter.getX(), structureCenter.getY(), structureCenter.getZ());
-        if (LOG_STRUCTURE_TIMING)
-            VspeForge.LOGGER.info("[STRUCT] Computed origin {} in {} ms", origin, elapsedMs(stepStart));
-
-        // 3. Resolve the structure
-        stepStart = System.nanoTime();
-        var resolved = nativeStructure.resolve(origin, placementCtx);
-        if (LOG_STRUCTURE_TIMING) {
-            VspeForge.LOGGER.info("[STRUCT] Resolved structure in {} ms", elapsedMs(stepStart));
-            VspeForge.LOGGER.info("Resolved: {}", resolved.getPlacementsByChunk().keySet());
-        }
 
         final int[] times = {0};
 
@@ -133,15 +203,10 @@ public class ForgePlatformStructurePiece extends StructurePiece {
         if (LOG_STRUCTURE_TIMING)
             VspeForge.LOGGER.info("[STRUCT] Created BlockPlacer in {} ms", elapsedMs(stepStart));
 
-        // 5. Place blocks belonging to this chunk only
         stepStart = System.nanoTime();
-        nativeStructure.placeInChunk(
-                placer,
-                chunkPos.x,
-                chunkPos.z,
-                resolved,
-                placementCtx
-        );
+        for (var placement : blockPlacements) {
+            placer.placeBlock(placement.getVecPosition(), placement.getState(), placement.getNbt());
+        }
         if (LOG_STRUCTURE_TIMING)
             VspeForge.LOGGER.info("[STRUCT] Placed chunk blocks in {} ms", elapsedMs(stepStart));
 
@@ -149,42 +214,4 @@ public class ForgePlatformStructurePiece extends StructurePiece {
         if (LOG_STRUCTURE_TIMING)
             VspeForge.LOGGER.info("[STRUCT] Finished placement for {} in {} ms", chunkPos, elapsedMs(totalStart));
     }
-
-    public static final StructurePieceType TYPE = ForgePlatformStructurePiece::new;
-    private final StructureRule rule;
-    public ForgePlatformStructurePiece(@NotNull BlockPos pos, @NotNull PlatformStructure<BlockState> nativeStructure, @NotNull StructureRule rule) {
-        super(TYPE, 0, BoundingBox.fromCorners(
-                        pos.offset(-4, 0, -4),
-                        pos.offset(nativeStructure.getSize().getX(), nativeStructure.getSize().getY(), nativeStructure.getSize().getZ())
-                )
-        );
-        this.setOrientation(null);
-        this.nativeStructure = nativeStructure;
-        this.rule = rule;
-    }
-
-    public ForgePlatformStructurePiece(StructurePieceSerializationContext structurePieceSerializationContext,
-                                       CompoundTag tag) {
-        super(TYPE, tag);
-        var pair =
-                VSPEPlatformPlugin.structureManager().getStructures().values().stream()
-                        .filter(it ->
-                                it.getSecond().getResource().asString().equals(tag.getString("StructureId")))
-                        .findFirst().get();
-
-        this.nativeStructure = (PlatformStructure<BlockState>) pair.getFirst();
-        this.rule = pair.getSecond();
-    }
-
-    // Utility helper
-    private static String elapsedMs(long startTime) {
-        return String.format("%.3f", (System.nanoTime() - startTime) / 1_000_000.0);
-    }
-
-    @Override
-    protected void addAdditionalSaveData(@NotNull StructurePieceSerializationContext ctx, CompoundTag tag) {
-        tag.putString("StructureId", rule.getResource().toString());
-    }
-
-
 }
