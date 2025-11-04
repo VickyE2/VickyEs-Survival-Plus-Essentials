@@ -5,78 +5,69 @@ import org.vicky.platform.utils.Rotation;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.vspe.platform.systems.dimension.MushroomCapProfile;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.ThesisTreeStructureGenerator;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.UUID;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.parts.RealisticRose.realisticRoseTipMulti;
+import static org.vicky.vspe.viewer.VoxelizerViewer.computeBounds;
 
 public class Main {
-    /*
     public static void main(String[] args) {
-
-        // var mapper = new ChunkHeightProvider(BiomeResolvers.BiomeDetailHolder.MAGENTA_FOREST.getHeightSampler());
-        // Viewer expects a HeightProvider: (chunkX, chunkZ, size) -> int[]
-        // ChunkHeightViewer.PROVIDER = (chunkX, chunkZ, size) -> {
-        //     int[] base = mapper.getChunkHeights(chunkX, chunkZ); // e.g. returns 16*16
-        //     if (base == null) return null;
-        //     int baseSize = (int) Math.round(Math.sqrt(base.length));
-        //     if (baseSize == size) return base;
-        //     // bilinear up/down-sample
-        //     return resizeHeights(base, baseSize, size);
-        // };
-
-        // ChunkHeightViewer.main(args);
         ConcurrentHashMap<VoxelizerViewer.ChunkCoord, List<VoxelizerViewer.BlockPlacement<Object>>> map = new ConcurrentHashMap<>();
         List<VoxelizerViewer.BlockPlacement<Object>> list = new ArrayList<>();
         var treeL = new NoAIProceduralTreeGenerator.NoAIPTGBuilder<String>()
                 .trunkWidth(10, 15)
-                .trunkHeight(70, 110)
+                .trunkHeight(70, 120)
                 .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
-                .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
-                .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.ON_BRANCH_TIP)
-                .randomness(0.8)
+                .branchType(NoAIProceduralTreeGenerator.BranchingType.UMBERELLA)
+                .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.HANGING)
+                .realismLevel(0.7)
+                .randomness(0.7)
+                .spacing(2)
+                .coniferousBranchRange(0, 10)
+                .branchingPointRange(0.56, 1.0)
+                .branchMaxDevianceAngle(7)
+                .branchDepth(1)
+                .leafPropagationChance(0.67)
+                .vinePropagationChance(0.54)
+                .branchPropagationChance(1.92)
+                .branchSizeDecay(0.64)
+                .maxBranchAmount(7)
+                .maxVinePerBranch(30)
+                .vineHeight(0.37)
                 .tipDecoration(realisticRoseTipMulti(
                         SimpleBlockState.Companion.from("990033", (it) -> it),
                         SimpleBlockState.Companion.from("BB0033", (it) -> it),
                         SimpleBlockState.Companion.from("FF0033", (it) -> it),
                         2
                 ))
-                .spacing(5)
-                .vineHeight(0.45)
-                .leafPropagationChance(0.67)
-                .branchPropagationChance(0.78)
-                .branchSizeDecay(0.95)
-                .maxBranchAmount(7)
-                .branchingPointRange(0.35, 0.80)
-                .branchMaxDevianceAngle(7)
-                .branchMaxHorizontalDevianceAngle(20)
-                .branchDepth(2)
-                .slantAngleRange(-50, 50)
-                .mushroomCapWidth(17, 20)
-                .capProfile(MushroomCapProfile.SHARP_SNOUT)
-                .branchVerticalDensity(2)
                 .vineSequenceMaterial(List.of(
                         SimpleBlockState.Companion.from("bb00EE", (it) -> it),
                         SimpleBlockState.Companion.from("bb00AA", (it) -> it),
                         SimpleBlockState.Companion.from("88009A", (it) -> it),
                         SimpleBlockState.Companion.from("440055", (it) -> it)
                 ))
-                .woodMaterial(SimpleBlockState.Companion.from("220022", (it) -> it))
-                .leafMaterial(SimpleBlockState.Companion.from("FF00FF", (it) -> it));
-        new ProceduralStructure<>(treeL);
+                .woodMaterial(SimpleBlockState.Companion.from("AA5500", (it) -> it))
+                .leafMaterial(SimpleBlockState.Companion.from("44BB00", (it) -> it));
+        var treeTh = new ThesisTreeStructureGenerator.Builder<String>()
+                .trunkRadius(10, 19)
+                .trunkHeight(7, 8)
+                .treeAge(50)
+                .seed(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()).getInt())
+                .trunkMaterial(SimpleBlockState.Companion.from("AA5500", (it) -> it));
 
-        var tree = treeL
+        var tree = treeTh
                 .build()
                 .generate(
                         new SeededRandomSource(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()).getInt()),
-                        new Vec3(-700, 0, 700)
+                        new Vec3(0, 0, 0)
                 );
 
         int idx = 0;
@@ -117,15 +108,14 @@ public class Main {
         VoxelizerViewer.SAMPLE = new VoxelizerViewer.ResolvedStructure<>(map, bounds);
         VoxelizerViewer.main(args);
     }
-     */
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void wasMain(String[] args) throws ExecutionException, InterruptedException {
         var treeL = new NoAIProceduralTreeGenerator.NoAIPTGBuilder<String>()
                 .trunkWidth(10, 15)
                 .trunkHeight(70, 110)
                 .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
-                .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
-                .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.ON_BRANCH_TIP)
+                .branchType(NoAIProceduralTreeGenerator.BranchingType.UMBERELLA)
+                .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.NO_LEAVES)
                 .randomness(0.8)
                 .tipDecoration(realisticRoseTipMulti(
                         SimpleBlockState.Companion.from("990033", (it) -> it),
@@ -133,20 +123,18 @@ public class Main {
                         SimpleBlockState.Companion.from("FF0033", (it) -> it),
                         2
                 ))
-                .spacing(5)
+                .spacing(2)
                 .vineHeight(0.45)
                 .leafPropagationChance(0.67)
-                .branchPropagationChance(0.78)
+                .branchPropagationChance(0.95)
                 .branchSizeDecay(0.95)
                 .maxBranchAmount(7)
-                .branchingPointRange(0.35, 0.80)
+                .branchingPointRange(0.15, 0.95)
                 .branchMaxDevianceAngle(7)
-                .branchMaxHorizontalDevianceAngle(20)
-                .branchDepth(2)
+                .branchDepth(1)
                 .slantAngleRange(-50, 50)
                 .mushroomCapWidth(17, 20)
                 .capProfile(MushroomCapProfile.SHARP_SNOUT)
-                .branchVerticalDensity(2)
                 .vineSequenceMaterial(List.of(
                         SimpleBlockState.Companion.from("bb00EE", (it) -> it),
                         SimpleBlockState.Companion.from("bb00AA", (it) -> it),

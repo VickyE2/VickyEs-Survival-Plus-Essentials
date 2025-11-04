@@ -14,6 +14,25 @@ public enum TimeCurve {
             return (float) (t * t);
         }
     },
+    TRUNK_TAPER {
+        @Override
+        public float apply(double t) {
+            t = clamp(t);
+            // Caller uses t measured from the top -> flip so t==0 is base.
+            t = 1.0 - t;
+
+            if (t < 0.23) {
+                double nt = t / 0.23;
+                return (float) (1.0 - Math.pow(nt, 1.5) * 0.5);
+            } else if (t < 0.70) {
+                double nt = (t - 0.23) / (0.70 - 0.23);
+                return (float) (0.5 - nt * 0.2);
+            } else {
+                double nt = (t - 0.70) / (1.0 - 0.70);
+                return (float) (0.3 - Math.pow(nt, 2) * 0.3);
+            }
+        }
+    },
     INVERTED_QUADRATIC {
         @Override
         public float apply(double t) {

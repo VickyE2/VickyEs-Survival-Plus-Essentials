@@ -15,7 +15,7 @@ import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.VerticalPlac
 
 import java.util.List;
 
-import static org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.parts.RealisticRose.realisticRoseTipSingle;
+import static org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.parts.RealisticRose.realisticRoseTipMulti;
 
 /**
  * @param <T> the platform block "stated" data
@@ -26,36 +26,75 @@ public class StructureResolvers<T> {
                     new ProceduralStructure<>(
                             new NoAIProceduralTreeGenerator.NoAIPTGBuilder<T>()
                                     .trunkWidth(10, 15)
-                                    .trunkHeight(70, 110)
+                                    .trunkHeight(70, 120)
                                     .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
                                     .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
-                                    .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.ON_BRANCH_TIP)
-                                    .randomness(0.8)
-                                    .tipDecoration(realisticRoseTipSingle(
+                                    .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.REALISTIC)
+                                    .realismLevel(0.7)
+                                    .randomness(0.7)
+                                    .spacing(2)
+                                    .branchingPointRange(0.45, 1.0)
+                                    .branchMaxDevianceAngle(7)
+                                    .branchDepth(2)
+                                    .leafPropagationChance(0.67)
+                                    .branchPropagationChance(1.92)
+                                    .branchSizeDecay(0.64)
+                                    .maxBranchAmount(7)
+                                    .tipDecoration(realisticRoseTipMulti(
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
                                             (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
                                             2
                                     ))
-                                    .spacing(5)
-                                    .leafPropagationChance(0.67)
-                                    .branchPropagationChance(0.78)
-                                    .branchSizeDecay(0.95)
-                                    .maxBranchAmount(7)
-                                    .branchingPointRange(0.35, 0.80)
-                                    .branchMaxDevianceAngle(7)
-                                    .branchMaxHorizontalDevianceAngle(20)
-                                    .branchDepth(2)
-                                    .slantAngleRange(-50, 50)
-                                    .branchVerticalDensity(2)
                                     .woodMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log")))
                                     .leafMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")))
                     ),
                     new StructureRule(
-                            ResourceLocation.from("crymorra:magenta_frost_tree"),
+                            ResourceLocation.from("crymorra:large_magenta_frost_tree"),
                             StructureTag.TREELIKE,
-                            Rarity.EPIC,
+                            Rarity.LEGENDARY,
                             2,
                             0.97,
                             10,
+                            0,
+                            VerticalPlacement.SURFACE,
+                            List.of(ResourceLocation.from("crymorra:magenta_forest"))
+                    )
+            ),
+            new Pair<>(
+                    new ProceduralStructure<>(
+                            new NoAIProceduralTreeGenerator.NoAIPTGBuilder<T>()
+                                    .trunkWidth(10, 15)
+                                    .trunkHeight(70, 120)
+                                    .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
+                                    .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
+                                    .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.REALISTIC)
+                                    .realismLevel(0.7)
+                                    .randomness(0.7)
+                                    .spacing(2)
+                                    .branchingPointRange(0.45, 1.0)
+                                    .branchMaxDevianceAngle(7)
+                                    .branchDepth(2)
+                                    .leafPropagationChance(0.67)
+                                    .branchPropagationChance(1.92)
+                                    .branchSizeDecay(0.64)
+                                    .maxBranchAmount(7)
+                                    .tipDecoration(realisticRoseTipMulti(
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
+                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
+                                            2
+                                    ))
+                                    .woodMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log")))
+                                    .leafMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")))
+                    ),
+                    new StructureRule(
+                            ResourceLocation.from("crymorra:large_magenta_willow_tree"),
+                            StructureTag.TREELIKE,
+                            Rarity.MYTHIC,
+                            2,
+                            0.97,
+                            16,
                             0,
                             VerticalPlacement.SURFACE,
                             List.of(ResourceLocation.from("crymorra:magenta_forest"))

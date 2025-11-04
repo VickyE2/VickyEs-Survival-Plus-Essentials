@@ -20,11 +20,15 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import static org.vicky.vspe.branch.BranchKt.generateLeafBlob;
+import static org.vicky.vspe.branch.TrunkKt.generateMultiRootSpiralTrunk;
+
 public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator<T> {
 
     private final NoAIPTGBuilder<T> p;
     private final Map<List<Vec3>, Integer> leafingPoints = new HashMap<>();
     private int trunkHeight;
+    private int trunkWidth;
 
     private static List<Vec3> resampleByArcLength(List<Vec3> pts, int targetCount) {
         if (pts == null || pts.size() < 2 || targetCount < 2) return new ArrayList<>(pts);
@@ -113,15 +117,16 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
     private void generateTrunk(RandomSource rnd, Vec3 origin, SubGenerator generator) {
         trunkHeight = rnd.nextInt(p.trunkHeightRange.key(), p.trunkHeightRange.value());
-        int trunkWidth = rnd.nextInt(p.trunkWidthRange.key(), p.trunkWidthRange.value());
+        trunkWidth = rnd.nextInt(p.trunkWidthRange.key(), p.trunkWidthRange.value());
 
         int finalTrunkHeight = trunkHeight;
         Set<Vec3> UnOptimisedMemo = switch (p.trunkType) {
             case BONSAI -> {
                 Function<Double, Double> radiusFunction =
                         CurveFunctions.radius((double) trunkWidth / 2, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
+                double branchScale = Math.pow(trunkWidth, 0.75) * 0.5;
                 Function<Double, Double> thicknessFunction =
-                        CurveFunctions.radius(3, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
+                        CurveFunctions.radius(branchScale, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
                 Function<Double, Double> pitchFunction =
                         CurveFunctions.pitch(0.03, 0.1, 0.2, 1.0, TimeCurve.EASE_IN_OUT_CUBIC);
                 var points = CorePointsFactory.generate(CorePointsFactory.Params.builder()
@@ -161,12 +166,14 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             }
             case CONIFEROUS -> {
                 Function<Double, Double> radiusFunction =
-                        CurveFunctions.radius((double) trunkWidth / 2, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
+                        CurveFunctions.radius((double) trunkWidth / 2, 0.0, 0.0, 1.0, TimeCurve.TRUNK_TAPER);
+                double branchScale = Math.pow(trunkWidth, 0.75) * 0.5;
                 Function<Double, Double> thicknessFunction =
-                        CurveFunctions.radius(3, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
+                        CurveFunctions.radius(branchScale, 0.0, 0.1, 1.0, TimeCurve.QUADRATIC);
                 Function<Double, Double> pitchFunction =
                         CurveFunctions.pitch(0.03, 0.1, 0.2, 1.0, TimeCurve.EASE_IN_OUT_CUBIC);
 
+                // replace w node control points
                 var points = CorePointsFactory.generate(CorePointsFactory.Params.builder()
                         .type(
                                 new StraightPointFactory()
@@ -193,8 +200,9 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                 Set<Vec3> Unloaded = new HashSet<>();
                 Function<Double, Double> radiusFunction =
                         CurveFunctions.radius((double) trunkWidth / 2, (double) trunkWidth / 4, 0.1, 1.0, TimeCurve.QUADRATIC);
+                double branchScale = Math.pow(trunkWidth, 0.75) * 0.5;
                 Function<Double, Double> thicknessFunction =
-                        CurveFunctions.radius(3, 0.0, 0.1, 1.0, TimeCurve.QUADRATIC);
+                        CurveFunctions.radius(branchScale, 0.0, 0.1, 1.0, TimeCurve.QUADRATIC);
                 Function<Double, Double> pitchFunction =
                         CurveFunctions.pitch(0.03, 0.1, 0.2, 1.0, TimeCurve.EASE_IN_OUT_CUBIC);
                 Vec3 stompStop = new Vec3(0, 0, 0);
@@ -273,8 +281,9 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             case SLANTED -> {
                 Function<Double, Double> radiusFunction =
                         CurveFunctions.radius((double) trunkWidth / 2, 0.0, 0.1, 1.0, TimeCurve.QUADRATIC);
+                double branchScale = Math.pow(trunkWidth, 0.75) * 0.5;
                 Function<Double, Double> thicknessFunction =
-                        CurveFunctions.radius(3, 0.0, 0.1, 1.0, TimeCurve.QUADRATIC);
+                        CurveFunctions.radius(branchScale, 0.0, 0.1, 1.0, TimeCurve.QUADRATIC);
                 Function<Double, Double> pitchFunction =
                         CurveFunctions.pitch(0.03, 0.1, 0.2, 1.0, TimeCurve.EASE_IN_OUT_CUBIC);
 
@@ -305,9 +314,10 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             }
             case TAPERED_SPINDLE -> {
                 Function<Double, Double> radiusFunction =
-                        CurveFunctions.radius((double) trunkWidth / 3, 0.0, 0.1, 1.0, TimeCurve.INVERTED_CUBIC);
+                        CurveFunctions.radius((double) trunkWidth / 3, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
+                double branchScale = Math.pow(trunkWidth, 0.75) * 0.5;
                 Function<Double, Double> thicknessFunction =
-                        CurveFunctions.radius(3, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
+                        CurveFunctions.radius(branchScale, 0.0, 0.1, 1.0, TimeCurve.INVERTED_QUADRATIC);
                 Function<Double, Double> pitchFunction =
                         CurveFunctions.pitch(0.03, 0.1, 0.2, 1.0, TimeCurve.EASE_IN_OUT_CUBIC);
 
@@ -327,7 +337,10 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                                 // .pitchDegrees(-90)
                                 .build());
 
-                if (p.leafType == LeafPopulationType.HANGING || p.leafType == LeafPopulationType.HANGING_MUSHROOM || p.leafType == LeafPopulationType.HANGING_FUZZY || p.leafType == LeafPopulationType.THICK_HANGING) {
+                if (p.leafType == LeafPopulationType.HANGING || p.leafType == LeafPopulationType.HANGING_MUSHROOM
+                        || p.leafType == LeafPopulationType.HANGING_FUZZY || p.leafType == LeafPopulationType.THICK_HANGING
+                        || p.leafType == LeafPopulationType.REALISTIC) {
+                    LOGGER.print("adding trunk to branches");
                     var hehe = new ArrayList<Vec3>();
                     int start = (int) Math.round(points.size() * 0.57);
                     for (int i = start; i < points.size(); i++) {
@@ -431,6 +444,17 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
                 yield SpiralUtil.generateVineWithSpiral(points, thicknessFunction, 5, 0.8f, radiusFunction, pitchFunction);
             }
+            case WILLOW -> {
+                var result = generateMultiRootSpiralTrunk(
+                        origin, 5, trunkWidth * 4, trunkHeight * 0.3,
+                        trunkHeight, trunkWidth, 0.5, 10, 2.2, 1.5, rnd
+                );
+
+                if (p.branchType != BranchingType.NO_BRANCHES)
+                    submitSubtask(sub -> generateBranches(sub, rnd.fork(rnd.nextLong()), result.getMainPath(), finalTrunkHeight, result.getTrunkRadiusFun(), result.getTrunkThicknessFun(), 1));
+
+                yield result.getVoxels();
+            }
         };
 
 
@@ -448,22 +472,25 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
         double lastHeight = -Double.MAX_VALUE; // sentinel
         int added = 0;
         boolean useMulti = false;
+        boolean invertHeight = false;
         trunkPath = BezierCurve.generatePoints(trunkPath, 200);
         TimeCurve spreadType = TimeCurve.EXPONENTIAL_OUT;
         double branchSmalize = 1.0;
         int amount = 0;
         int prevI = 0;
+        double littleAdder = 1.0;
+        double minSpacing = (p.branchingPointRange.value() - p.branchingPointRange.key()) / p.maxBranchAmount;
 
         if (p.branchType == BranchingType.CONIFEROUS)
             amount = p.coniferousBranchRange.value();
 
         for (int i = 1; i < trunkPath.size() - 1; i++) {
-            if (added >= (p.maxBranchAmount / curr)) break;
+            if (added >= Math.max(1, (p.maxBranchAmount / curr))) break;
             if (rnd.nextDouble() > p.branchPropagationChance) continue;
             if (i < prevI + p.spacing) continue;
 
             double heightFactor = (double) i / (trunkPath.size() - 1.0);
-            if (heightFactor < (Math.min(p.branchingPointRange.key() * curr, p.branchingPointRange.value() - 0.3)) || heightFactor > p.branchingPointRange.value())
+            if (heightFactor < (Math.min(p.branchingPointRange.key(), p.branchingPointRange.value() - 0.3)) || heightFactor > p.branchingPointRange.value())
                 continue;
 
             Pair<BranchGenerator, RingBranchRule> gottens = switch (p.branchType) {
@@ -472,8 +499,6 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                     yield new Pair<>(new DirectableBranch(p.windFlowDirection, 40, 20, 0.7),
                             new RingBranchRule(1, Math.toRadians(10)));
                 }
-                case BULBED -> null;
-                case SQUIGGLY -> null;
                 case CONIFEROUS -> {
                     spreadType = TimeCurve.INVERTED_QUADRATIC;
                     useMulti = true;
@@ -481,20 +506,37 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                     yield new Pair<>(new MultiAroundBranch(70 * heightFactor, 0.0),
                             new RingBranchRule(Math.max((int) (amount * 0.5), (int) (amount * ((1 - heightFactor) * 2))), Math.toRadians(0)));
                 }
-                case TAPERED_SPINDLE -> new Pair<>(new CrookedBranch(0.5, 270, 60),
-                        new RingBranchRule(1, Math.toRadians(10)));
-                case PALMLIKE -> null;
-                case DICHOTOMOUS -> null;
+                case TAPERED_SPINDLE ->
+                        new Pair<>(new CrookedBranch(0.8, 360, (int) Math.round(150 * (1.0 - heightFactor))),
+                                new RingBranchRule(1, Math.toRadians(10)));
+                case UMBERELLA -> {
+                    useMulti = true;
+                    invertHeight = true;
+                    branchSmalize = 0.1;
+                    double decay = Math.exp(-2.5 * (1.0 - heightFactor)); // try 2–3 for stronger falloff
+                    int branchCount = (int) Math.round(p.coniferousBranchRange.value() * decay);
+                    double droop = Math.pow(1.0 - heightFactor, 0.25); // stronger droop low, smoother fade
+                    double spread = Math.pow(1.0 - heightFactor, 2);     // faster growth outward
+                    yield new Pair<>(
+                            new WillowBranch(1.0 - droop, 1.0 - spread, 0.3),
+                            new RingBranchRule(branchCount, Math.toRadians(50))
+                    );
+                }
                 case BROOMED -> null;
                 case OPPOSITE -> null;
                 case TRIANGULAR -> null;
                 case NO_BRANCHES -> null;
+                case PALMLIKE -> null;
+                case BULBED -> null;
+                case SQUIGGLY -> null;
             };
 
-            var cheesy =
-                    (int) Math.round(Math.max(2, startLength * p.branchSizeDecay *
-                            (curr == 1 ? (1 - heightFactor) * 2 : (1 - heightFactor) / 2) *
-                            ((double) curr * 0.8)));
+            double base = Math.max(
+                    startLength * p.branchSizeDecay * 0.4,
+                    (startLength * 1.5) * p.branchSizeDecay * (invertHeight ? heightFactor : (1.0 - heightFactor)) * 1.3 * littleAdder
+            );
+            double cheesyD = base * Math.pow(0.8, curr);
+            int cheesy = (int) Math.round(cheesyD);
 
             BranchGenerator gen = gottens.key();
             RingBranchRule rule = gottens.value();
@@ -508,29 +550,36 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             double trunkRadiusAtHeight = startWidth.apply(heightFactor);
             double trunkThicknessAtHeight = thickness.apply(heightFactor);
 
-            // --- spacing rule ---
-            // min spacing proportional to parent radius
-            double minSpacing = Math.min(0.15, 0.04 / (heightFactor / 2));
             if (Math.abs(heightFactor - lastHeight) < minSpacing) continue;
+            int baseBranchRadius = (int) Math.round((trunkRadiusAtHeight * 2) + (trunkThicknessAtHeight / 2)) / 2;
 
+            var attachements = new ArrayList<AttachmentPoint>();
             var attachment = new AttachmentPoint(cur, tangent,
-                    (trunkRadiusAtHeight + trunkThicknessAtHeight),
+                    baseBranchRadius,
                     heightFactor);
+            attachements.add(attachment);
+            if (rnd.nextDouble() < p.duplicateBranchChance && p.branchType != BranchingType.CONIFEROUS && p.branchType != BranchingType.UMBERELLA) {
+                attachements.add(new AttachmentPoint(cur, tangent,
+                        baseBranchRadius / 1.5,
+                        heightFactor));
+            }
             lastHeight = heightFactor;
             added++;
 
             List<List<Vec3>> branches =
-                    engine.generateAll(rnd, List.of(attachment), 10 / curr,
+                    engine.generateAll(rnd, attachements, 50 / curr,
                             cheesy);
 
+            int index = 0;
             for (var branch : branches) {
-                var startThickness = CurveFunctions.radius(1, 0, 0.0, 1.0, spreadType);
-                double baseBranchRadius = trunkRadiusAtHeight + trunkThicknessAtHeight;
+                double branchScale = Math.pow((baseBranchRadius * branchSmalize), 0.75) * 0.5;
+                var startThickness =
+                        CurveFunctions.radius(branchScale, 0.0, 0.0, 1.0, TimeCurve.INVERTED_QUADRATIC);
                 var startRadius = CurveFunctions.radius(
-                        baseBranchRadius * branchSmalize,
-                        baseBranchRadius * 0.2 * branchSmalize,
-                        0.05, 1.0,
-                        spreadType
+                        (baseBranchRadius * branchSmalize) / (index % 2 == 0 ? 1 : 1.5),
+                        (baseBranchRadius * branchSmalize * 0.02) / (index % 2 == 0 ? 1 : 1.5),
+                        0.0, 1.0,
+                        TimeCurve.EASE_IN_OUT_CUBIC
                 );
 
                 if (curr < p.branchDepth) {
@@ -553,6 +602,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                 ) {
                     subGenerator.guardAndStore(pos, p.woodMaterial, false);
                 }
+                index++;
             }
         }
     }
@@ -568,20 +618,30 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                 for (var entry : leafingPoints.entrySet()) {
                     var branch = entry.getKey();
                     if (branch == null || branch.isEmpty()) continue;
+                    branch = BezierCurve.generatePoints(entry.getKey(), 200);
+                    int placed = 0;
+                    double former = 0;
+                    int totalPoints = branch.size();
+                    double normalizedStep = 1.0 / (totalPoints - 1); // uniform progress per index
+                    double step = ((double) branch.size() / p.maxVinePerBranch);
 
-                    int lastPlacedIndex = -(int) Math.ceil(p.spacing); // ensure first placement allowed
-                    for (int i = 0; i < branch.size(); i++) {
-                        // random skip still allowed
-                        if (rnd.nextDouble() > p.leafPropagationChance) continue;
+                    for (int i = 0; i < totalPoints; i++) {
+                        double gprogress = i * normalizedStep; // 0 → 1 across the branch
+                        if (i < former + step) continue;
+                        if (rnd.nextDouble() > p.vinePropagationChance) continue;
+                        if (placed >= p.maxVinePerBranch) break;
+                        former = i;
 
-                        // enforce spacing using lastPlacedIndex (fix mixing i/index semantics)
-                        if (i - lastPlacedIndex < p.spacing) continue;
+                        // Use normalized progress (not divided by distance)
+                        double heightFactor = (p.invertVine ? (1.0 - gprogress) : gprogress);
 
-                        if (lastPlacedIndex >= p.maxVinePerBranch) break;
+                        int vineHeight = Math.max(
+                                1,
+                                (int) Math.round(trunkHeight * (heightFactor * p.vineHeight / entry.getValue()))
+                        );
 
-                        int vineHeight = Math.max(1, (int) Math.round(trunkHeight * (rnd.nextDouble() * p.vineHeight)) / entry.getValue());
                         Vec3 base = branch.get(i);
-                        lastPlacedIndex++; // count placed vine
+                        placed++;
 
                         var pts = CorePointsFactory.generate(
                                 CorePointsFactory.Params.builder()
@@ -651,15 +711,14 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                             // System.out.println("DIAMETER: " + diameter);
 
                             Vec3 rawPos = base.subtract(vec);
-                            Vec3 center = rawPos;
 
                             // voxelize sphere
                             double rSq = radius * radius;
                             int rCeil = Math.max(1, (int) Math.ceil(radius));
 
-                            int baseX = (int) Math.floor(center.x);
-                            int baseY = (int) Math.floor(center.y);
-                            int baseZ = (int) Math.floor(center.z);
+                            int baseX = (int) Math.floor(rawPos.x);
+                            int baseY = (int) Math.floor(rawPos.y);
+                            int baseZ = (int) Math.floor(rawPos.z);
 
                             for (int dx = -rCeil; dx <= rCeil; dx++) {
                                 for (int dy = -rCeil; dy <= rCeil; dy++) {
@@ -667,9 +726,9 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                                         double bx = baseX + dx + 0.5;
                                         double by = baseY + dy + 0.5;
                                         double bz = baseZ + dz + 0.5;
-                                        double ddx = bx - center.x;
-                                        double ddy = by - center.y;
-                                        double ddz = bz - center.z;
+                                        double ddx = bx - rawPos.x;
+                                        double ddy = by - rawPos.y;
+                                        double ddz = bz - rawPos.z;
                                         double distSq = ddx * ddx + ddy * ddy + ddz * ddz;
                                         if (distSq <= rSq + 1e-9) {
                                             int wx = baseX + dx;
@@ -998,7 +1057,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                         //         " baseExtr=" + baseExtrusion + " len=" + extrusionLength + " arms=" + armCount);
 
                         for (int a = 0; a < armCount; a++) {
-                            double baseAngle = (2.0 * Math.PI * a) / Math.max(1, armCount);
+                            double baseAngle = (2.0 * Math.PI * a) / armCount;
                             double angle = baseAngle + (rnd.nextDouble() * 2.0 - 1.0) * angleJitterRadians;
                             Vec3 radialDir = u.multiply(Math.cos(angle)).add(v.multiply(Math.sin(angle))).normalize();
 
@@ -1157,6 +1216,37 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                     }
                 } // end each cap center
             }
+            case REALISTIC -> {
+                for (var entry : leafingPoints.entrySet()) {
+                    var branch = entry.getKey();
+                    if (branch == null || branch.isEmpty()) continue;
+
+                    Vec3 tip = branch.getLast();
+                    double realism = p.realism;
+                    double decay = 0.7;
+                    int depth = entry.getValue();
+                    int width = (int) Math.round((trunkWidth * 2) * Math.pow(decay, depth - 1));
+                    double density = 0.4 + realism * 0.5;           // 0.4 → 0.9
+                    int refinement = 2 + (int) Math.round(realism * 3);  // 2 → 5
+                    double hollow = 0.4 - realism * 0.3;            // 0.4 → 0.1
+                    double fluff = 0.8 - realism * 0.6;             // 0.8 → 0.2
+                    double leafScale = 1.4 - realism * 0.7;
+
+                    var points = generateLeafBlob(
+                            tip,
+                            (width * 1.2 * leafScale) / 2,
+                            (width * 0.7 * leafScale) / 2,
+                            (width * leafScale) / 2,
+                            density,
+                            refinement,
+                            hollow,
+                            fluff
+                    );
+                    for (var point : points) {
+                        subGenerator.guardAndStore(point, p.leafMaterial, false);
+                    }
+                }
+            }
 
             default -> {
                 // fallback: treat like AROUND_ALL_BRANCHES
@@ -1177,9 +1267,10 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
     public enum TrunkType {
         BONSAI(0.4, BranchingType.WIND_SWEPT, 15),
         CONIFEROUS(0.6, BranchingType.CONIFEROUS, 3),
-        MULTI_TRUNKED(0.2, BranchingType.DICHOTOMOUS, 32),
+        MULTI_TRUNKED(0.2, BranchingType.NO_BRANCHES, 32),
         SLANTED(0.8, BranchingType.PALMLIKE, 7),
-        TAPERED_SPINDLE(0.3, BranchingType.TAPERED_SPINDLE, 20);
+        TAPERED_SPINDLE(0.3, BranchingType.TAPERED_SPINDLE, 20),
+        WILLOW(0.3, BranchingType.UMBERELLA, 20);
 
         private final double branchingPoint;
         private final BranchingType branchingType;
@@ -1199,7 +1290,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
         CONIFEROUS,
         TAPERED_SPINDLE,
         PALMLIKE,
-        DICHOTOMOUS,
+        UMBERELLA,
         BROOMED,
         OPPOSITE,
         TRIANGULAR,
@@ -1218,11 +1309,12 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
         /**/ HANGING_MUSHROOM,
         /**/ HANGING_FUZZY,
         /**/ MUSHROOMCAP,
-        /**/ NO_LEAVES
+        /**/ NO_LEAVES,
+        /**/ REALISTIC
     }
 
     public static class NoAIPTGBuilder<T> extends BaseBuilder<T, NoAIProceduralTreeGenerator<T>> {
-        public boolean taperedFuzz = false;
+        public boolean taperedFuzz = false, invertVine = false;
         protected TrunkType trunkType = TrunkType.TAPERED_SPINDLE;
         protected BranchingType branchType = trunkType.branchingType;
         protected LeafPopulationType leafType = LeafPopulationType.ON_BRANCH_TIP;
@@ -1236,11 +1328,12 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                 trunkWidthRange = new Pair<>(15, 18),
                 coniferousBranchRange = new Pair<>(4, 7);
         protected int branchDepth = 4, branchMaxDevianceAngle = trunkType.deviance,
-                branchMaxHorizontalDevianceAngle = 10, maxBranchAmount = 7, maxVinePerBranch = 4, spacing = 2,
+                maxBranchAmount = 7, maxVinePerBranch = 4, spacing = 2,
                 maxMushDang = 30;
         protected double quality = 1.0, vineHeight = 0.3,
-                twistiness = 0.4, randomness = 0.2, leafPropagationChance = 1.0, branchPropagationChance = 0.5,
-                branchSizeDecay = 0.4, treeTrunkMaxShrink = 0.3, branchVerticalDensity = 1.0;
+                randomness = 0.2, leafPropagationChance = 1.0,
+                vinePropagationChance = 1.0, branchPropagationChance = 0.5,
+                branchSizeDecay = 0.4, duplicateBranchChance = branchPropagationChance / 2;
 
         protected Direction windFlowDirection = Direction.EAST;
         protected PlatformBlockState<T> woodMaterial, leafMaterial;
@@ -1251,7 +1344,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
         protected double bonsaiTreeHelixSpan = 30;
         protected int multiTrunkAngleMax = 30;
         protected int multiTrunkNumber = 3;
-        protected double multiTrunkStartPoint = 0.2;
+        protected double multiTrunkStartPoint = 0.2, realism = 0.5;
         protected Function<Integer, Set<Pair<Vec3, PlatformBlockState<T>>>> onTipDecorations = (x) -> new HashSet<>();
 
         protected Pair<Integer, Integer> slantAngleRange = new Pair<>(10, 20);
@@ -1289,8 +1382,13 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             return this;
         }
 
-        public NoAIPTGBuilder<T> taperedFuzz(boolean taperedFuzz) {
-            this.taperedFuzz = taperedFuzz;
+        public NoAIPTGBuilder<T> taperedFuzz() {
+            this.taperedFuzz = true;
+            return this;
+        }
+
+        public NoAIPTGBuilder<T> invertVine() {
+            this.invertVine = true;
             return this;
         }
 
@@ -1326,16 +1424,6 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
         public NoAIPTGBuilder<T> vineHeight(double vineHeight) {
             this.vineHeight = vineHeight;
-            return this;
-        }
-
-        public NoAIPTGBuilder<T> treeTrunkMaxShrink(double treeTrunkMaxShrink) {
-            this.treeTrunkMaxShrink = treeTrunkMaxShrink;
-            return this;
-        }
-
-        public NoAIPTGBuilder<T> branchVerticalDensity(double branchVerticalDensity) {
-            this.branchVerticalDensity = branchVerticalDensity;
             return this;
         }
 
@@ -1394,11 +1482,6 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             return this;
         }
 
-        public NoAIPTGBuilder<T> twistiness(double value) {
-            this.twistiness = value;
-            return this;
-        }
-
         public NoAIPTGBuilder<T> randomness(double value) {
             this.randomness = value;
             return this;
@@ -1409,8 +1492,18 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             return this;
         }
 
+        public NoAIPTGBuilder<T> vinePropagationChance(double value) {
+            this.vinePropagationChance = value;
+            return this;
+        }
+
         public NoAIPTGBuilder<T> branchPropagationChance(double value) {
             this.branchPropagationChance = value;
+            return this;
+        }
+
+        public NoAIPTGBuilder<T> duplicateBranchChance(double value) {
+            this.duplicateBranchChance = value;
             return this;
         }
 
@@ -1429,11 +1522,6 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             return this;
         }
 
-        public NoAIPTGBuilder<T> branchMaxHorizontalDevianceAngle(int branchMaxHorizontalDevianceAngle) {
-            this.branchMaxHorizontalDevianceAngle = branchMaxHorizontalDevianceAngle;
-            return this;
-        }
-
         public NoAIPTGBuilder<T> windFlowDirection(Direction dir) {
             this.windFlowDirection = dir;
             return this;
@@ -1444,13 +1532,18 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
             return this;
         }
 
+        public NoAIPTGBuilder<T> realismLevel(double v) {
+            this.realism = v;
+            return this;
+        }
+
         public NoAIPTGBuilder<T> leafMaterial(PlatformBlockState<T> material) {
             this.leafMaterial = material;
             return this;
         }
 
         public NoAIPTGBuilder<T> vineSequenceMaterial(List<PlatformBlockState<T>> materials) {
-            materials.forEach(mat -> this.vineSequenceMaterial.add(mat));
+            this.vineSequenceMaterial.addAll(materials);
             return this;
         }
 

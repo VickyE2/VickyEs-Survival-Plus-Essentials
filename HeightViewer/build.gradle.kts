@@ -8,7 +8,18 @@ group = "org.vicky.vicky_utils"
 version = "unspecified"
 
 repositories {
+    mavenLocal()
     mavenCentral()
+    // maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
+    //     credentials {
+    //         val usernameValue = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+    //         ?: throw GradleException("Publishing username not set in 'gpr.user' property or 'USERNAME' environment variable")
+    //         username = usernameValue.toString()
+    //         val passwordValue = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+    //         ?: throw GradleException("Publishing password not set in 'gpr.key' property or 'TOKEN' environment variable")
+    //         password = passwordValue.toString()
+    //     }
+    // }
 }
 
 javafx {

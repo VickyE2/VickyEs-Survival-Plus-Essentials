@@ -3,13 +3,79 @@ package org.vicky.vspe.branch
 import org.vicky.platform.utils.Vec3
 import org.vicky.vspe.Direction
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.CorePointsFactory
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.CompoundArchPointFactory
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.LCurveFactory
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.StraightPointFactory
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SeededRandomSource
+import org.vicky.vspe.shuffle
 import java.util.stream.Collectors
 import kotlin.math.*
 
+@JvmOverloads
+fun generateLeafBlob(
+    origin: Vec3,
+    sizeX: Double,
+    sizeY: Double,
+    sizeZ: Double,
+    density: Double = 0.6,
+    refinement: Int = 2,
+    hollowFactor: Double = 0.25,
+    fluffOffset: Double = 0.5,
+    seed: Long = System.nanoTime()
+): List<Vec3> {
+    val rnd = SeededRandomSource(seed)
+    val points = mutableListOf<Vec3>()
+
+    // --- 1️⃣ Base Blob Pass ---
+    val baseCount = (sizeX * sizeY * sizeZ * density).toInt()
+    repeat(baseCount) {
+        val x = rnd.nextDouble(-sizeX, sizeX)
+        val y = rnd.nextDouble(-sizeY, sizeY)
+        val z = rnd.nextDouble(-sizeZ, sizeZ)
+
+        // Ellipsoid shape bias
+        val dist = (x * x / (sizeX * sizeX)) + (y * y / (sizeY * sizeY)) + (z * z / (sizeZ * sizeZ))
+        if (dist <= 1.0 + rnd.nextDouble(-0.2, 0.2)) {
+            points.add(Vec3(origin.x + x, origin.y + y, origin.z + z))
+        }
+    }
+
+    // --- 2️⃣ Refinement Pass ---
+    // Adds small clusters around random existing points
+    repeat(refinement) {
+        val newPoints = mutableListOf<Vec3>()
+        for (p in points.shuffle(rnd).take(points.size / 3)) {
+            repeat(5) {
+                val off = Vec3.of(
+                    p.x + rnd.nextDouble(-0.8, 0.8),
+                    p.y + rnd.nextDouble(-0.5, 0.5),
+                    p.z + rnd.nextDouble(-0.8, 0.8)
+                )
+                newPoints.add(off)
+            }
+        }
+        points.addAll(newPoints)
+    }
+
+    // --- 3️⃣ Hollow Noise Offset Pass ---
+    val center = origin
+    val hollowed = points.filter {
+        val d = sqrt((it.x - center.x).pow(2) + (it.y - center.y).pow(2) + (it.z - center.z).pow(2))
+        d > (min(sizeX, min(sizeY, sizeZ)) * hollowFactor)
+    }.toMutableList()
+
+    // Apply fluffy offset duplication
+    val fluff = hollowed.flatMap {
+        val dx = rnd.nextDouble(-fluffOffset, fluffOffset)
+        val dy = rnd.nextDouble(-fluffOffset, fluffOffset)
+        val dz = rnd.nextDouble(-fluffOffset, fluffOffset)
+        listOf(it, Vec3(it.x + dx, it.y + dy, it.z + dz))
+    }
+
+    // Optional: Random thinning for realism
+    return fluff.filter { rnd.nextDouble() > 0.1 }
+}
 
 interface BranchGenerator {
     /**
@@ -220,7 +286,7 @@ class LCurveBranchGenerator @JvmOverloads constructor(
  * Performs some sophisticated curvature...
  */
 class CrookedBranch @JvmOverloads constructor(
-    val crookedness: Double = 0.5,
+    var crookedness: Double = 0.5,
     val horizontalTiltDegrees: Int = 180,
     val verticalTiltDegrees: Int = 20
 ) : BranchGenerator {
@@ -238,40 +304,149 @@ class CrookedBranch @JvmOverloads constructor(
         forwardBias: Double
     ): MutableList<Vec3> {
         var segs = segments
-        if (segs < 2) segs = max(2, segs)
+        if (segs < 15) segs = max(10, segs)
 
         // random offsets
         val horizontalOffset = rnd.nextInt(-horizontalTiltDegrees, max(1, horizontalTiltDegrees)).toDouble()
-        val verticalOffset = rnd.nextDouble() * verticalTiltDegrees
+        val verticalOffset = max(0.7, rnd.nextDouble()) * verticalTiltDegrees
 
-        val yawDeg = horizontalOffset + lastUsedYaw
-        val pitchDeg = verticalOffset + lastUsedPitch // tilt upward away from trunk
-
-        lastUsedPitch = verticalOffset
-        lastUsedYaw = horizontalOffset
+        val pitchDeg = verticalOffset
+        var yawDeg = horizontalOffset + if (rnd.nextBoolean()) lastUsedYaw * 0.5 else -lastUsedYaw * 0.5
+        if (abs(yawDeg - lastUsedYaw) < 50) yawDeg += 90
+        lastUsedYaw = yawDeg
+        val bias = pitchDeg * (0.8 + rnd.nextDouble() * 0.4)
 
         // Build params for CorePointsFactory directly
         val params = CorePointsFactory.Params.builder()
             .type(StraightPointFactory())
             .segments(segs)
-            .width(length * 0.35)
-            .height(length * 0.65)
-            .yawDegrees(yawDeg)
-            .pitchDegrees(-90 + pitchDeg)
+            .width(length * 0.25)
+            .height(length)
+            .yawDegrees(yawDeg - tangent.toYaw())
+            .pitchDegrees(tangent.toPitch() - bias)
             .origin(attach)
-            .divergenceStrength(crookedness)
-            .divergenceProbability(max(0.9, crookedness * 1.5))
-            .noiseStrength(0.8 * crookedness)
-            .noiseSmooth(2.0.pow(crookedness))
-            .noiseHighFreq(0.50)
-            .noiseLowFreq(0.007)
-            .noiseWidthFactor(1.7)
-            .noiseDriftStrength(1.0)
-            .build()
+            .divergenceStrength(0.4 + 0.6 * crookedness)
+            .divergenceDecay(1.0 - (0.3 * crookedness))
+            .noiseStrength(0.5 + 1.0 * crookedness)
+            .noiseSmooth(1.0 - (0.5 * crookedness))
+            .noiseWidthFactor(0.7 - 0.3 * crookedness)
+            .build(       /*-----------------------------*/)
 
         val pts = CorePointsFactory.generate(params)
 
         return pts
+    }
+}
+
+class WillowBranch @JvmOverloads constructor(
+    var droopStrength: Double = 1.0,
+    var xDistancer: Double = 1.0,
+    var elegance: Double = 0.8,
+    val horizontalTiltDegrees: Int = 180
+) : BranchGenerator {
+    override fun generate(
+        rnd: RandomSource,
+        attach: Vec3,
+        tangent: Vec3,
+        parentRadius: Double,
+        length: Double,
+        segments: Int,
+        upwardBias: Double,
+        forwardBias: Double
+    ): MutableList<Vec3> {
+        val segs = max(3, segments)
+        val archHeightMag = (length * 0.4 * droopStrength)
+            .coerceAtMost(length / Math.PI * 0.99)
+            .coerceAtLeast(0.001)
+        val zero = Vec3.of(0.0, 0.0, 0.0)
+
+        val exp = 1.25
+        val scaledDF = (xDistancer.pow(exp) - 1) / (1.0.pow(exp) - 1)
+        val droopForce = (length * 0.50 * scaledDF).coerceAtMost(length * 0.6)
+
+        val scaled = (xDistancer.pow(exp) - 1) / (1.0.pow(exp) - 1)
+        val xDistance = length * scaled
+        val end = zero.add(xDistance, -droopForce, 0.0)
+
+        val yawShift = rnd.nextInt(-horizontalTiltDegrees, horizontalTiltDegrees) +
+                (horizontalTiltDegrees * rnd.nextDouble())
+        val factory = CompoundArchPointFactory(zero, end, +archHeightMag, 0.5)
+
+        val params = CorePointsFactory.Params.builder()
+            .type(factory)
+            .segments(segs)
+            .width(length * 0.2)
+            .height(length)
+            .yawDegrees(yawShift)
+            // .pitchDegrees(-90.0)
+            .origin(attach)
+            .divergenceDecay(0.95)
+            .divergenceProbability(0.05)
+            .divergenceStrength(0.05 * elegance)
+            .noiseStrength(0.1 * (1.0 - elegance))
+            .noiseSmooth(0.9 * elegance)
+            .noiseWidthFactor(1.0)
+            .build()
+
+        val pts = CorePointsFactory.generate(params)
+        return pts
+    }
+
+    override fun generateAt(
+        rnd: RandomSource,
+        attach: Vec3,
+        tangent: Vec3,
+        parentRadius: Double,
+        length: Double,
+        segments: Int,
+        upwardBias: Double,
+        forwardBias: Double,
+        rule: RingBranchRule
+    ): MutableList<MutableList<Vec3>> {
+        var segs = segments
+        if (segs < 2) segs = max(2, segs)
+
+        val out: MutableList<MutableList<Vec3>> = ArrayList()
+        val decideSeed = rnd.nextLong()
+        val decideRnd = SeededRandomSource(decideSeed)
+        val angles = rule.decide(decideRnd)
+
+        // 2. For each branch
+        for (az in angles) {
+            val archHeightMag = (length * 0.4 * droopStrength)
+                .coerceAtMost(length / Math.PI * 0.99)
+                .coerceAtLeast(0.001)
+            val zero = Vec3.of(0.0, 0.0, 0.0)
+
+            val droopForce = (length * 0.50 * droopStrength.pow(1.25)).coerceAtMost(length * 0.6)
+            val xDistance = length * xDistancer.pow(1.25)
+            val end = zero.add(xDistance, -droopForce, 0.0)
+            val factory = CompoundArchPointFactory(zero, end, +archHeightMag, 0.5)
+
+            val params = CorePointsFactory.Params.builder()
+                .type(factory)
+                .segments(segs)
+                .width(length * 0.2)
+                .height(length)
+                .yawDegrees(Math.toDegrees(az))
+                // .pitchDegrees(-90.0)
+                .origin(attach)
+                .divergenceDecay(0.95)
+                .divergenceProbability(0.05)
+                .divergenceStrength(0.05 * elegance)
+                .noiseStrength(0.1 * (1.0 - elegance))
+                .noiseSmooth(0.9 * elegance)
+                .noiseWidthFactor(1.0)
+                .build()
+            val pts = CorePointsFactory.generate(params)
+
+            // Safety: ensure anchor is the first point (some factories / origins can be quirky)
+            if (pts.isEmpty() || pts[0] != attach) pts.add(0, attach)
+
+            out.add(pts)
+        }
+
+        return out
     }
 }
 
@@ -538,7 +713,7 @@ data class BranchingEngine(
                 }
             } else {
                 // Original single-angle-per-rule behavior (with jitter attempts)
-                val angles = rule.decide(SeededRandomSource(attachSeed))
+                val angles = rule.decide(rnd.fork(attachSeed))
                 for (baseAngle in angles) {
                     var branchSafe: MutableList<Vec3>? = null
 
@@ -548,7 +723,7 @@ data class BranchingEngine(
                     var angleToUse = baseAngle
 
                     while (attempts < allowAngleJitterAttempts) {
-                        val childRnd = SeededRandomSource(childSeedBase xor attempts.toLong())
+                        val childRnd = rnd.fork(childSeedBase xor attempts.toLong())
 
                         val branchPts = generator.generate(
                             childRnd,

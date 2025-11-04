@@ -10,10 +10,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
-import javafx.scene.shape.Box;
-import javafx.scene.shape.CullFace;
-import javafx.scene.shape.DrawMode;
-import javafx.scene.shape.MeshView;
+import javafx.scene.shape.*;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.stage.Stage;
@@ -26,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class VoxelizerViewer extends Application {
 
+    private final Group structureGroup = new Group();
     public static ResolvedStructure<Object> SAMPLE = createSampleStructure();
     private final Set<KeyCode> keysDown = new HashSet<>();
     private final Group root3D = new Group();
@@ -96,7 +94,7 @@ public class VoxelizerViewer extends Application {
         BorderPane rootPane = new BorderPane();
         // basic camera setup
         camera.setNearClip(0.1);
-        camera.setFarClip(10000.0);
+        camera.setFarClip(1000000000000000000000.0);
         camera.getTransforms().addAll(cameraYaw, cameraPitch, cameraPosition);
         updateCameraPosition();
 
@@ -123,27 +121,27 @@ public class VoxelizerViewer extends Application {
         renderResolvedStructure(SAMPLE);
 
         rootPane.setCenter(subScene);
-
-// --- Camera Coordinates Overlay ---
-        cameraCoordsLabel.setTextFill(Color.WHITE);
-        cameraCoordsLabel.setStyle("""
-                -fx-font-size: 16px;
-                -fx-font-weight: bold;
-                -fx-background-color: rgba(0,0,0,0.45);
-                -fx-padding: 6 10 6 10;
-                -fx-background-radius: 8;
-                """);
-
-        // Use a StackPane overlay for positioning
         StackPane overlay = new StackPane(cameraCoordsLabel);
         overlay.setMouseTransparent(true); // let mouse go through to 3D scene
         StackPane.setAlignment(cameraCoordsLabel, javafx.geometry.Pos.TOP_RIGHT);
 
         BorderPane wrapper = new BorderPane(overlay);
+        overlay.setMouseTransparent(true);
+        wrapper.setMouseTransparent(true);
         rootPane.setCenter(new StackPane(subScene, wrapper));
 
         Scene scene = new Scene(rootPane, 900, 800, true);
         stage.setScene(scene);
+        Group axes = createAxes(100);
+        Group grid = createGrid(5000, 10);
+        grid.setTranslateY(0.1);
+        axes.setTranslateY(0.1);
+        grid.setDepthTest(DepthTest.ENABLE);
+        axes.setDepthTest(DepthTest.ENABLE);
+
+        // worldGroup.getChildren().addAll(grid, axes);
+        worldGroup.getChildren().add(structureGroup);
+
 
         stage.setTitle("Structure Viewer (JavaFX)");
         stage.show();
@@ -156,7 +154,7 @@ public class VoxelizerViewer extends Application {
 
     private void renderResolvedStructure(ResolvedStructure<?> structure) {
         Platform.runLater(() -> {
-            worldGroup.getChildren().clear();
+            structureGroup.getChildren().clear();
 
             StructureBox bounds = structure.bounds != null
                     ? structure.bounds : computeBounds(structure);
@@ -189,7 +187,7 @@ public class VoxelizerViewer extends Application {
                         b.setTranslateY(-cy * blockSize);
                         b.setTranslateZ(cz * blockSize);
 
-                        worldGroup.getChildren().add(b);
+                        structureGroup.getChildren().add(b);
                     }
                 }
             }
@@ -243,6 +241,7 @@ public class VoxelizerViewer extends Application {
         AnimationTimer movementTimer = new AnimationTimer() {
             @Override
             public void handle(long now) {
+                rotateY.setAngle((rotateY.getAngle() + 0.2) % 360);
                 double speed = 2.2; // units per frame
                 Platform.runLater(() -> {
                     double x = cameraPosition.getX();
@@ -253,19 +252,6 @@ public class VoxelizerViewer extends Application {
                             "X: %.1f   Y: %.1f   Z: %.1f",
                             x, y, z
                     );
-
-                    // Color each coordinate differently
-                    cameraCoordsLabel.setText(text);
-
-                    // Optional: colorize with CSS text spans (requires rich text)
-                    cameraCoordsLabel.setStyle("""
-                            -fx-font-size: 16px;
-                            -fx-font-weight: bold;
-                            -fx-background-color: rgba(0,0,0,0.45);
-                            -fx-padding: 6 10 6 10;
-                            -fx-background-radius: 8;
-                            -fx-text-fill: linear-gradient(to right, #ff5050 0%%, #50ff50 50%%, #50aaff 100%%);
-                            """);
                 });
 
 
@@ -361,4 +347,64 @@ public class VoxelizerViewer extends Application {
             return Color.rgb(r, g, b);
         }
     }
+
+    /**
+     * Create XYZ axis lines with color coding: X=Red, Y=Green, Z=Blue
+     */
+    private Group createAxes(double axisLength) {
+        Group axes = new Group();
+
+        // X-axis (red)
+        Cylinder xAxis = new Cylinder(0.2, axisLength);
+        xAxis.setMaterial(new PhongMaterial(Color.RED));
+        xAxis.getTransforms().addAll(
+                new Rotate(90, Rotate.Z_AXIS),
+                new Translate(axisLength / 2, 0, 0)
+        );
+
+        // Y-axis (green)
+        Cylinder yAxis = new Cylinder(0.2, axisLength);
+        yAxis.setMaterial(new PhongMaterial(Color.LIMEGREEN));
+        yAxis.getTransforms().add(new Translate(0, -axisLength / 2, 0));
+
+        // Z-axis (blue)
+        Cylinder zAxis = new Cylinder(0.2, axisLength);
+        zAxis.setMaterial(new PhongMaterial(Color.DEEPSKYBLUE));
+        zAxis.getTransforms().addAll(
+                new Rotate(90, Rotate.X_AXIS),
+                new Translate(0, 0, axisLength / 2)
+        );
+
+        axes.getChildren().addAll(xAxis, yAxis, zAxis);
+        return axes;
+    }
+
+    /**
+     * Create a grid floor aligned on the XZ-plane
+     */
+    private Group createGrid(int halfSize, double spacing) {
+        Group grid = new Group();
+        PhongMaterial lineMat = new PhongMaterial(Color.GRAY);
+
+        for (int i = -halfSize; i <= halfSize; i++) {
+            // Lines parallel to X-axis
+            Box lineX = new Box(halfSize * 2 * spacing, 0.05, 0.05);
+            lineX.setMaterial(lineMat);
+            lineX.setTranslateX(0);
+            lineX.setTranslateY(0);
+            lineX.setTranslateZ(i * spacing);
+            grid.getChildren().add(lineX);
+
+            // Lines parallel to Z-axis
+            Box lineZ = new Box(0.05, 0.05, halfSize * 2 * spacing);
+            lineZ.setMaterial(lineMat);
+            lineZ.setTranslateX(i * spacing);
+            lineZ.setTranslateY(0);
+            lineZ.setTranslateZ(0);
+            grid.getChildren().add(lineZ);
+        }
+
+        return grid;
+    }
+
 }

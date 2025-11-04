@@ -87,7 +87,8 @@ public class VSPEStructures implements AddonInitializer {
             for (Entry<String, List<Class<? extends BaseStructure>>> structures : VSPEStructures.structures.entrySet()) {
                for (Class<? extends BaseStructure> clazz : structures.getValue()) {
                   try {
-                     Constructor<? extends BaseStructure> constructor = clazz.getDeclaredConstructor();
+                      Constructor<? extends BaseStructure> constructor =
+                              clazz.getDeclaredConstructor();
                      constructor.setAccessible(true);
                      BaseStructure instance = constructor.newInstance();
                      instance.setPlatform(this.platform);

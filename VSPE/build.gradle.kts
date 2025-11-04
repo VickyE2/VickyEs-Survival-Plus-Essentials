@@ -6,6 +6,7 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven("https://jitpack.io")
     maven("https://repo.maven.apache.org/maven2/")
@@ -20,18 +21,17 @@ repositories {
     maven("https://www.matteodev.it/spigot/public/maven/")
     maven("https://repo.dmulloy2.net/repository/public/")
     maven("https://repo.codemc.io/repository/maven-snapshots/")
-    maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
-        credentials {
-            val usernameValue = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-            ?: throw GradleException("Publishing username not set in 'gpr.user' property or 'USERNAME' environment variable")
-            username = usernameValue.toString()
-            val passwordValue = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-            ?: throw GradleException("Publishing password not set in 'gpr.key' property or 'TOKEN' environment variable")
-            password = passwordValue.toString()
-        }
-    }
+    // maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
+    //     credentials {
+    //         val usernameValue = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+    //         ?: throw GradleException("Publishing username not set in 'gpr.user' property or 'USERNAME' environment variable")
+    //         username = usernameValue.toString()
+    //         val passwordValue = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+    //         ?: throw GradleException("Publishing password not set in 'gpr.key' property or 'TOKEN' environment variable")
+    //         password = passwordValue.toString()
+    //     }
+    // }
     maven("https://nexus.betonquest.org/repository/betonquest/")
-    // mavenLocal()
 }
 
 dependencies {

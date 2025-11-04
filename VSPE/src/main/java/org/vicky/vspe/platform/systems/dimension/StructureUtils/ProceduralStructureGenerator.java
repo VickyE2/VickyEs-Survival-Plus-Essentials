@@ -6,6 +6,7 @@ import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.platform.world.PlatformBlockState;
 import org.vicky.platform.world.PlatformWorld;
+import org.vicky.utilities.ContextLogger.AsyncContextLogger;
 import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.vspe.BlockVec3i;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.BlockPlacement;
@@ -36,7 +37,8 @@ public abstract class ProceduralStructureGenerator<T> {
     protected static final int BIT_SIZE = 21;
     protected static final int BIAS     = 1 << (BIT_SIZE - 1);
     protected static final int MASK     = (1 << BIT_SIZE) - 1;
-    protected static final ContextLogger LOGGER = new ContextLogger(ContextLogger.ContextType.SUB_SYSTEM,
+    protected static final ContextLogger LOGGER =
+            new AsyncContextLogger(ContextLogger.ContextType.SUB_SYSTEM,
             new Object() {
             }.getClass().getEnclosingClass().getSimpleName());
     private static final ExecutorService GENERATOR_EXEC = Executors.newCachedThreadPool(r -> {

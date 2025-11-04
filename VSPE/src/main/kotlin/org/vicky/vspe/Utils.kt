@@ -462,6 +462,18 @@ class SingleFlightCache<K, V>(
     }
 }
 
+fun <T> MutableList<T>.shuffle(rnd: RandomSource): MutableList<T> {
+    for (i in this.lastIndex downTo 1) {
+        val j = rnd.nextInt(i + 1)
+        if (i != j) {
+            val tmp = this[i]
+            this[i] = this[j]
+            this[j] = tmp
+        }
+    }
+
+    return this
+}
 
 fun <K, V> Map<K, V>.toConcurrentMap(): ConcurrentHashMap<K, V> {
     val map = ConcurrentHashMap<K, V>()

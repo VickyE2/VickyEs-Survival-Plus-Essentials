@@ -1,29 +1,27 @@
 package org.vicky.vspe.addon.util;
 
+import org.slf4j.Logger;
+import org.vicky.utilities.ANSIColor;
+
 import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import org.slf4j.Logger;
-import org.vicky.utilities.ANSIColor;
 
 public class StructureLoader {
    private final Map<String, List<Class<? extends BaseStructure>>> loadedClasses = new HashMap<>();
    private final List<String> includedPackages = new ArrayList<>();
-   private Logger logger;
+    private final Logger logger;
 
    public StructureLoader(Logger logger) {
       this.logger = logger;
    }
 
+    @SuppressWarnings("unchecked")
    public void scanPackageInJar(File jarFile, String packageName) {
       try (JarFile jar = new JarFile(jarFile)) {
          String packagePath = packageName.replace('.', '/');
@@ -52,32 +50,33 @@ public class StructureLoader {
                         }
                      }
                   } catch (ClassNotFoundException var16) {
-                     this.logger.error("Could not load class: " + className);
+                      logger.error("Could not load class: {}", className);
                      var16.printStackTrace();
                   }
                }
             }
          }
       } catch (Exception var19) {
-         this.logger.error("Error scanning JAR: " + var19.getMessage());
+          logger.error("Error scanning JAR: {}", var19.getMessage());
          var19.printStackTrace();
       }
    }
 
+    @SuppressWarnings("unchecked")
    public void scanPackagesInJar(File jarFile, List<String> packageNames) {
-      this.logger.info("Scanning JAR file: " + jarFile.getAbsolutePath());
+        logger.info("Scanning JAR file: {}", jarFile.getAbsolutePath());
       if (!jarFile.exists()) {
-         this.logger.error("Jar file does not exist: " + jarFile.getAbsolutePath());
+          logger.error("Jar file does not exist: {}", jarFile.getAbsolutePath());
       } else {
-         this.logger.info("Packages to scan: " + packageNames);
+          logger.info("Packages to scan: {}", packageNames);
          if (packageNames.isEmpty()) {
-            this.logger.warn("No packages specified for scanning.");
+             logger.warn("No packages specified for scanning.");
          } else {
             try {
                label97: {
                   try (
                      JarFile jar = new JarFile(jarFile);
-                     URLClassLoader classLoader = new URLClassLoader(new URL[]{jarFile.toURI().toURL()}, this.getClass().getClassLoader());
+                     URLClassLoader classLoader = new URLClassLoader(new URL[]{jarFile.toURI().toURL()}, this.getClass().getClassLoader())
                   ) {
                      Enumeration<JarEntry> entries = jar.entries();
                      if (entries.hasMoreElements()) {
@@ -89,23 +88,22 @@ public class StructureLoader {
                               String packagePath = packageName.replace('.', '/');
                               if (entryName.startsWith(packagePath) && entryName.endsWith(".class")) {
                                  if (this.includedPackages.stream().noneMatch(k -> k.equals(packageName))) {
-                                    this.logger.info(ANSIColor.colorize("purple[Scanning package entry: " + packageName + "]"));
+                                     logger.info(ANSIColor.colorize("purple[Scanning package entry: " + packageName + "]"));
                                     this.includedPackages.add(packageName);
                                  }
 
                                  String className = entryName.replace('/', '.').replace(".class", "");
-                                 this.logger.info(ANSIColor.colorize("yellow[Found class entry: " + className.replace(packageName + ".", "") + "]"));
+                                  logger.info(ANSIColor.colorize("yellow[Found class entry: " + className.replace(packageName + ".", "") + "]"));
 
                                  try {
                                     Class<?> loadedClass = classLoader.loadClass(className);
                                     if (BaseStructure.class.isAssignableFrom(loadedClass)) {
-                                       this.logger
+                                        logger
                                           .info(ANSIColor.colorize("green[Loaded class: " + loadedClass.getName().replace(packageName + ".", "") + "]"));
 
                                        try {
-                                          Constructor<? extends BaseStructure> constructor = (Constructor<? extends BaseStructure>)loadedClass.getDeclaredConstructor(
-                                             
-                                          );
+                                           Constructor<? extends BaseStructure> constructor =
+                                                   (Constructor<? extends BaseStructure>) loadedClass.getDeclaredConstructor();
                                           constructor.setAccessible(true);
                                           BaseStructure structure = constructor.newInstance();
                                           this.loadedClasses
@@ -116,9 +114,9 @@ public class StructureLoader {
                                        }
                                     }
                                  } catch (ClassNotFoundException var18) {
-                                    this.logger.error("Could not load class: " + className, var18);
+                                     logger.error("Could not load class: {}", className, var18);
                                  } catch (Exception var19) {
-                                    this.logger.error("Unexpected error while loading class: " + className, var19);
+                                     logger.error("Unexpected error while loading class: {}", className, var19);
                                  }
                               }
                            }
@@ -126,13 +124,12 @@ public class StructureLoader {
                         break label97;
                      }
 
-                     this.logger.warn("No entries found in JAR file.");
+                      logger.warn("No entries found in JAR file.");
                   }
 
-                  return;
                }
             } catch (Exception var22) {
-               this.logger.error("Error scanning JAR: " + var22.getMessage(), var22);
+                logger.error("Error scanning JAR: {}", var22.getMessage(), var22);
             }
          }
       }

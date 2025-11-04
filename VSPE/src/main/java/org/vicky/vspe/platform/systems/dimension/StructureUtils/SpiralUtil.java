@@ -1,5 +1,7 @@
 package org.vicky.vspe.platform.systems.dimension.StructureUtils;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.utilities.Pair;
 
@@ -15,6 +17,63 @@ import static org.vicky.vspe.platform.systems.dimension.StructureUtils.Procedura
 public class SpiralUtil {
     public static final double VERTICAL_TOLERANCE = 0.5;
     private static final double EPS = 1e-6;
+
+    public static SpiralResult generateThickSpiralWithStart(
+            Vec3 startPoint,
+            int width,
+            int height,
+            float spiralTightness,
+            double stepRate,
+            int numberOfTurns,
+            float taper,
+            int thickness,
+            boolean taperAffectThickness
+    ) {
+        List<Vec3> positions = new ArrayList<>();
+        double totalAngleDegrees = 360.0 * numberOfTurns;
+
+        double worldX = startPoint.x;
+        double worldY = startPoint.y;
+        double worldZ = startPoint.z;
+
+        for (double angle = 0; angle <= totalAngleDegrees; angle += stepRate) {
+            double angleRad = Math.toRadians(angle);
+            double progress = angle / totalAngleDegrees;
+
+            double currentRadius = width * Math.pow(taper, progress);
+
+            double localX = currentRadius * Math.cos(angleRad);
+            double localZ = currentRadius * Math.sin(angleRad);
+            double localY = height * progress * spiralTightness;
+
+            worldX = startPoint.x + localX;
+            worldY = startPoint.y + localY;
+            worldZ = startPoint.z + localZ;
+
+            int thicknessToUse = thickness;
+            if (taperAffectThickness) {
+                thicknessToUse = (int) (thicknessToUse * Math.pow(taper, progress));
+            }
+            thicknessToUse /= 2;
+
+            for (int dx = -thicknessToUse; dx <= thicknessToUse; dx++) {
+                for (int dz = -thicknessToUse; dz <= thicknessToUse; dz++) {
+                    for (int dy = -thicknessToUse; dy <= thicknessToUse; dy++) {
+                        if (dx * dx + dz * dz <= thicknessToUse * thicknessToUse) {
+                            positions.add(new Vec3(
+                                    worldX + dx,
+                                    worldY + dy,
+                                    worldZ + dz
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        Vec3 endPoint = new Vec3(worldX, worldY, worldZ);
+        return new SpiralResult(positions, endPoint);
+    }
 
     public static List<Vec3> generateThickSpiral(int width, int height, float spiralTightness, double stepRate, int numberOfTurns, float taper, int thickness, boolean taperAffectThickness) {
         List<Vec3> positions = new ArrayList<>();
@@ -33,7 +92,7 @@ public class SpiralUtil {
 
             int thicknessToUse = thickness;
             if (taperAffectThickness) {
-                thicknessToUse *= Math.pow(taper, progress);
+                thicknessToUse *= (int) Math.pow(taper, progress);
             }
             thicknessToUse = thicknessToUse / 2;
             for (int dx = -thicknessToUse; dx <= thicknessToUse; dx++) {
@@ -49,6 +108,24 @@ public class SpiralUtil {
         return positions;
     }
 
+    public static Set<Vec3> generateVineWithSpiralNoBezier(
+            List<Vec3> controlPoints,
+            Function<Double, Double> thickness,
+            int strands,
+            float steps,
+            Function<Double, Double> radiusFunction,
+            Function<Double, Double> pitchFunction) {
+
+        Set<Vec3> result = new HashSet<>();
+        if (controlPoints == null || controlPoints.size() < 2) {
+            return result;
+        }
+        // 1. Sample smooth path by arc length
+        result.addAll(generateHelixAroundCurve(controlPoints, radiusFunction, pitchFunction, strands, steps, thickness, DefaultDecorators.SPIRAL.decorator, false, true));
+
+        return result;
+    }
+
     public static List<Vec3> generateSpiralBundle(int width,
                                                   int height,
                                                   float spiralTightness,
@@ -61,7 +138,6 @@ public class SpiralUtil {
         // Generate the points for the first spiral
         List<Vec3> baseSpiralPoints = generateThickSpiral(width, height, spiralTightness, stepRate, numberOfTurns, taper, strandThickness, taperAffectThickness);
         List<Vec3> totalSpirals = new ArrayList<>();
-        double totalAngleDegrees = 360 * numberOfTurns;
 
         for (int i = 0; i < strands; i++) {
             double rotationAngle = (360.0 / strands) * i;
@@ -193,13 +269,13 @@ public class SpiralUtil {
      * @return Set of Vec3 positions.
      */
     public static Set<Vec3> generateHelixAroundCurve(
-            List<Vec3> bezierPoints,
-            Function<Double, Double> radiusFunction,
-            Function<Double, Double> pitchFunction,
+            @NotNull List<Vec3> bezierPoints,
+            @NotNull Function<Double, Double> radiusFunction,
+            @NotNull Function<Double, Double> pitchFunction,
             int strands,
             float steps,
-            Function<Double, Double> thickness,
-            CurveDecoration decorator,
+            @NotNull Function<Double, Double> thickness,
+            @Nullable CurveDecoration decorator,
             boolean hollow,
             boolean fillDisks) {
 
@@ -289,7 +365,6 @@ public class SpiralUtil {
         double accumulatedPhaseSingle = 0;
         List<List<PWR>> shellStrands = new ArrayList<>(Math.max(1, strands * 2));
         for (int s = 0; s < Math.max(1, strands * 2); s++) shellStrands.add(new ArrayList<>());
-        List<PWR> axisCenters = new ArrayList<>(m); // one per cross-section
 
         // choose sample step for cylinder sweep (tune if needed)
         double sampleStep = 0.4; // 0.4..0.6 typical; smaller = denser
@@ -302,57 +377,59 @@ public class SpiralUtil {
             // estimate step length for integration
             double ds = (i == 0) ? 0 : Math.sqrt(bezierPoints.get(i).subtract(bezierPoints.get(i - 1)).lengthSq());
 
-            if (decorator instanceof StrandedCurveDecoration) {
-                for (int s = 0; s < strands; s++) {
-                    accumulatedPhase[s] += ds * pitchFunction.apply(progress);
+            if (decorator != null) {
+                if (decorator instanceof StrandedCurveDecoration) {
+                    for (int s = 0; s < strands; s++) {
+                        accumulatedPhase[s] += ds * pitchFunction.apply(progress);
 
-                    double basePhase = 2 * Math.PI * s / strands;
-                    double phi = basePhase + accumulatedPhase[s];
+                        double basePhase = 2 * Math.PI * s / strands;
+                        double phi = basePhase + accumulatedPhase[s];
+
+                        Set<PWR> locals = decorator.generate(progress, phi, radius, thickness.apply(progress), i);
+                        for (var local : locals) {
+                            Vec3 world = u[i].multiply(local.p.x)
+                                    .add(t[i].multiply(local.p.y))
+                                    .add(v[i].multiply(local.p.z))
+                                    .add(bezierPoints.get(i));
+                            shellStrands.get(s).add(new PWR(world, local.r, local.h));
+                        }
+                    }
+                } else if (decorator instanceof DoubleStrandedCurveDecoration counterer) {
+                    for (int s = 0; s < strands * 2; s++) {
+                        if (s % 2 == 0) accumulatedPhase[s / 2] += ds * pitchFunction.apply(progress);
+                        else accumulatedAntiPhase[s / 2] += ds * pitchFunction.apply(progress);
+
+                        double basePhase = 2 * Math.PI * s / (strands * 2);
+                        double phi =
+                                s % 2 == 0 ?
+                                        basePhase + accumulatedPhase[s / 2]
+                                        : basePhase + accumulatedAntiPhase[s / 2];
+
+                        Set<PWR> locals =
+                                s % 2 == 0 ?
+                                        counterer.generate(progress, phi, radius, thickness.apply(progress), i)
+                                        : counterer.generateAnti(progress, phi, radius, thickness.apply(progress), i);
+                        for (var local : locals) {
+                            Vec3 world = u[i].multiply(local.p.x)
+                                    .add(t[i].multiply(local.p.y))
+                                    .add(v[i].multiply(local.p.z))
+                                    .add(bezierPoints.get(i));
+                            shellStrands.get(s).add(new PWR(world, local.r, local.h));
+                        }
+                    }
+                } else {
+                    accumulatedPhaseSingle += ds * pitchFunction.apply(progress);
+                    double phi = accumulatedPhaseSingle;
 
                     Set<PWR> locals = decorator.generate(progress, phi, radius, thickness.apply(progress), i);
+                    List<PWR> strand0 = shellStrands.getFirst();
                     for (var local : locals) {
                         Vec3 world = u[i].multiply(local.p.x)
                                 .add(t[i].multiply(local.p.y))
                                 .add(v[i].multiply(local.p.z))
                                 .add(bezierPoints.get(i));
-                        shellStrands.get(s).add(new PWR(world, local.r, local.h));
+                        strand0.add(new PWR(world, local.r, local.h));
                     }
-                }
-            } else if (decorator instanceof DoubleStrandedCurveDecoration counterer) {
-                for (int s = 0; s < strands * 2; s++) {
-                    if (s % 2 == 0) accumulatedPhase[s / 2] += ds * pitchFunction.apply(progress);
-                    else accumulatedAntiPhase[s / 2] += ds * pitchFunction.apply(progress);
-
-                    double basePhase = 2 * Math.PI * s / (strands * 2);
-                    double phi =
-                            s % 2 == 0 ?
-                                    basePhase + accumulatedPhase[s / 2]
-                                    : basePhase + accumulatedAntiPhase[s / 2];
-
-                    Set<PWR> locals =
-                            s % 2 == 0 ?
-                                    counterer.generate(progress, phi, radius, thickness.apply(progress), i)
-                                    : counterer.generateAnti(progress, phi, radius, thickness.apply(progress), i);
-                    for (var local : locals) {
-                        Vec3 world = u[i].multiply(local.p.x)
-                                .add(t[i].multiply(local.p.y))
-                                .add(v[i].multiply(local.p.z))
-                                .add(bezierPoints.get(i));
-                        shellStrands.get(s).add(new PWR(world, local.r, local.h));
-                    }
-                }
-            } else {
-                accumulatedPhaseSingle += ds * pitchFunction.apply(progress);
-                double phi = accumulatedPhaseSingle;
-
-                Set<PWR> locals = decorator.generate(progress, phi, radius, thickness.apply(progress), i);
-                List<PWR> strand0 = shellStrands.getFirst();
-                for (var local : locals) {
-                    Vec3 world = u[i].multiply(local.p.x)
-                            .add(t[i].multiply(local.p.y))
-                            .add(v[i].multiply(local.p.z))
-                            .add(bezierPoints.get(i));
-                    strand0.add(new PWR(world, local.r, local.h));
                 }
             }
         }
@@ -363,7 +440,6 @@ public class SpiralUtil {
                 double innerSteps = steps / 5;
                 Set<Vec3> innerVoxels = new HashSet<>();
                 for (double j = 0; j < m; j += innerSteps) {
-                    int i = (int) j;
                     double progress = j / (m - 1);
                     double radius = radiusFunction.apply(progress);
                     Vec3 center = interpolateAlong(bezierPoints, progress);
@@ -397,6 +473,43 @@ public class SpiralUtil {
         }
 
         return result;
+    }
+
+    /**
+     * Rasterize a filled disk at world center 'center' with plane normal 'normal' and world radius 'radius'.
+     * Writes block coords into 'out' (Set<Vec3>).
+     * <p>
+     * Inclusion test: project candidate block center into disk-local coordinates (px,pz) and accept if sqrt(px^2+pz^2) <= radius + 0.5*SQRT2_MARGIN.
+     */
+    private static void fillDiskAtVoxel(Set<Vec3> out, Vec3 center, Vec3 normal, double radius) {
+        if (radius <= 0.0001) {
+            out.add(center);
+            return;
+        }
+        Vec3 n = normal.normalize();
+        Pair<Vec3, Vec3> uvPair = buildPerpFrame(n);
+        Vec3 u = uvPair.key();
+        Vec3 v = uvPair.value();
+
+        // margin to include block centers that intersect the circle boundary.
+        // 0.5 is safe; using 0.707 (sqrt(2)/2) is slightly more inclusive; use 0.5 by default.
+        double margin = 0.5;
+
+        int intR = (int) Math.round(radius + margin);
+        // iterate integer block candidates in square [-intR..intR] in disk-plane coords
+        for (int iz = -intR; iz <= intR; iz++) {
+            for (int ix = -intR; ix <= intR; ix++) {
+                // world candidate = center + u*ix + v*iz
+                Vec3 candidate = u.multiply(ix).add(v.multiply(iz)).add(center);
+                // project back to local coords px = dot(candidate-center, u) etc (should be ix,iz exactly)
+                double px = candidate.subtract(center).dot(u);
+                double pz = candidate.subtract(center).dot(v);
+                double ld = Math.hypot(px, pz);
+                if (ld <= radius + margin + 1e-9) {
+                    out.add(candidate);
+                }
+            }
+        }
     }
 
     private static Vec3 interpolateAlong(List<Vec3> pts, double progress) {
@@ -487,43 +600,6 @@ public class SpiralUtil {
      * <p>
      * Inclusion test: project candidate block center into disk-local coordinates (px,pz) and accept if sqrt(px^2+pz^2) <= radius + 0.5*SQRT2_MARGIN.
      */
-    private static void fillDiskAtVoxel(Set<Vec3> out, Vec3 center, Vec3 normal, double radius) {
-        if (radius <= 0.0001) {
-            out.add(center);
-            return;
-        }
-        Vec3 n = normal.normalize();
-        Pair<Vec3, Vec3> uvPair = buildPerpFrame(n);
-        Vec3 u = uvPair.key();
-        Vec3 v = uvPair.value();
-
-        // margin to include block centers that intersect the circle boundary.
-        // 0.5 is safe; using 0.707 (sqrt(2)/2) is slightly more inclusive; use 0.5 by default.
-        double margin = 0.5;
-
-        int intR = (int) Math.ceil(radius + margin);
-        // iterate integer block candidates in square [-intR..intR] in disk-plane coords
-        for (int iz = -intR; iz <= intR; iz++) {
-            for (int ix = -intR; ix <= intR; ix++) {
-                // world candidate = center + u*ix + v*iz
-                Vec3 candidate = u.multiply(ix).add(v.multiply(iz)).add(center);
-                // project back to local coords px = dot(candidate-center, u) etc (should be ix,iz exactly)
-                double px = candidate.subtract(center).dot(u);
-                double pz = candidate.subtract(center).dot(v);
-                double ld = Math.hypot(px, pz);
-                if (ld <= radius + margin + 1e-9) {
-                    out.add(candidate);
-                }
-            }
-        }
-    }
-
-    /**
-     * Rasterize a filled disk at world center 'center' with plane normal 'normal' and world radius 'radius'.
-     * Writes block coords into 'out' (Set<Vec3>).
-     * <p>
-     * Inclusion test: project candidate block center into disk-local coordinates (px,pz) and accept if sqrt(px^2+pz^2) <= radius + 0.5*SQRT2_MARGIN.
-     */
     private static Set<PWR> fillDiskAtVoxelAsPWR(Vec3 center, Vec3 normal, double radius) {
         Set<PWR> result = new HashSet<>();
         if (radius <= 0.0001) {
@@ -539,7 +615,7 @@ public class SpiralUtil {
         // margin to include block centers that intersect the circle boundary
         double margin = 0.5;
 
-        int intR = (int) Math.ceil(radius + margin);
+        int intR = (int) Math.round(radius + margin);
         for (int iz = -intR; iz <= intR; iz++) {
             for (int ix = -intR; ix <= intR; ix++) {
                 Vec3 candidate = u.multiply(ix).add(v.multiply(iz)).add(center);
@@ -575,7 +651,7 @@ public class SpiralUtil {
         // adaptive step: ensure good overlap relative to radii
         double minRadius = Math.max(0.0001, Math.min(Math.abs(rA), Math.abs(rB)));
         double step = Math.min(maxStep, Math.max(0.25, minRadius * 0.5));
-        int steps = Math.max(1, (int) Math.ceil(L / step));
+        int steps = Math.max(1, (int) Math.round(L / step));
 
         // iterate samples including endpoints
         for (int k = 0; k <= steps; k++) {
@@ -606,9 +682,9 @@ public class SpiralUtil {
         int minX = (int) Math.floor(center.x - radius);
         int minY = (int) Math.floor(center.y - radius);
         int minZ = (int) Math.floor(center.z - radius);
-        int maxX = (int) Math.ceil(center.x + radius);
-        int maxY = (int) Math.ceil(center.y + radius);
-        int maxZ = (int) Math.ceil(center.z + radius);
+        int maxX = (int) Math.round(center.x + radius);
+        int maxY = (int) Math.round(center.y + radius);
+        int maxZ = (int) Math.round(center.z + radius);
 
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
@@ -635,7 +711,7 @@ public class SpiralUtil {
         return result;
     }
 
-    enum DefaultDecorators {
+    public enum DefaultDecorators {
         SINGLES(new StrandedCurveDecoration() {
             public Set<PWR> generate(double progress, double phase, double radius, double thickness, int step) {
                 double y = 0;
@@ -730,6 +806,16 @@ public class SpiralUtil {
 
         DefaultDecorators(CurveDecoration decorator) {
             this.decorator = decorator;
+        }
+    }
+
+    public static class SpiralResult {
+        public final List<Vec3> positions;
+        public final Vec3 endPoint;
+
+        public SpiralResult(List<Vec3> positions, Vec3 endPoint) {
+            this.positions = positions;
+            this.endPoint = endPoint;
         }
     }
 
