@@ -188,9 +188,15 @@ public class ThesisTreeStructureGenerator<T> extends ProceduralStructureGenerato
         private DoubleUnaryOperator thicknessFunction = t -> 1.0 - 0.6 * t; // default taper
         private ThesisBasedTreeGenerator.GrowthEnvironment env = null;
         private long seed = new Random().nextLong();
+        protected LeafPopulationType leafType = LeafPopulationType.ON_BRANCH_TIP;
 
         public Builder<T> treeAge(int a) {
             this.treeAge = Math.max(1, a);
+            return this;
+        }
+
+        public Builder<T> leafType(LeafPopulationType type) {
+            this.leafType = type;
             return this;
         }
 

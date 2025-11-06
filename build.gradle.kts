@@ -1,10 +1,10 @@
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformJvmPlugin
+
 val javaVersion = 21
 
 plugins {
     // Add plugins here that you *don't* want to auto-apply
     kotlin("jvm") version "2.1.10" apply false
-    id("io.papermc.paperweight.userdev") version "1.7.7" apply false
     `java-library`
     `maven-publish`
 }
@@ -12,6 +12,8 @@ plugins {
 allprojects {
     repositories {
         mavenLocal()
+        maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/bootstrap")
+        maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev")
         maven("https://maven.pkg.github.com/VickyE2/VickyE-s_Utilities") {
             credentials {
                 val usernameValue = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
