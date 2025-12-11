@@ -65,6 +65,7 @@ public abstract class ProceduralStructureGenerator<T> {
     private final List<AbstractMap.SimpleEntry<Consumer<SubGenerator>, CompletableFuture<GenerationResult<T>>>>
             pendingFinalJobs = Collections.synchronizedList(new ArrayList<>());
     protected boolean airFiller = true;
+    protected boolean isProduction = true;
 
     public ProceduralStructureGenerator() {
         prepareFlush(); // default flush; generate() will re-setup as needed
@@ -471,7 +472,20 @@ public abstract class ProceduralStructureGenerator<T> {
      * and actions. Subclasses should implement performGeneration(...) not this method.
      */
     public final synchronized GenerationResult<T> generate(RandomSource rnd, Vec3 origin) {
+        return generate(rnd, origin, true);
+    }
+
+    /**
+     * Public convenience: call to generate placements (thread-safe-ish).
+     * This sets up the flush handler and returns a GenerationResult containing all queued placements
+     * and actions. Subclasses should implement performGeneration(...) not this method.
+     */
+    public final synchronized GenerationResult<T> generate(RandomSource rnd, Vec3 origin, boolean isProduction) {
         this.rnd = rnd;
+        this.isProduction = isProduction;
+        if (isProduction) {
+            LOGGER.setLevel(ContextLogger.LogType.WARNING);
+        }
         // result holders
         List<BlockPlacement<T>> placements = new ArrayList<>();
         Map<Long, BiConsumer<PlatformWorld<T, ?>, Vec3>> actionMap = new HashMap<>();

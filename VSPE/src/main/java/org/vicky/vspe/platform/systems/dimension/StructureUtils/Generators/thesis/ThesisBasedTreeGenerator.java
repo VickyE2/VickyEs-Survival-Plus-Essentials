@@ -1,7 +1,10 @@
 package org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.thesis;
 
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.vicky.platform.utils.Vec3;
+import org.vicky.utilities.ContextLogger.ContextLogger;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.CurveFunctions;
 import org.vicky.vspe.platform.systems.dimension.TimeCurve;
 
@@ -21,11 +24,13 @@ public class ThesisBasedTreeGenerator {
     private static final double STEAL_THRESHOLD = 1.25;          // challenger must have >= 1.25 * minScore to steal
     private static final double DISTANCE_DECAY = 2.1;            // distance decay exponent (higher -> favors closer tips)
     private static final double SEN_EPS = 1e-6;
+    private static final Logger log = LoggerFactory.getLogger(ThesisBasedTreeGenerator.class);
     @NotNull
     protected final GrowthData growthData;
     private final Map<Long, TreeNode> cachedBranches = new HashMap<>();
     private final Vec3 global_gravity;
-    private final boolean debug = false;
+    private final boolean debug = true;
+    private final ContextLogger logger;
     int send = 0;
     private long lastNodeId = 0;
     private int age = 0;
@@ -44,9 +49,10 @@ public class ThesisBasedTreeGenerator {
     private double targetAge;
 
 
-    public ThesisBasedTreeGenerator(@NotNull GrowthData growthData, long seed) {
+    public ThesisBasedTreeGenerator(@NotNull GrowthData growthData, long seed, ContextLogger logger) {
         this.growthData = growthData;
         this.seed = seed;
+        this.logger = logger;
         if (growthData.overrides.contains(Overrides.GlobalOverrides.OVERRIDE_GRAVITY)) {
             this.global_gravity = growthData.overriden_gravity;
         } else {
@@ -110,6 +116,8 @@ public class ThesisBasedTreeGenerator {
         if (debug) {
             log("initRoot -> " + nodeShort(root) + " startPos=" + startPos);
         }
+        log("Tree exhibits: " + String.join(", ",
+                growthData.overrides.stream().map(Objects::toString).toArray(String[]::new)), true);
     }
 
     public TreeNode getRoot() {
@@ -269,7 +277,8 @@ public class ThesisBasedTreeGenerator {
             double allowedKillDist;
             if (current.order == 0) {
                 allowedKillDist = killRadiusAdaptive * 0.6;
-            } else {
+            }
+            else {
                 allowedKillDist = killRadiusAdaptive;
             }
 
@@ -282,29 +291,83 @@ public class ThesisBasedTreeGenerator {
                 current.nodeStatus = NodeStatus.ALIVE;
                 Vec3 lightBias = growthData.lightDirection.normalize();
 
-                Vec3 tropismTarget = lightBias.multiply(growthData.phototropism)
-                        .add(global_gravity.multiply(growthData.gravitropism))
-                        .normalize();
+                if (age == growthData.multiTrunkismAge
+                        && growthData.overrides.contains(Overrides.TrunkOverrides.MULTI_TRUNKISM)
+                        && current == root) {
+                    log("MultiTrunkism Enabled for Root Node");
+                    current.canGrowTaller = false;
+                    Vec3 tip = current.getControlPoints().getLast();
 
-                double angle = current.direction.angleTo(tropismTarget);
+                    // choose number of trunks (tweak: use config or baseRadius)
+                    Random mRnd = new Random(seed ^ (current.id * 97L) ^ (this.age * 7919L));
+                    int defaultN = 3; // fallback
+                    int n = growthData.multiTrunkismMaxAmount > 1 ? mRnd.nextInt(1, growthData.multiTrunkismMaxAmount + 1)
+                            : Math.max(defaultN, Math.min(6, Math.round(current.baseRadius))); // clamp 2..6
 
-                double bendStrength = Math.pow(angle / Math.PI, 1.5) * 0.25; // smaller = subtler bend
-                bendStrength *= growthData.flexibility; // optional species-level parameter
+                    // area-conserve thickness: sum(pi r_i^2) = pi R^2  -> r_i = R / sqrt(n) for equal children
+                    double parentRadius = current.baseRadius;
+                    double parentArea = Math.PI * parentRadius * parentRadius;
+                    double childArea = parentArea / (double) n;
+                    float childRadius = (float) Math.max(growthData.minRadius, Math.sqrt(childArea / Math.PI));
 
-                // rotate direction slightly toward tropismTarget
-                Vec3 newDir = current.direction.lerp(tropismTarget, bendStrength).normalize();
+                    Vec3 up = new Vec3(0, 1, 0);
+                    // create trunks arranged around a horizontal circle with an upward bias
+                    for (int i = 0; i < n; i++) {
+                        double theta = (2.0 * Math.PI * i / n) + (mRnd.nextDouble() - 0.5) * 0.2; // slight jitter
+                        Vec3 horiz = new Vec3(Math.cos(theta), 0, Math.sin(theta));
+                        // bias upward so they don't go perfectly horizontal
+                        Vec3 dir = horiz.lerp(up, 0.35 + (float) (mRnd.nextDouble() * 0.15)).normalize();
 
-                // add slight random noise for natural asymmetry
-                Vec3 noise = Vec3.randomUnit(rnd).multiply(0.05 * (1.0 - growthData.straightness));
-                newDir = newDir.add(noise).normalize();
+                        // small per-trunk noise
+                        Vec3 noise = Vec3.randomUnit(mRnd).multiply(0.03);
+                        dir = dir.add(noise).normalize().lerp(current.direction, 0.6);
 
-                // now extend
-                Vec3 nextPoint = last
-                        .add(newDir.multiply(growthData.baseLength * Math.max(0.02, current.vigor)));
-                log("CurrPoint: " + last + ", New Point: " + nextPoint);
-                log("Length: " + growthData.baseLength);
-                current.controlPoints.add(nextPoint);
-                current.direction = newDir;
+                        // make the new trunk start at the current tip
+                        Vec3 budOrigin = tip;
+
+                        TreeNode trunk = new TreeNode(current, lastNodeId++, budOrigin, dir, childRadius);
+                        trunk.vigor = current.vigor * (0.9f * (float) Math.sqrt(growthData.vigorDecay)); // still healthy but a little less
+                        trunk.createdAt = age;
+
+                        current.children.add(trunk);
+                        cachedBranches.putIfAbsent(trunk.id, trunk);
+                    }
+
+                    // Optionally reduce root vigor and radius so mass is conserved and root doesn't keep outcompeting
+                    current.vigor *= 0.5f;
+                    current.baseRadius *= 0.6f; // root becomes a stubbier base after splitting
+
+                    // prevent the root from creating more children in the same tick (it now only acts as base)
+                    current.nodeStatus = NodeStatus.ALIVE; // keep alive for thickness contribution if needed
+                    queue.addAll(current.children);
+
+                }
+
+                if (current.canGrowTaller) {
+                    Vec3 tropismTarget = lightBias.multiply(growthData.phototropism)
+                            .add(global_gravity.multiply(growthData.gravitropism))
+                            .normalize();
+
+                    double angle = current.direction.angleTo(tropismTarget);
+
+                    double bendStrength = Math.pow(angle / Math.PI, 1.5) * 0.25; // smaller = subtler bend
+                    bendStrength *= growthData.flexibility; // optional species-level parameter
+
+                    // rotate direction slightly toward tropismTarget
+                    Vec3 newDir = current.direction.lerp(tropismTarget, bendStrength).normalize();
+
+                    // add slight random noise for natural asymmetry
+                    Vec3 noise = Vec3.randomUnit(rnd).multiply(0.05 * (1.0 - growthData.straightness));
+                    newDir = newDir.add(noise).normalize();
+
+                    // now extend
+                    Vec3 nextPoint = last
+                            .add(newDir.multiply(growthData.baseLength * Math.max(0.02, current.vigor)));
+                    log("CurrPoint: " + last + ", New Point: " + nextPoint);
+                    log("Length: " + growthData.baseLength);
+                    current.controlPoints.add(nextPoint);
+                    current.direction = newDir;
+                }
 
                 var localPool = owned.getOrDefault(current, new ArrayList<>());
                 long nearbyattractorPool = localPool.size();
@@ -312,9 +375,11 @@ public class ThesisBasedTreeGenerator {
                 log(Arrays.toString(current.children.toArray()));
                 boolean childrenNotClose = current.children.isEmpty() || current.children.getLast().firstPoint()
                         .distance(current.getControlPoints().getLast()) > growthData.distanceBetweenChildren;
-                System.out.printf("attractorPool: %s %s, ChildSize: %s, RndChance: %s, Distance: %s%n", nearbyattractorPool, nearbyattractorPool > 3, current.children.size() < growthData.maxKids, rndChance, childrenNotClose);
-                if (nearbyattractorPool > 3 && rndChance && childrenNotClose && age > (growthData.minSplittingAge / 3)
-                        && current.children.size() < growthData.maxKids) { // 20% chance per growth cycle
+                logf("attractorPool: %s %s, ChildSize: %s, RndChance: %s, Distance: %s%n", nearbyattractorPool, nearbyattractorPool > 3, current.children.size() < growthData.maxKids, rndChance, childrenNotClose);
+                if (nearbyattractorPool > 3 && rndChance && childrenNotClose && age > (
+                        growthData.overrides.contains(Overrides.TrunkOverrides.MULTI_TRUNKISM) ?
+                                growthData.multiTrunkismAge + growthData.minSplittingAge : growthData.minSplittingAge)
+                        && current.children.size() < growthData.maxKids && current.canGrowTaller) { // 20% chance per growth cycle
                     Vec3 budOrigin = current.getControlPoints().getLast();
                     Vec3 attractionDir = new Vec3(0, 0, 0);
                     int count = 0;
@@ -373,7 +438,8 @@ public class ThesisBasedTreeGenerator {
                 current.baseRadius = Math.max(growthData.minRadius, current.baseRadius);
 
                 queue.addAll(current.children);
-            } else {
+            }
+            else {
                 if (Math.abs(current.firstPoint().distance(current.parent.tip())) /
                         Math.abs(current.parent.tip().distance(current.parent.firstPoint())) > growthData.pruningHeight
                         && current.parent.children.size() > 3) current.nodeStatus = NodeStatus.DEAD;
@@ -492,7 +558,10 @@ public class ThesisBasedTreeGenerator {
 
                 Vec3 nextPoint = tip.add(finalDir.multiply(growthData.baseLength * current.vigor));
                 current.direction = finalDir;
-                current.controlPoints.add(nextPoint);
+
+                if (current.canGrowTaller) {
+                    current.controlPoints.add(nextPoint);
+                }
 
 
                 // --- Branch death logic ---
@@ -572,6 +641,8 @@ public class ThesisBasedTreeGenerator {
                         : 0.0;
 
                 double heightFactor = Math.pow(1.0 - relativeHeight, 0.9); // smoother
+                if (growthData.overrides.contains(Overrides.TrunkOverrides.MULTI_TRUNKISM) &&
+                        (current.order == 0 || current == root)) heightFactor = 1.0;
                 double vigorBoost = 0.8 + Math.pow(child.vigor, 0.85); // more generous
                 float targetChildRadius = (float) (current.baseRadius * heightFactor * vigorBoost * 0.3);
 
@@ -624,10 +695,13 @@ public class ThesisBasedTreeGenerator {
         // canopy scale derived from trunk height and max branch reach
         double height = Math.max(4.0, Math.abs(root.tip().distance(root.firstPoint())));
         double canopyRadius = Math.max(8.0, height * 3.8);
+        if (growthData.overrides.contains(Overrides.TrunkOverrides.MULTI_TRUNKISM)) {
+            canopyRadius *= Math.pow(growthData.multiTrunkismMaxAmount, 0.5);
+        }
         double canopyHeight = Math.max(6.0, height * 0.5);
 
-        int numClusters = Math.max(3, (int) Math.round(canopyRadius / 4.0)); // more clusters with bigger canopy
-        int pointsPerCluster = Math.max(12, (int) (Math.min(80, canopyRadius)));
+        int numClusters = Math.max(8, (int) Math.round(canopyRadius / 4.0)); // more clusters with bigger canopy
+        int pointsPerCluster = Math.max(15, (int) (Math.min(80, canopyRadius)));
         double ageFactor = CurveFunctions.noised(0.0, 1.0,
                         0.0, 1.0, TimeCurve.INVERTED_QUADRATIC, rand)
                 .apply((double) age / (targetAge - 1));
@@ -709,8 +783,16 @@ public class ThesisBasedTreeGenerator {
                 age, cachedBranches.size(), alive, buds, dead, growthData.maxDepth));
     }
 
+    private void logf(String message, Object...objects) {
+        log(String.format(message, objects));
+    }
+
     private void log(String s) {
-        if (debug) System.out.println("[ThesisTree@" + age + "] " + s);
+        log (s, false);
+    }
+
+    private void log(String s, boolean mustPrint) {
+        if (debug || mustPrint) logger.print("ThesisTree@" + age + " " + s, ContextLogger.LogType.AMBIENCE);
     }
 
     private String nodeShort(TreeNode n) {
@@ -736,7 +818,7 @@ public class ThesisBasedTreeGenerator {
         // build list of candidate tips (skip DEAD)
         List<TreeNode> tips = cachedBranches.values().stream()
                 .filter(n -> n.nodeStatus != NodeStatus.DEAD)
-                .collect(Collectors.toList());
+                .toList();
         if (tips.isEmpty() || pool.isEmpty()) return Collections.emptyMap();
 
         // precompute tip positions & directions to avoid repeated calls
@@ -761,7 +843,7 @@ public class ThesisBasedTreeGenerator {
 
             // pick best candidate (highest score)
             candidates.sort((a, b) -> Double.compare(b.score, a.score));
-            Candidate best = candidates.get(0);
+            Candidate best = candidates.getFirst();
             TreeNode bestTip = best.tip;
             double bestScore = best.score;
 
@@ -886,19 +968,12 @@ public class ThesisBasedTreeGenerator {
         enum BranchOverrides implements Overrides {
             MIRROR_BRANCHES,
         }
-
+        enum TrunkOverrides implements Overrides {
+            MULTI_TRUNKISM,
+        }
         enum GlobalOverrides implements Overrides {
             OVERRIDE_GRAVITY
         }
-    }
-
-    // environment interface (world-agnostic)
-    public interface GrowthEnvironment {
-        boolean isOutOfBounds(Vec3 pos);
-
-        Vec3 getOptimalDirection(Vec3 pos);
-
-        long getSeed();
     }
 
     // helper classes for the assignment code (local static-like)
@@ -966,7 +1041,7 @@ public class ThesisBasedTreeGenerator {
         public double budProbability = 0.86;    // how likely a bud forms when vigor is high
         public float vigorDecay = 0.95f;
         public int maxKids = 15;
-        public int maxDepth = 3;
+        public int maxDepth = 2;
         public float pruningHeight = 0.75f;
         public TimeCurve forTrunk = TimeCurve.LINEAR;
         public float minRadius = 0.05f;
@@ -983,6 +1058,8 @@ public class ThesisBasedTreeGenerator {
         public double senescenceBudPenalty = 0.6;
         public double senescenceChildAttenuation = 1.0;
         public boolean senescenceAffectsChildren = true;
+        public int multiTrunkismAge = 8;
+        public int multiTrunkismMaxAmount = 4;
 
         // constructor for quick creation
         public GrowthData() {
@@ -1037,49 +1114,66 @@ public class ThesisBasedTreeGenerator {
             senescenceChildAttenuation = builder.senescenceChildAttenuation;
             senescenceAffectsChildren = builder.senescenceAffectsChildren;
             overrides = builder.overrides;
+            multiTrunkismMaxAmount = builder.multiTrunkismMaxAmount;
+            multiTrunkismAge = builder.multiTrunkismAge;
         }
 
         public static final class Builder {
             private final float baseLength;
-            public List<Overrides> overrides = new ArrayList<>();
-            public Vec3 overriden_gravity;
-            private float apicalControl;
-            private Vec3 lightDirection;
-            private float gravitropism;
-            private float phototropism;
-            private float lateralAngleDegrees;
-            private float shedMultiplier;
-            private float initialVigor;
-            private float baseBudLight;
-            private float straightness;
-            private float flexibility;
-            private int minAgeBeforeShed;
-            private double influenceRadius;
-            private double vigorRadius;
-            private double killRadius;
-            private double budProbability;
-            private float vigorDecay;
-            private int maxKids;
-            private int maxDepth;
-            private float pruningHeight;
-            private TimeCurve forTrunk;
-            private float minRadius;
-            private float rootAgeK;
-            private float rootBaseMultiplier;
-            private float rootHeightScale;
-            private float rootMaxMultiplier;
-            private float distanceBetweenChildren;
-            private int minSplittingAge;
-            private int senescenceStartAge;
-            private double senescenceDecayRate;
-            private double senescenceVigorPenalty;
-            private double senescenceGravBias;
-            private double senescenceBudPenalty;
-            private double senescenceChildAttenuation;
-            private boolean senescenceAffectsChildren;
+            private List<Overrides> overrides = new ArrayList<>();
+            private float apicalControl = 0.6f;
+            private Vec3 lightDirection = new Vec3(0f, 1.0f, 0f);
+            private Vec3 overriden_gravity = new Vec3(0f, -1.0f, 0f);
+            private float gravitropism = 0.76f;
+            private float phototropism = 1.0f;
+            private float lateralAngleDegrees = 20.0f;
+            private float shedMultiplier = 0.5f;
+            private float initialVigor = 1.0f;
+            private float baseBudLight = 0.24f;
+            private float straightness = 0.37f;
+            private float flexibility = 0.95f;
+            private int minAgeBeforeShed = 10;
+            private double influenceRadius = 25.0;   // how far a branch can “see” light
+            private double vigorRadius = 10.5;   // how far a branch can “see” light
+            private double killRadius = 3.5;        // distance at which attractor is considered reached
+            private double budProbability = 0.86;    // how likely a bud forms when vigor is high
+            private float vigorDecay = 0.95f;
+            private int maxKids = 15;
+            private int maxDepth = 2;
+            private float pruningHeight = 0.75f;
+            private TimeCurve forTrunk = TimeCurve.LINEAR;
+            private float minRadius = 0.05f;
+            private float rootAgeK = 0.057f;        // exponent rate for age — small so growth is gradual
+            private float rootBaseMultiplier = 0.74f; // scales the exponential term
+            private float rootHeightScale = 0.75f;  // how much height multiplies growth
+            private float rootMaxMultiplier = 3.50f;
+            private float distanceBetweenChildren = 1.0f;
+            private int minSplittingAge = 10;
+            private int senescenceStartAge = 5;
+            private double senescenceDecayRate = 0.03;
+            private double senescenceVigorPenalty = 0.55;
+            private double senescenceGravBias = 0.4;
+            private double senescenceBudPenalty = 0.6;
+            private double senescenceChildAttenuation = 1.0;
+            private boolean senescenceAffectsChildren = true;
+            private int multiTrunkismAge = 8;
+            private int multiTrunkismMaxAmount = 4;
+
 
             public Builder(float baseLength) {
                 this.baseLength = baseLength;
+            }
+
+            @Nonnull
+            public Builder multiTrunkismAge(int val) {
+                multiTrunkismAge = val;
+                return this;
+            }
+
+            @Nonnull
+            public Builder multiTrunkismMaxAmount(int val) {
+                multiTrunkismMaxAmount = val;
+                return this;
             }
 
             @Nonnull
@@ -1097,6 +1191,13 @@ public class ThesisBasedTreeGenerator {
             @Nonnull
             public Builder addOverrides(@Nonnull List<Overrides> overrides) {
                 this.overrides.addAll(overrides);
+                return this;
+            }
+
+            @Nonnull
+            @SafeVarargs
+            public final Builder addOverrides(Overrides...overrides) {
+                this.overrides.addAll(List.of(overrides));
                 return this;
             }
 
@@ -1330,6 +1431,7 @@ public class ThesisBasedTreeGenerator {
         public int createdAt = 0;
         public float baseRadius; // This is basically max radius
         public Vec3 localUp = Vec3.of(0, 1, 0);
+        public boolean canGrowTaller = true;
 
         public TreeNode(TreeNode parent, long id, Vec3 startPos, Vec3 direction, float radius) {
             this.parent = parent;
@@ -1374,23 +1476,6 @@ public class ThesisBasedTreeGenerator {
         public Vec2(float x, float y) {
             this.x = x;
             this.y = y;
-        }
-    }
-
-    public static class DefaultEnvironment implements GrowthEnvironment {
-        @Override
-        public boolean isOutOfBounds(Vec3 pos) {
-            return false;
-        }
-
-        @Override
-        public Vec3 getOptimalDirection(Vec3 pos) {
-            return new Vec3(0f, 1f, 0f);
-        }
-
-        @Override
-        public long getSeed() {
-            return new Random().nextLong();
         }
     }
 

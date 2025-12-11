@@ -3,6 +3,7 @@ package org.vicky.vspe.platform.systems.dimension.StructureUtils;
 import org.vicky.vspe.platform.systems.dimension.TimeCurve;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import java.util.random.RandomGenerator;
@@ -118,6 +119,13 @@ public class CurveFunctions {
                                                  double fadeEnd,
                                                  TimeCurve curve) {
         return fade(startPitch, endPitch, fadeStart, fadeEnd, curve);
+    }
+
+    /**
+     * Builds a function that smoothly transitions through multiple start→end segments.
+     */
+    public static Function<Double, Double> multiFade(Segment... segments) {
+        return multiFade(Arrays.stream(segments).toList());
     }
 
     /**

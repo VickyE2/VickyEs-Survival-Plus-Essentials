@@ -5,10 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.utilities.Pair;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 import static java.lang.Math.clamp;
@@ -17,6 +14,86 @@ import static org.vicky.vspe.platform.systems.dimension.StructureUtils.Procedura
 public class SpiralUtil {
     public static final double VERTICAL_TOLERANCE = 0.5;
     private static final double EPS = 1e-6;
+
+    public static double findLengthOfPath(List<Vec3> controlPoints) {
+        var currentPoint = controlPoints.removeFirst();
+        Queue<Vec3> queue = new LinkedList<>(controlPoints);
+
+        double pathLength = 0.0;
+
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            pathLength += currentPoint.distance(current);
+            currentPoint = current;
+        }
+
+        return pathLength;
+    }
+
+    public static Vec3 tangentAtLength(double targetLength, List<Vec3> controlPoints) {
+        if (controlPoints.size() < 2) return new Vec3(0, 1, 0);
+
+        double accumulated = 0.0;
+        for (int i = 1; i < controlPoints.size(); i++) {
+            Vec3 a = controlPoints.get(i - 1);
+            Vec3 b = controlPoints.get(i);
+            double segmentLength = a.distance(b);
+
+            if (accumulated + segmentLength >= targetLength) {
+                // within this segment
+                Vec3 tangent = b.subtract(a).normalize();
+                return tangent;
+            }
+            accumulated += segmentLength;
+        }
+
+        // fallback: tangent of last segment
+        return controlPoints.get(controlPoints.size() - 1)
+                .subtract(controlPoints.get(controlPoints.size() - 2))
+                .normalize();
+    }
+
+    public static Vec3 safeTangentAt(List<Vec3> points, int index) {
+        int n = points.size();
+        if (n < 2) return new Vec3(0, 1, 0); // fallback straight up
+
+        if (index <= 0) {
+            // start: forward difference
+            return points.get(1).subtract(points.get(0)).normalize();
+        } else if (index >= n - 1) {
+            // end: backward difference
+            return points.get(n - 1).subtract(points.get(n - 2)).normalize();
+        } else {
+            // middle: central difference
+            Vec3 prev = points.get(index - 1);
+            Vec3 next = points.get(index + 1);
+            return next.subtract(prev).normalize();
+        }
+    }
+
+    public static Vec3 findPointOnPathFromLength(double targetLength, List<Vec3> controlPoints) {
+        if (controlPoints == null || controlPoints.size() < 2) return null;
+
+        double accumulated = 0.0;
+
+        for (int i = 0; i < controlPoints.size() - 1; i++) {
+            Vec3 start = controlPoints.get(i);
+            Vec3 end = controlPoints.get(i + 1);
+
+            double segmentLength = start.distance(end);
+
+            if (accumulated + segmentLength >= targetLength) {
+                double remaining = targetLength - accumulated;
+                double t = remaining / segmentLength; // interpolation factor
+                return start.lerp(end, t);
+            }
+
+            accumulated += segmentLength;
+        }
+
+        // If the target length is beyond the path, return the last point
+        return controlPoints.get(controlPoints.size() - 1);
+    }
 
     public static SpiralResult generateThickSpiralWithStart(
             Vec3 startPoint,
@@ -121,7 +198,7 @@ public class SpiralUtil {
             return result;
         }
         // 1. Sample smooth path by arc length
-        result.addAll(generateHelixAroundCurve(controlPoints, radiusFunction, pitchFunction, strands, steps, thickness, DefaultDecorators.SPIRAL.decorator, false, true));
+        result.addAll(generateHelixAroundCurve(controlPoints, radiusFunction, pitchFunction, thickness, strands, steps, DefaultDecorators.SPIRAL.decorator, false, true));
 
         return result;
     }
@@ -252,7 +329,7 @@ public class SpiralUtil {
 
         // 1. Sample smooth path by arc length
         List<Vec3> path = BezierCurve.generatePoints(controlPoints, 200);
-        result.addAll(generateHelixAroundCurve(path, radiusFunction, pitchFunction, strands, steps, thickness, DefaultDecorators.SPIRAL.decorator, false, true));
+        result.addAll(generateHelixAroundCurve(path, radiusFunction, pitchFunction, thickness, strands, steps, DefaultDecorators.SPIRAL.decorator, false, true));
 
         return result;
     }
@@ -264,17 +341,16 @@ public class SpiralUtil {
      * @param radiusFunction Radius from curve index -> radius of the spiral.
      * @param pitchFunction  Pitch curve: progress (0..1) -> turns per unit progress.
      *                       Example: progress -> 5.0 * progress gives 0→5 turns.
-     * @param strands        Number of spiral strands (2 = double helix, etc).
      * @param thickness      Thickness of each strand (radius for generateSphere).
+     * @param strands        Number of spiral strands (2 = double helix, etc).
      * @return Set of Vec3 positions.
      */
     public static Set<Vec3> generateHelixAroundCurve(
             @NotNull List<Vec3> bezierPoints,
             @NotNull Function<Double, Double> radiusFunction,
             @NotNull Function<Double, Double> pitchFunction,
-            int strands,
+            @NotNull Function<Double, Double> thickness, int strands,
             float steps,
-            @NotNull Function<Double, Double> thickness,
             @Nullable CurveDecoration decorator,
             boolean hollow,
             boolean fillDisks) {
@@ -378,57 +454,88 @@ public class SpiralUtil {
             double ds = (i == 0) ? 0 : Math.sqrt(bezierPoints.get(i).subtract(bezierPoints.get(i - 1)).lengthSq());
 
             if (decorator != null) {
-                if (decorator instanceof StrandedCurveDecoration) {
-                    for (int s = 0; s < strands; s++) {
-                        accumulatedPhase[s] += ds * pitchFunction.apply(progress);
+                switch (decorator) {
+                    case MultiStrandedCurveDecoration multi -> {
+                        // For multi-decorators we call generateMulti once per bundle/phase and dispatch by id.
+                        // Caller must ensure that the decorator emits PWR.id values within [0, shellStrands.size()-1].
+                        Set<PWR> locals = multi.generateMulti(progress, accumulatedPhaseSingle, radius, thickness.apply(progress), i);
 
-                        double basePhase = 2 * Math.PI * s / strands;
-                        double phi = basePhase + accumulatedPhase[s];
+                        // Optionally update phase(s) if multi decorator expects external phase evolution:
+                        accumulatedPhaseSingle += ds * pitchFunction.apply(progress);
+
+                        // group and dispatch
+                        Map<Integer, List<PWR>> grouped = groupById(locals);
+                        for (Map.Entry<Integer, List<PWR>> e : grouped.entrySet()) {
+                            int strandIndex = e.getKey();
+                            List<PWR> strandList;
+                            if (shellStrands.size() <= strandIndex) {
+                                shellStrands.add(strandIndex, new ArrayList<>());
+                            }
+                            strandList = shellStrands.get(strandIndex);
+                            for (PWR local : e.getValue()) {
+                                Vec3 world = u[i].multiply(local.p.x)
+                                        .add(t[i].multiply(local.p.y))
+                                        .add(v[i].multiply(local.p.z))
+                                        .add(bezierPoints.get(i));
+                                // preserve id in created world PWR (use the 4-arg ctor)
+                                strandList.add(new PWR(world, local.r, local.h, local.id));
+                            }
+                        }
+                    }
+                    case StrandedCurveDecoration strandedCurveDecoration -> {
+                        for (int s = 0; s < strands; s++) {
+                            accumulatedPhase[s] += ds * pitchFunction.apply(progress);
+
+                            double basePhase = 2 * Math.PI * s / strands;
+                            double phi = basePhase + accumulatedPhase[s];
+
+                            Set<PWR> locals = decorator.generate(progress, phi, radius, thickness.apply(progress), i);
+                            for (var local : locals) {
+                                Vec3 world = u[i].multiply(local.p.x)
+                                        .add(t[i].multiply(local.p.y))
+                                        .add(v[i].multiply(local.p.z))
+                                        .add(bezierPoints.get(i));
+                                shellStrands.get(s).add(new PWR(world, local.r, local.h));
+                            }
+                        }
+                    }
+                    case DoubleStrandedCurveDecoration counterer -> {
+                        for (int s = 0; s < strands * 2; s++) {
+                            if (s % 2 == 0) accumulatedPhase[s / 2] += ds * pitchFunction.apply(progress);
+                            else accumulatedAntiPhase[s / 2] += ds * pitchFunction.apply(progress);
+
+                            double basePhase = 2 * Math.PI * s / (strands * 2);
+                            double phi =
+                                    s % 2 == 0 ?
+                                            basePhase + accumulatedPhase[s / 2]
+                                            : basePhase + accumulatedAntiPhase[s / 2];
+
+                            Set<PWR> locals =
+                                    s % 2 == 0 ?
+                                            counterer.generate(progress, phi, radius, thickness.apply(progress), i)
+                                            : counterer.generateAnti(progress, phi, radius, thickness.apply(progress), i);
+                            for (var local : locals) {
+                                Vec3 world = u[i].multiply(local.p.x)
+                                        .add(t[i].multiply(local.p.y))
+                                        .add(v[i].multiply(local.p.z))
+                                        .add(bezierPoints.get(i));
+                                shellStrands.get(s).add(new PWR(world, local.r, local.h));
+                            }
+                        }
+                    }
+                    default -> {
+                        accumulatedPhaseSingle += ds * pitchFunction.apply(progress);
+                        double phi = accumulatedPhaseSingle;
 
                         Set<PWR> locals = decorator.generate(progress, phi, radius, thickness.apply(progress), i);
+                        List<PWR> strand0 = shellStrands.getFirst();
                         for (var local : locals) {
                             Vec3 world = u[i].multiply(local.p.x)
                                     .add(t[i].multiply(local.p.y))
                                     .add(v[i].multiply(local.p.z))
                                     .add(bezierPoints.get(i));
-                            shellStrands.get(s).add(new PWR(world, local.r, local.h));
+                            strand0.add(new PWR(world, local.r, local.h));
                         }
-                    }
-                } else if (decorator instanceof DoubleStrandedCurveDecoration counterer) {
-                    for (int s = 0; s < strands * 2; s++) {
-                        if (s % 2 == 0) accumulatedPhase[s / 2] += ds * pitchFunction.apply(progress);
-                        else accumulatedAntiPhase[s / 2] += ds * pitchFunction.apply(progress);
-
-                        double basePhase = 2 * Math.PI * s / (strands * 2);
-                        double phi =
-                                s % 2 == 0 ?
-                                        basePhase + accumulatedPhase[s / 2]
-                                        : basePhase + accumulatedAntiPhase[s / 2];
-
-                        Set<PWR> locals =
-                                s % 2 == 0 ?
-                                        counterer.generate(progress, phi, radius, thickness.apply(progress), i)
-                                        : counterer.generateAnti(progress, phi, radius, thickness.apply(progress), i);
-                        for (var local : locals) {
-                            Vec3 world = u[i].multiply(local.p.x)
-                                    .add(t[i].multiply(local.p.y))
-                                    .add(v[i].multiply(local.p.z))
-                                    .add(bezierPoints.get(i));
-                            shellStrands.get(s).add(new PWR(world, local.r, local.h));
-                        }
-                    }
-                } else {
-                    accumulatedPhaseSingle += ds * pitchFunction.apply(progress);
-                    double phi = accumulatedPhaseSingle;
-
-                    Set<PWR> locals = decorator.generate(progress, phi, radius, thickness.apply(progress), i);
-                    List<PWR> strand0 = shellStrands.getFirst();
-                    for (var local : locals) {
-                        Vec3 world = u[i].multiply(local.p.x)
-                                .add(t[i].multiply(local.p.y))
-                                .add(v[i].multiply(local.p.z))
-                                .add(bezierPoints.get(i));
-                        strand0.add(new PWR(world, local.r, local.h));
                     }
                 }
             }
@@ -711,6 +818,122 @@ public class SpiralUtil {
         return result;
     }
 
+    public static Set<Vec3> generateThicknessPath(
+            List<Vec3> path,
+            Function<Double, Double> breadthFunction, // maps progress [0..1] → breadth (radius)
+            float step
+    ) {
+        Set<Vec3> result = new LinkedHashSet<>();
+        if (path.size() < 2) return result;
+
+        // Compute total path length
+        double totalLength = 0.0;
+        for (int i = 1; i < path.size(); i++) {
+            totalLength += path.get(i).distance(path.get(i - 1));
+        }
+
+        double traveled = 0.0;
+
+        for (int i = 1; i < path.size(); i++) {
+            Vec3 start = path.get(i - 1);
+            Vec3 end = path.get(i);
+            Vec3 segment = end.subtract(start);
+            double segLength = segment.length();
+
+            // Normalize segment direction
+            Vec3 direction = segment.normalize();
+
+            for (double t = 0; t <= segLength; t += step) {
+                double progress = (traveled + t) / totalLength;
+
+                // Find lateral breadth (like leaf width or branch radius)
+                double breadth = breadthFunction.apply(progress);
+
+                // compute left-right offset using a perpendicular vector
+                Vec3 perp = findPerpendicular(direction).normalize().multiply(breadth);
+
+                // combine main path, droop, and width expansion
+                Vec3 point = start.add(direction.multiply(t)).add(perp);
+                result.add(point);
+            }
+
+            traveled += segLength;
+        }
+
+        return result;
+    }
+
+    public static Set<Vec3> generateWallPath(
+            List<Vec3> path,
+            Function<Double, Double> horizontalBreadthFn,  // width along curve
+            Function<Double, Double> verticalThicknessFn,  // height along curve
+            float step,           // spacing along the path
+            float fillStep        // spacing inside the wall cross-section
+    ) {
+        Set<Vec3> result = new LinkedHashSet<>();
+        if (path.size() < 2) return result;
+
+        // Compute total path length for progress parameterization
+        double totalLength = 0.0;
+        for (int i = 1; i < path.size(); i++) {
+            totalLength += path.get(i).distance(path.get(i - 1));
+        }
+
+        double traveled = 0.0;
+
+        for (int i = 1; i < path.size(); i++) {
+            Vec3 start = path.get(i - 1);
+            Vec3 end = path.get(i);
+            Vec3 segment = end.subtract(start);
+            double segLength = segment.length();
+
+            Vec3 forward = segment.normalize();
+
+            // Establish local axes (right, up)
+            Vec3 up = new Vec3(0, 1, 0);
+            if (Math.abs(forward.dot(up)) > 0.95) up = new Vec3(1, 0, 0);
+            Vec3 right = forward.crossProduct(up).normalize();
+            Vec3 trueUp = right.crossProduct(forward).normalize();
+
+            for (double t = 0; t <= segLength; t += step) {
+                double progress = (traveled + t) / totalLength;
+
+                // Horizontal (width) and vertical (height) scaling
+                double hBreadth = horizontalBreadthFn.apply(progress);
+                double vThickness = verticalThicknessFn.apply(progress);
+
+                // Optional blending to soften transitions
+                double blend = 0.5 + 0.5 * Math.sin(progress * Math.PI);
+                double effectiveWidth = hBreadth * (1.0 - blend * 0.3);
+                double effectiveHeight = vThickness * (0.7 + blend * 0.3);
+
+                Vec3 center = start.add(forward.multiply(t));
+
+                // --- Fill the cross-section (like a rectangle grid) ---
+                for (double x = -effectiveWidth; x <= effectiveWidth; x += fillStep) {
+                    for (double y = -effectiveHeight; y <= effectiveHeight; y += fillStep) {
+                        Vec3 point = center
+                                .add(right.multiply(x))
+                                .add(trueUp.multiply(y));
+                        result.add(point);
+                    }
+                }
+            }
+
+            traveled += segLength;
+        }
+
+        return result;
+    }
+
+
+    private static Vec3 findPerpendicular(Vec3 v) {
+        // Choose a vector that isn't parallel, to avoid zero cross product
+        Vec3 ref = Math.abs(v.y) < 0.9 ? new Vec3(0, 1, 0) : new Vec3(1, 0, 0);
+        return v.crossProduct(ref).normalize();
+    }
+
+
     public enum DefaultDecorators {
         SINGLES(new StrandedCurveDecoration() {
             public Set<PWR> generate(double progress, double phase, double radius, double thickness, int step) {
@@ -835,6 +1058,41 @@ public class SpiralUtil {
         Set<PWR> generate(double progress, double phase, double radius, double thickness, int step);
     }
 
+    /**
+     * A decorator that can emit multiple strand outputs in a single call.
+     * <p>
+     * PWR.id MUST be set to the absolute target strand index (0..strands-1).
+     * The caller (outer spiral walker) is responsible for allocating shellStrands
+     * with size >= max strand index used.
+     */
+    public interface MultiStrandedCurveDecoration extends CurveDecoration {
+        /**
+         * Generate a set of PWR points. Each PWR.id must indicate which strand
+         * that point belongs to (absolute index).
+         *
+         * @param progress  curve progress (0..1)
+         * @param phase     phase offset (radians)
+         * @param radius    current radius
+         * @param thickness current thickness scalar
+         * @param step      step index
+         * @return set of PWRs whose 'id' fields are absolute strand indices
+         */
+        Set<PWR> generateMulti(double progress, double phase, double radius, double thickness, int step);
+
+        @Override
+        default Set<PWR> generate(double progress, double phase, double radius, double thickness, int step) {
+            return Set.of();
+        }
+    }
+
+    public static Map<Integer, List<PWR>> groupById(Collection<PWR> pwrs) {
+        Map<Integer, List<PWR>> map = new LinkedHashMap<>();
+        for (PWR p : pwrs) {
+            map.computeIfAbsent(p.id, k -> new ArrayList<>()).add(p);
+        }
+        return map;
+    }
+
 
     /**
      * Must only generate for conical coordinates up (0, 1, 0) and right (1, 0, 0)
@@ -846,14 +1104,23 @@ public class SpiralUtil {
     }
 
     public static final class PWR {
-        final Vec3 p;
-        final double r;
-        final boolean h;
+        public final Vec3 p;
+        public final double r;
+        public final boolean h;
+        public final int id;
 
-        PWR(Vec3 p, double r, boolean h) {
+        public PWR(Vec3 p, double r, boolean h) {
             this.p = p;
             this.r = r;
             this.h = h;
+            this.id = 1;
+        }
+
+        public PWR(Vec3 p, double r, boolean h, int id) {
+            this.p = p;
+            this.r = r;
+            this.h = h;
+            this.id = id;
         }
 
         @Override
@@ -862,6 +1129,11 @@ public class SpiralUtil {
             if (!(((PWR) obj).h == this.h)) return false;
             if (!(((PWR) obj).r == this.r)) return false;
             return ((PWR) obj).p.equals(this.p);
+        }
+
+        @Override
+        public String toString() {
+            return "PWR{origin: " + p + ", radius: " + r + ", isH: " + h + ", id: " + id + "}";
         }
     }
 }

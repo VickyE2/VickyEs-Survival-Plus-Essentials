@@ -4,8 +4,19 @@ import org.vicky.platform.utils.Mirror;
 import org.vicky.platform.utils.Rotation;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.vspe.platform.systems.dimension.MushroomCapProfile;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.BezierCurve;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.CorePointsFactory;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.CurveFunctions;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.Debug_PointTesterGenerator;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.ThesisTreeStructureGenerator;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.thesis.ThesisBasedTreeGenerator;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.SpiralUtil;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.HelixPointFactory;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.LCurveFactory;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.SCurveFactory;
+import org.vicky.vspe.platform.systems.dimension.StructureUtils.spiralutilsdecorators.NoodleSpline;
+import org.vicky.vspe.platform.systems.dimension.TimeCurve;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
 import java.nio.ByteBuffer;
@@ -60,15 +71,74 @@ public class Main {
                 .trunkRadius(10, 19)
                 .trunkHeight(7, 8)
                 .treeAge(50)
+                .placeLeaves(false)
+                .growthData(new ThesisBasedTreeGenerator.GrowthData.Builder(6)
+                        .senescenceAffectsChildren(true)
+                        .distanceBetweenChildren(5)
+                        .maxDepth(2)
+                        .multiTrunkismMaxAmount(8)
+                        .multiTrunkismAge(15)
+                        .apicalControl(0.9f)
+                        .addOverrides(
+                                ThesisBasedTreeGenerator.Overrides.TrunkOverrides.MULTI_TRUNKISM
+                        )
+                        .build())
+                .leafDetails(ThesisTreeStructureGenerator.LeafDetails.newBuilder()
+                        .startIndex(1)
+                        // .leafBreath(1.0f)
+                        // .leafLength(1.5f)
+                        // .leafSpawningPoint(0.5f)
+                        .useRealisticType(true)
+                        .realismPow(0.77)
+                        .build())
                 .seed(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()).getInt())
-                .trunkMaterial(SimpleBlockState.Companion.from("AA5500", (it) -> it));
+                .trunkMaterial(SimpleBlockState.Companion.from("AA5500", (it) -> it))
+                .leafMaterial(SimpleBlockState.Companion.from("44BB00", (it) -> it));
 
         var tree = treeTh
                 .build()
                 .generate(
                         new SeededRandomSource(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()).getInt()),
-                        new Vec3(0, 0, 0)
+                        new Vec3(0, 0, 0),
+                        true
                 );
+
+        var debug = new Debug_PointTesterGenerator<>(
+                () -> SpiralUtil.generateHelixAroundCurve(
+                        BezierCurve.generatePoints(
+                            CorePointsFactory.generate(
+                                CorePointsFactory.Params.builder()
+                                    .type(new HelixPointFactory(1, 1.0, 1.0))
+                                    .height(160)
+                                    .width(40)
+                                    .build()
+                            ), 200
+                        ),
+                        CurveFunctions.radius(1.0, 0.5, 0.0, 1.0, TimeCurve.QUADRATIC),
+                        CurveFunctions.pitch(0.01, 0.05, 0.0, 1.0, TimeCurve.INVERTED_QUADRATIC),
+                        (x) -> 0.0, 1, 0.8f,
+                        NoodleSpline.newBuilder()
+                                .setNoiseJitter(8)
+                                .setNoiseSmoothness(8)
+                                .setNoiseFreq(0.5)
+                                .setMajorCircleRadius(50)
+                                .setStrandRadius(3)
+                                .setBundleSize(1)
+                                .setMaxCircleCount(20)
+                                .setMode(NoodleSpline.Mode.BRAID)
+                                .setNoiseSeed(652035148)
+                                .setBraidPhaseShift(0.0)
+                                .setBraidPitch(0.0)
+                                .setTwistsPerUnit(0.0)
+                                .build(),
+                        true, true
+                ),
+                SimpleBlockState.Companion.from("004466", (it) -> it)
+        ).generate(
+                new SeededRandomSource(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes()).getInt()),
+                new Vec3(0, 0, 0),
+                false
+        );
 
         int idx = 0;
         var highX = 0;

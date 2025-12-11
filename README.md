@@ -12,7 +12,7 @@ ___
 > <br> If not implemented....The whole system goes brr...I should prolly make a default soon
 
 ### [PlatformDimensionFactory.java](VSPE/src/main/java/org/vicky/vspe/platform/PlatformDimensionFactory.java)
-> This is as it sounds the dimension maker. I makes dimensions from [DimensionDescriptor.java](VSPE/src/main/java/org/vicky/vspe/platform/systems/dimension/DimensionDescriptor.java)
+> This is as it sounds the dimension maker. I makes dimensions from [DimensionDescriptor](VSPE/src/main/java/org/vicky/vspe/platform/systems/dimension/DimensionDescriptor.java)
 > <br> The said descriptor holds a LOT of informtion about said dimension...I haven't implemented mob spawning so something about that might come later...
 
 ### [PlatformBiomeFactory.java](VSPE/src/main/java/org/vicky/vspe/platform/PlatformBiomeFactory.java)
@@ -27,7 +27,7 @@ Well whats showing off that "I can code" Withouth making EVERYTHING with code...
 
 ### [SpiralUtil.java](VSPE/src/main/java/org/vicky/vspe/platform/systems/dimension/StructureUtils/SpiralUtil.java)
 > This was inspired by hehe whats the name again... leme serch that up rq...YES EZEDITS
-> So basically we have a list of control points that give us a bezier path [BezierCurve.java](VSPE/src/main/java/org/vicky/vspe/platform/systems/dimension/StructureUtils/BezierCurve.java) that can 
+> So basically we have a list of control points that give us a bezier path [BezierCurve](VSPE/src/main/java/org/vicky/vspe/platform/systems/dimension/StructureUtils/BezierCurve.java) that can 
 > then be decorated by a set of defaults [DefaultDecorators](VSPE/src/main/java/org/vicky/vspe/platform/systems/dimension/StructureUtils/SpiralUtil.java#L714)
 
 ### [CorePointsFactory.java](VSPE/src/main/java/org/vicky/vspe/platform/systems/dimension/StructureUtils/CorePointsFactory.java)

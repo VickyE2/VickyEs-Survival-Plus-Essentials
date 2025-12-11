@@ -223,9 +223,9 @@ fun generateMultiRootSpiralTrunk(
         BezierCurve.generatePoints(listOf(center.subtract(0.0, rootLength, 0.0), center), 100),
         radius(rootSpread, trunkRadius, 0.0, 1.0, TimeCurve.INVERTED_QUADRATIC),
         CurveFunctions.multiFade(pitchSegments),
+        radius(rootThickness, trunkThickness, 0.0, 1.0, TimeCurve.QUADRATIC),
         numRoots,
         0.8f,
-        radius(rootThickness, trunkThickness, 0.0, 1.0, TimeCurve.QUADRATIC),
         SpiralUtil.DefaultDecorators.SPIRAL.decorator,
         true,
         false
@@ -241,9 +241,9 @@ fun generateMultiRootSpiralTrunk(
         BezierCurve.generatePoints(ends, 200),
         radius,
         pitch(lastNext, lastNext + 0.15, 0.0, 1.0, TimeCurve.LINEAR),
+        thickness,
         numRoots,
         0.8f,
-        thickness,
         SpiralUtil.DefaultDecorators.SPIRAL.decorator,
         false,
         true
