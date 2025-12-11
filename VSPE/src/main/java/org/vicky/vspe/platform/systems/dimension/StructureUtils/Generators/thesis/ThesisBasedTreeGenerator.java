@@ -1016,8 +1016,8 @@ public class ThesisBasedTreeGenerator {
      * <p>
      * Typical behavior:
      * <ul>
-     *     <li>Young trees (age < 10): small curvature near the base as light bias dominates.</li>
-     *     <li>Mature trees (age > 30): vertical base stabilized by gravity, curved crown following light vector.</li>
+     *     <li>Young trees (age lessthan 10): small curvature near the base as light bias dominates.</li>
+     *     <li>Mature trees (age greaterthan 30): vertical base stabilized by gravity, curved crown following light vector.</li>
      * </ul>
      */
     public static class GrowthData {
