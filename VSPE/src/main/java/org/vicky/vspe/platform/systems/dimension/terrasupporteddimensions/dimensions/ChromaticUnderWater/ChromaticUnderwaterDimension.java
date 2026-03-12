@@ -2,7 +2,7 @@ package org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.dimen
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.vicky.platform.PlatformItem;
+import org.vicky.platform.PlatformItemStack;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.world.PlatformLocation;
 import org.vicky.platform.world.PlatformWorld;
@@ -79,7 +79,7 @@ public class ChromaticUnderwaterDimension<T> implements PlatformBaseDimension<St
     }
 
     @Override
-    public List<PlatformItem> dimensionAdvancementGainItems() {
+    public List<PlatformItemStack> dimensionAdvancementGainItems() {
         return List.of();
     }
 
@@ -154,7 +154,7 @@ public class ChromaticUnderwaterDimension<T> implements PlatformBaseDimension<St
     }
 
     @Override
-    public PlatformItem getDimensionIcon(int position) {
+    public PlatformItemStack getDimensionIcon(int position) {
         return null;
     }
 

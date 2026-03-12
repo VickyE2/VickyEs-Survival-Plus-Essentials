@@ -48,7 +48,7 @@ public class SpiralUtil {
         }
 
         // fallback: tangent of last segment
-        return controlPoints.get(controlPoints.size() - 1)
+        return controlPoints.getLast()
                 .subtract(controlPoints.get(controlPoints.size() - 2))
                 .normalize();
     }
@@ -187,7 +187,6 @@ public class SpiralUtil {
 
     public static Set<Vec3> generateVineWithSpiralNoBezier(
             List<Vec3> controlPoints,
-            Function<Double, Double> thickness,
             int strands,
             float steps,
             Function<Double, Double> radiusFunction,
@@ -197,8 +196,16 @@ public class SpiralUtil {
         if (controlPoints == null || controlPoints.size() < 2) {
             return result;
         }
-        // 1. Sample smooth path by arc length
-        result.addAll(generateHelixAroundCurve(controlPoints, radiusFunction, pitchFunction, thickness, strands, steps, DefaultDecorators.SPIRAL.decorator, false, true));
+        // Modified: thickness is now derived from radiusFunction, not added separately
+        // We pass a function that computes strand thickness as a fraction of the available radius
+        Function<Double, Double> derivedThickness = (progress) -> {
+            double radius = radiusFunction.apply(progress);
+            // Strand thickness is proportional to radius, divided by number of strands
+            // This ensures spirals fit WITHIN the radius boundary
+            return Math.max(0.0, radius / (strands + 1.0));
+        };
+        
+        result.addAll(generateHelixAroundCurve(controlPoints, radiusFunction, pitchFunction, derivedThickness, strands, steps, DefaultDecorators.SPIRAL.decorator, false, true));
 
         return result;
     }
@@ -316,7 +323,6 @@ public class SpiralUtil {
 
     public static Set<Vec3> generateVineWithSpiral(
             List<Vec3> controlPoints,
-            Function<Double, Double> thickness,
             int strands,
             float steps,
             Function<Double, Double> radiusFunction,
@@ -326,10 +332,18 @@ public class SpiralUtil {
         if (controlPoints == null || controlPoints.size() < 2) {
             return result;
         }
+        // Modified: thickness is now derived from radiusFunction, not added separately
+        // We pass a function that computes strand thickness as a fraction of the available radius
+        Function<Double, Double> derivedThickness = (progress) -> {
+            double radius = radiusFunction.apply(progress);
+            // Strand thickness is proportional to radius, divided by number of strands
+            // This ensures spirals fit WITHIN the radius boundary
+            return Math.max(0.5, radius / (strands + 1.0));
+        };
 
         // 1. Sample smooth path by arc length
         List<Vec3> path = BezierCurve.generatePoints(controlPoints, 200);
-        result.addAll(generateHelixAroundCurve(path, radiusFunction, pitchFunction, thickness, strands, steps, DefaultDecorators.SPIRAL.decorator, false, true));
+        result.addAll(generateHelixAroundCurve(path, radiusFunction, pitchFunction, derivedThickness, strands, steps, DefaultDecorators.SPIRAL.decorator, false, true));
 
         return result;
     }
@@ -904,8 +918,8 @@ public class SpiralUtil {
 
                 // Optional blending to soften transitions
                 double blend = 0.5 + 0.5 * Math.sin(progress * Math.PI);
-                double effectiveWidth = hBreadth * (1.0 - blend * 0.3);
-                double effectiveHeight = vThickness * (0.7 + blend * 0.3);
+                double effectiveWidth = Math.max(0.5, hBreadth * (1.0 - blend * 0.3));
+                double effectiveHeight = Math.max(0.5, vThickness * (0.7 + blend * 0.3));
 
                 Vec3 center = start.add(forward.multiply(t));
 
@@ -943,9 +957,12 @@ public class SpiralUtil {
         }),
         SPIRAL(new StrandedCurveDecoration() {
             public Set<PWR> generate(double progress, double phase, double radius, double thickness, int step) {
-                double x = Math.cos(phase) * radius; // right
-                double y = 0;                        // up (flat)
-                double z = Math.sin(phase) * radius; // forward
+                // Place the spiral strand center at (radius - thickness/2) to ensure
+                // the outer edge stays within the radius boundary
+                double effectiveRadius = Math.max(0, radius - thickness);
+                double x = Math.cos(phase) * effectiveRadius; // right
+                double y = 0;                                 // up (flat)
+                double z = Math.sin(phase) * effectiveRadius; // forward
                 return Set.of(new PWR(new Vec3(x, y, z), thickness, false));
             }
         }),
@@ -953,10 +970,11 @@ public class SpiralUtil {
             public Set<PWR> generate(double progress, double phase, double radius, double thickness, int step) {
                 Set<PWR> points = new HashSet<>();
 
-                // strand A
-                double x1 = Math.cos(phase) * radius;
+                // strand A - adjusted to fit within radius
+                double effectiveRadius = Math.max(0, radius - thickness);
+                double x1 = Math.cos(phase) * effectiveRadius;
                 double y1 = 0;
-                double z1 = Math.sin(phase) * radius;
+                double z1 = Math.sin(phase) * effectiveRadius;
                 points.add(new PWR(new Vec3(x1, y1, z1), thickness, false));
 
                 return points;
@@ -965,10 +983,11 @@ public class SpiralUtil {
             public Set<PWR> generateAnti(double progress, double phase, double radius, double thickness, int step) {
                 Set<PWR> points = new HashSet<>();
 
-                // strand B (180° opposite)
-                double x2 = Math.cos(-phase + Math.PI) * radius;
+                // strand B (180° opposite) - adjusted to fit within radius
+                double effectiveRadius = Math.max(0, radius - thickness);
+                double x2 = Math.cos(-phase + Math.PI) * effectiveRadius;
                 double y2 = 0;
-                double z2 = Math.sin(-phase + Math.PI) * radius;
+                double z2 = Math.sin(-phase + Math.PI) * effectiveRadius;
                 points.add(new PWR(new Vec3(x2, y2, z2), thickness, false));
 
                 return points;
@@ -978,10 +997,11 @@ public class SpiralUtil {
             public Set<PWR> generate(double progress, double phase, double radius, double thickness, int step) {
                 Set<PWR> points = new HashSet<>();
 
-                // normal spiral
-                double x1 = Math.cos(phase) * radius;
+                // normal spiral - adjusted to fit within radius
+                double effectiveRadius = Math.max(0, radius - thickness);
+                double x1 = Math.cos(phase) * effectiveRadius;
                 double y1 = 0;
-                double z1 = Math.sin(phase) * radius;
+                double z1 = Math.sin(phase) * effectiveRadius;
                 points.add(new PWR(new Vec3(x1, y1, z1), thickness, false));
 
                 return points;
@@ -990,10 +1010,11 @@ public class SpiralUtil {
             public Set<PWR> generateAnti(double progress, double phase, double radius, double thickness, int step) {
                 Set<PWR> points = new HashSet<>();
 
-                // counter spiral (opposite phase)
-                double x2 = Math.cos(-phase) * radius;
+                // counter spiral (opposite phase) - adjusted to fit within radius
+                double effectiveRadius = Math.max(0, radius - thickness);
+                double x2 = Math.cos(-phase) * effectiveRadius;
                 double y2 = 0;
-                double z2 = Math.sin(-phase) * radius;
+                double z2 = Math.sin(-phase) * effectiveRadius;
                 points.add(new PWR(new Vec3(x2, y2, z2), thickness, false));
 
                 return points;
@@ -1002,9 +1023,10 @@ public class SpiralUtil {
         BEAD((progress, phase, radius, thickness, step) -> {
             int spacing = (int) Math.max(1, thickness * 3);
             if (step % spacing == 0) {
-                double x = Math.cos(phase) * radius; // right
-                double y = 0;                        // up (flat)
-                double z = Math.sin(phase) * radius; // forward
+                double effectiveRadius = Math.max(0, radius - thickness);
+                double x = Math.cos(phase) * effectiveRadius; // right
+                double y = 0;                                 // up (flat)
+                double z = Math.sin(phase) * effectiveRadius; // forward
                 return Set.of(new PWR(new Vec3(x, y, z), thickness, false));
             } else {
                 return Set.of();
@@ -1013,14 +1035,15 @@ public class SpiralUtil {
         RIBBON((progress, phase, radius, thickness, step) -> {
             Set<PWR> ribbon = new HashSet<>();
             int segments = 12; // resolution of the strip
-            double width = radius * 1.2; // how wide the ribbon spreads
+            double effectiveRadius = Math.max(0, radius - thickness);
+            double width = effectiveRadius * 1.2; // how wide the ribbon spreads
 
             for (int i = -segments; i <= segments; i++) {
                 double offset = (i / (double) segments) * width;
                 double twist = Math.sin(progress * Math.PI * 4) * 0.3; // flutter effect
-                double x = Math.cos(phase + twist) * (radius + offset);
+                double x = Math.cos(phase + twist) * (effectiveRadius + offset);
                 double y = 0;
-                double z = Math.sin(phase + twist) * (radius + offset);
+                double z = Math.sin(phase + twist) * (effectiveRadius + offset);
                 ribbon.add(new PWR(new Vec3(x, y, z), thickness, false));
             }
             return ribbon;

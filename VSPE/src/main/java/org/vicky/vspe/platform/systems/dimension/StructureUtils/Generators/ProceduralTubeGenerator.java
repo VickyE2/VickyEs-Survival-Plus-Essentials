@@ -139,7 +139,7 @@ public class ProceduralTubeGenerator<T>
             for (int dx = -oHalf; dx <= oHalf; dx++) {
                 // place coral only in the ring (outside inner radius)
                 if (dx > iHalf || dx < -iHalf) {
-                    guardAndStore(cx + dx, cy, cz + dz, coralMaterial, false);
+                    guardAndStore(cx + dx, cy, cz + dz, coralMaterial);
                 }
             }
         }
@@ -169,11 +169,11 @@ public class ProceduralTubeGenerator<T>
                 for (int dx = -oHalf; dx <= oHalf; dx++) {
                     if (dx > iHalf || dx < -iHalf) {
                         // shell block
-                        guardAndStore(cx + dx, y, cz + dz, coralMaterial, false);
+                        guardAndStore(cx + dx, y, cz + dz, coralMaterial);
                     } else {
                         // inside the shell — put water (or the configured water material)
                         if (waterMaterial != null) {
-                            guardAndStore(cx + dx, y, cz + dz, waterMaterial, false);
+                            guardAndStore(cx + dx, y, cz + dz, waterMaterial);
                         }
                     }
                 }

@@ -111,3 +111,5 @@ buildNumber.properties
 
 # Common working directory
 run/
+run-data/
+/VSPE/1_20_4/build/downloadMCMeta/version.json

@@ -1,6 +1,7 @@
 package org.vicky.vspe.platform.systems.dimension;
 
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
+import org.vicky.vspe.platform.systems.dimension.globalDimensions.DimensionDescriptors;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -14,7 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CoreDimensionRegistry {
     private static final ConcurrentHashMap<String, DimensionDescriptor> DESCRIPTORS = new ConcurrentHashMap<>();
 
-    private CoreDimensionRegistry() {
+    CoreDimensionRegistry() {
+        register(DimensionDescriptors.CRYMORRA);
     }
 
     /**

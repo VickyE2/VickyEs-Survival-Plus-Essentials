@@ -193,7 +193,7 @@ public class ProceduralCrystalShardGenerator<T> extends
                 // place the shard block
                 double theta = Math.atan2(dz, dx);
                 PlatformBlockState<T> block = distributionFunction.pick(palette, t, theta, rnd);
-                guardAndStore(x, yy, z, block, false);
+                guardAndStore(x, yy, z, block);
                 outPlaced.add(new Vec3(x, yy, z));
 
                 // ---- new: glow adjacent to every outer-shell block ----
@@ -216,7 +216,7 @@ public class ProceduralCrystalShardGenerator<T> extends
                         PlatformBlockState<T> glowState = (PlatformBlockState<T>) PlatformPlugin.stateFactory()
                                 .getBlockState("minecraft:light[level=" + (int) (glowLightLevel * 15)
                                         + ",waterlogged=" + glowUw + "]");
-                        guardAndStore(gx, gy, gz, glowState, false);
+                        guardAndStore(gx, gy, gz, glowState);
                     }
                 }
             }
@@ -308,7 +308,7 @@ public class ProceduralCrystalShardGenerator<T> extends
             );
 
             // e) place the original blockstate
-            guardAndStore(np.getIntX(), np.getIntY(), np.getIntZ(), state, false);
+            guardAndStore(np.getIntX(), np.getIntY(), np.getIntZ(), state);
         }
 
         // base (placed) remains intact

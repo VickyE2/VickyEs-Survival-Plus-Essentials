@@ -8,7 +8,8 @@ import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.LCurve
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.factories.StraightPointFactory
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.RandomSource
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.SeededRandomSource
-import org.vicky.vspe.shuffle
+import java.util.*
+import java.util.random.RandomGenerator
 import java.util.stream.Collectors
 import kotlin.math.*
 
@@ -18,63 +19,211 @@ fun generateLeafBlob(
     sizeX: Double,
     sizeY: Double,
     sizeZ: Double,
-    density: Double = 0.6,
-    refinement: Int = 2,
-    hollowFactor: Double = 0.25,
-    fluffOffset: Double = 0.5,
-    seed: Long = System.nanoTime()
+    step: Double = 1.0,
+    seed: Long = System.nanoTime(),
+    // how much to deform near the surface (0 = pure ellipsoid)
+    surfaceNoise: Double = 0.1,
+    // how much to warp coordinates globally
+    warpStrength: Double = 0.0,
+    // probability to jitter a point in/out
+    jitterChance: Double = 0.67,
+    hollow: Boolean = false,
+    hollowFactor: Double = 0.9,
+    density: Double = 1.0
 ): List<Vec3> {
-    val rnd = SeededRandomSource(seed)
     val points = mutableListOf<Vec3>()
-
-    // --- 1️⃣ Base Blob Pass ---
-    val baseCount = (sizeX * sizeY * sizeZ * density).toInt()
-    repeat(baseCount) {
-        val x = rnd.nextDouble(-sizeX, sizeX)
-        val y = rnd.nextDouble(-sizeY, sizeY)
-        val z = rnd.nextDouble(-sizeZ, sizeZ)
-
-        // Ellipsoid shape bias
-        val dist = (x * x / (sizeX * sizeX)) + (y * y / (sizeY * sizeY)) + (z * z / (sizeZ * sizeZ))
-        if (dist <= 1.0 + rnd.nextDouble(-0.2, 0.2)) {
-            points.add(Vec3(origin.x + x, origin.y + y, origin.z + z))
-        }
+    if (sizeX <= 0.0 || sizeY <= 0.0 || sizeZ <= 0.0 || step <= 0.0) {
+        return points
     }
 
-    // --- 2️⃣ Refinement Pass ---
-    // Adds small clusters around random existing points
-    repeat(refinement) {
-        val newPoints = mutableListOf<Vec3>()
-        for (p in points.shuffle(rnd).take(points.size / 3)) {
-            repeat(5) {
-                val off = Vec3.of(
-                    p.x + rnd.nextDouble(-0.8, 0.8),
-                    p.y + rnd.nextDouble(-0.5, 0.5),
-                    p.z + rnd.nextDouble(-0.8, 0.8)
-                )
-                newPoints.add(off)
+    val rnd = Random(seed)
+
+    var x = -sizeX
+    while (x <= sizeX) {
+        var y = -sizeY
+        while (y <= sizeY) {
+            var z = -sizeZ
+            while (z <= sizeZ) {
+                // base normalized coords for a perfect ellipsoid
+                var nx = x / sizeX
+                var ny = y / sizeY
+                var nz = z / sizeZ
+
+                // --- 1) soft global warp to break symmetry ---
+                if (warpStrength > 0.0) {
+                    val r2 = nx * nx + ny * ny + nz * nz
+                    val warp = 1.0 + warpStrength * (r2 - 0.5) // pushes some areas out/in
+                    nx *= warp
+                    ny *= warp
+                    nz *= warp
+                }
+
+                var dist = nx * nx + ny * ny + nz * nz
+
+                // --- 2) surface jitter: make near-surface points noisy ---
+                if (surfaceNoise > 0.0 && dist > 0.75 && rnd.nextDouble() < jitterChance) {
+                    // jitter normalized radius a bit
+                    val jitter = (rnd.nextDouble() - 0.5) * 2.0 * surfaceNoise // [-noise, +noise]
+                    val r = sqrt(dist).coerceAtLeast(1e-6)
+                    val rJ = (r + jitter).coerceAtLeast(0.0)
+                    val scale = if (r > 0.0) rJ / r else 1.0
+                    nx *= scale
+                    ny *= scale
+                    nz *= scale
+                    dist = nx * nx + ny * ny + nz * nz
+                }
+
+                if (dist <= 1.0) {
+                    if (hollow && dist >= hollowFactor || !hollow) {
+                        if (rnd.nextDouble() < density) {
+                            points.add(
+                                origin.add(
+                                    x,
+                                    y,
+                                    z
+                                )
+                            )
+                        }
+                    }
+                }
+
+                z += step
             }
+            y += step
         }
-        points.addAll(newPoints)
+        x += step
     }
 
-    // --- 3️⃣ Hollow Noise Offset Pass ---
-    val center = origin
-    val hollowed = points.filter {
-        val d = sqrt((it.x - center.x).pow(2) + (it.y - center.y).pow(2) + (it.z - center.z).pow(2))
-        d > (min(sizeX, min(sizeY, sizeZ)) * hollowFactor)
-    }.toMutableList()
+    return points
+}
 
-    // Apply fluffy offset duplication
-    val fluff = hollowed.flatMap {
-        val dx = rnd.nextDouble(-fluffOffset, fluffOffset)
-        val dy = rnd.nextDouble(-fluffOffset, fluffOffset)
-        val dz = rnd.nextDouble(-fluffOffset, fluffOffset)
-        listOf(it, Vec3(it.x + dx, it.y + dy, it.z + dz))
+/**
+ * Generates a main ellipsoid blob plus several smaller blobs attached to its surface.
+ *
+ * - Child blob count: 5–15
+ * - Each child blob size = 0.2–0.4 of the main size (same scale factor on all axes)
+ * - Child centers are random points on the parent ellipsoid surface (no duplicate centers)
+ */
+@JvmOverloads
+fun generateLeafBlobWithChildren(
+    origin: Vec3,
+    sizeX: Double,
+    sizeY: Double,
+    sizeZ: Double,
+    step: Double = 1.0,
+    rnd: RandomGenerator = Random()
+): List<Vec3> {
+    val allPoints = mutableListOf<Vec3>()
+
+    // 1. Main blob
+    allPoints += generateLeafBlob(origin, sizeX, sizeY, sizeZ, step, hollow = true, hollowFactor = 0.85, density = 0.98)
+
+    // 2. Decide how many child blobs
+    val childCount = rnd.nextInt(15, 31) // 5..15 inclusive
+
+    run {
+        val centers = mutableListOf<Vec3>()
+
+        repeat(childCount) {
+            // 2.1 Random unit direction
+            val finalCenter = doSomething(rnd, origin, centers, sizeX, sizeY, sizeZ)
+            centers += finalCenter
+
+            // 2.3 Pick child scale factor in [0.2, 0.4]
+            val scale = 0.26 + rnd.nextDouble() * 0.14 // 0.2..0.4
+
+            val childSizeX = if (rnd.nextDouble() > 0.4) sizeX * scale
+            else if (rnd.nextDouble() > 0.2) sizeZ * scale else sizeY * scale
+            val childSizeY = if (rnd.nextDouble() > 0.4) sizeY * scale
+            else if (rnd.nextDouble() > 0.2) sizeZ * scale else sizeX * scale
+            val childSizeZ = if (rnd.nextDouble() > 0.4) sizeZ * scale
+            else if (rnd.nextDouble() > 0.2) sizeX * scale else sizeY * scale
+
+            allPoints += generateLeafBlob(finalCenter, childSizeX, childSizeY, childSizeZ, step,
+                hollow = true, hollowFactor = 0.9, density = 0.85)
+        }
+    }
+    run {
+        val centers = mutableListOf<Vec3>()
+
+        repeat(childCount * 3) {
+            // 2.1 Random unit direction
+            val finalCenter = doSomething(rnd, origin, centers, sizeX, sizeY, sizeZ)
+            centers += finalCenter
+
+            // 2.3 Pick child scale factor in [0.2, 0.4]
+            val scale = 0.14 + rnd.nextDouble() * 0.14 // 0.2..0.4
+
+            val childSizeX = if (rnd.nextDouble() > 0.4) sizeX * scale
+            else if (rnd.nextDouble() > 0.2) sizeZ * scale else sizeY * scale
+            val childSizeY = if (rnd.nextDouble() > 0.4) sizeY * scale
+            else if (rnd.nextDouble() > 0.2) sizeZ * scale else sizeX * scale
+            val childSizeZ = if (rnd.nextDouble() > 0.4) sizeZ * scale
+            else if (rnd.nextDouble() > 0.2) sizeX * scale else sizeY * scale
+
+            allPoints += generateLeafBlob(finalCenter, childSizeX, childSizeY, childSizeZ, step,
+                hollow = true, hollowFactor = 0.9, density = 0.85)
+        }
     }
 
-    // Optional: Random thinning for realism
-    return fluff.filter { rnd.nextDouble() > 0.1 }
+    // return stampBlobWithCopyOffset(allPoints, rnd)
+    return allPoints
+}
+
+
+private fun stampBlobWithCopyOffset(
+    blobPoints: List<Vec3>,
+    rnd: RandomGenerator
+) : List<Vec3> {
+    if (blobPoints.isEmpty()) return listOf()
+    val list : MutableList<Vec3> = mutableListOf()
+    list.addAll(blobPoints)
+
+    val angle = rnd.nextDouble() * Math.PI * 2.0
+    val dx = cos(angle)
+    val dz = sin(angle)
+
+    val dist = 1.0 // ~[1.5, 4.0]
+    val offset = Vec3.of(dx * dist, 1.0, dz * dist)
+
+    for (p in blobPoints) {
+        val q = p.add(offset)
+        list.add(q)
+    }
+
+    return list
+}
+
+fun doSomething(rnd: RandomGenerator, origin: Vec3, centers: List<Vec3>, sizeX: Double, sizeY: Double, sizeZ: Double): Vec3 {
+    val dir = Vec3.randomUnit(rnd)
+
+    // 2.2 Project to the ellipsoid surface: origin + (dir * radii)
+    // Slightly shrink radius (0.95) so children don't float outside
+    val surfaceCenter = Vec3(
+        origin.x + dir.x * sizeX * 0.95,
+        origin.y + dir.y * sizeY * 0.95,
+        origin.z + dir.z * sizeZ * 0.95
+    )
+
+    // Enforce "no repetition": re-roll if too close to an existing center
+    val minCenterDistSq = 1e-3 // tweak if needed
+    var finalCenter = surfaceCenter
+    var attempts = 0
+    while (attempts < 8 && centers.any {
+            val dx = it.x - finalCenter.x
+            val dy = it.y - finalCenter.y
+            val dz = it.z - finalCenter.z
+            dx * dx + dy * dy + dz * dz < minCenterDistSq
+        }) {
+        val newDir = Vec3.randomUnit(rnd)
+        finalCenter = Vec3(
+            origin.x + newDir.x * sizeX * 0.95,
+            origin.y + newDir.y * sizeY * 0.95,
+            origin.z + newDir.z * sizeZ * 0.95
+        )
+        attempts++
+    }
+    return finalCenter
 }
 
 interface BranchGenerator {

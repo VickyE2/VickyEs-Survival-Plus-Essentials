@@ -317,7 +317,7 @@ class SimpleConstructorBasedBiome(
     override fun toNativeBiome(): String {
         return "$namespace:${name.trim().lowercase()}"
     }
-    override fun getIdentifier(): String? {
+    override fun getIdentifier(): String {
         return "$namespace:${name.trim().lowercase()}"
     }
 }
@@ -480,18 +480,10 @@ class FloraFeature<T>(
     }
 }
 
-data class MobSpawnEntry(
-    val mobKey: ResourceLocation,
-    val weight: Int,
-    val minGroup: Int = 1,
-    val maxGroup: Int = 4,
-    val spawnPredicate: ((FeatureContext<*>, Int, Int, Int) -> Boolean)? = null // optional custom logic
-)
-
 data class BiomeSpawnSettings(
-    val ambient: List<MobSpawnEntry> = emptyList(),
-    val monsters: List<MobSpawnEntry> = emptyList(),
-    val creatures: List<MobSpawnEntry> = emptyList()
+    val ambient: List<ResourceLocation> = emptyList(),
+    val monsters: List<ResourceLocation> = emptyList(),
+    val creatures: List<ResourceLocation> = emptyList()
 )
 
 data class RiverConfig<T : PlatformBlockState<T>>(

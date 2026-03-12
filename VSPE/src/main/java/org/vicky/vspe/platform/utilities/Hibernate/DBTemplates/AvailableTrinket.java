@@ -1,7 +1,7 @@
 package org.vicky.vspe.platform.utilities.Hibernate.DBTemplates;
 
 import org.hibernate.annotations.NaturalId;
-import org.vicky.platform.PlatformItem;
+import org.vicky.platform.PlatformItemStack;
 import org.vicky.shaded.jakarta.persistence.*;
 import org.vicky.utilities.DatabaseTemplate;
 import org.vicky.vspe.platform.VSPEPlatformPlugin;
@@ -49,7 +49,7 @@ public class AvailableTrinket implements DatabaseTemplate {
     }
 
     @Transient
-    public PlatformItem getItem() throws NullManagerTrinket {
+    public PlatformItemStack getItem() throws NullManagerTrinket {
         Optional<PlatformTrinket> trinket = VSPEPlatformPlugin.trinketManager().getTrinketById(this.id);
         if (trinket.isEmpty()) {
             throw new NullManagerTrinket("Trinket could be found in database but could not be found on manager map.");
@@ -58,7 +58,7 @@ public class AvailableTrinket implements DatabaseTemplate {
     }
 
     @Transient
-    public PlatformItem getRawItem() throws NullManagerTrinket {
+    public PlatformItemStack getRawItem() throws NullManagerTrinket {
         Optional<PlatformTrinket> trinket = VSPEPlatformPlugin.trinketManager().getTrinketById(this.id);
         if (trinket.isEmpty()) {
             throw new NullManagerTrinket("Trinket could be found in database but could not be found on manager map.");

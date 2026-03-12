@@ -5,7 +5,7 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.vicky.platform.PlatformItem;
+import org.vicky.platform.PlatformItemStack;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.world.PlatformLocation;
@@ -37,7 +37,7 @@ public interface PlatformBaseDimension<T, N> extends Identifiable {
     @Nullable PlatformLocation getGlobalSpawnLocation();
     PlatformDimensionTickHandler getTickHandler();
 
-    List<PlatformItem> dimensionAdvancementGainItems();
+    List<PlatformItemStack> dimensionAdvancementGainItems();
     void dimensionAdvancementGainProcedures(PlatformPlayer player);
 
     PlatformWorld<T, N> checkWorld() throws WorldNotExistsException, NoGeneratorException;
@@ -95,8 +95,8 @@ public interface PlatformBaseDimension<T, N> extends Identifiable {
     void disableDimension();
     void enableDimension();
 
-    PlatformItem getDimensionIcon(int position);
-    // public PlatformItem getDimensionIconForPlayer(AdvanceablePlayer player);
+    PlatformItemStack getDimensionIcon(int position);
+    // public PlatformItemStack getDimensionIconForPlayer(AdvanceablePlayer player);
     PlatformAdvancement getDimensionJoinAdvancement();
 
     void setTickHandler(PlatformDimensionTickHandler handler);

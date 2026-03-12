@@ -1,13 +1,13 @@
 package org.vicky.vspe.platform.features.CharmsAndTrinkets;
 
-import org.vicky.platform.PlatformItem;
+import org.vicky.platform.PlatformItemStack;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.Identifiable;
 
 import java.util.List;
 
 public interface PlatformTrinket extends Identifiable {
-    PlatformItem getIcon();
+    PlatformItemStack getIcon();
     String getName();
     String getDescription();
     TrinketAbility getTrinketCategory();

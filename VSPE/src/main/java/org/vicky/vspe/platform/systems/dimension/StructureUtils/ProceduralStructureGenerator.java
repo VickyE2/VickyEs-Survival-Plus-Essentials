@@ -1,6 +1,9 @@
 package org.vicky.vspe.platform.systems.dimension.StructureUtils;
 
 import gnu.trove.set.hash.TLongHashSet;
+import net.sandrohc.schematic4j.schematic.SpongeSchematic;
+import net.sandrohc.schematic4j.schematic.types.SchematicBlock;
+import net.sandrohc.schematic4j.schematic.types.SchematicBlockPos;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.platform.PlatformPlugin;
 import org.vicky.platform.utils.Vec3;
@@ -17,6 +20,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static java.lang.Math.cos;
 import static java.lang.Math.sin;
@@ -214,9 +218,8 @@ public abstract class ProceduralStructureGenerator<T> {
     }
 
     protected boolean guardAndStore(int x, int y, int z,
-                                    PlatformBlockState<T> st,
-                                    boolean useSphere) {
-        return guardAndStore(x, y, z, st, useSphere, 1);
+                                    PlatformBlockState<T> st) {
+        return guardAndStore(x, y, z, st, false, 1);
     }
 
     /**
@@ -464,6 +467,220 @@ public abstract class ProceduralStructureGenerator<T> {
             this.placements = placements;
             this.actions = actions;
         }
+
+
+
+        // ---------- shared helpers ----------
+        private static class Bounds {
+            int minX, minY, minZ;
+            int maxX, maxY, maxZ;
+            int width()  { return maxX - minX + 1; }
+            int height() { return maxY - minY + 1; }
+            int length() { return maxZ - minZ + 1; }
+        }
+
+        private Bounds computeBounds() {
+            Bounds b = new Bounds();
+            if (placements == null || placements.isEmpty()) {
+                b.minX = b.minY = b.minZ = 0;
+                b.maxX = b.maxY = b.maxZ = 0;
+                return b;
+            }
+            b.minX = b.minY = b.minZ = Integer.MAX_VALUE;
+            b.maxX = b.maxY = b.maxZ = Integer.MIN_VALUE;
+            for (BlockPlacement<T> p : placements) {
+                int x = p.getX();
+                int y = p.getY();
+                int z = p.getZ();
+                if (x < b.minX) b.minX = x;
+                if (y < b.minY) b.minY = y;
+                if (z < b.minZ) b.minZ = z;
+                if (x > b.maxX) b.maxX = x;
+                if (y > b.maxY) b.maxY = y;
+                if (z > b.maxZ) b.maxZ = z;
+            }
+            return b;
+        }
+
+        private static int linearIndex(int xi, int yi, int zi, int width, int height, int length) {
+            // x fastest, then y, then z
+            return xi + yi * width + zi * (width * height);
+        }
+
+        // ---------- Sponge (.schem) ----------
+        /**
+         * Convert placements -> SpongeSchematic (in-memory).
+         * blockMapper: BlockPlacement<T> -> SchematicBlock (name + properties).
+         * version: 1..3 (choose 3 for modern schem)
+         */
+        public SpongeSchematic toSpongeSchematic(Function<BlockPlacement<T>, SchematicBlock> blockMapper, int version) {
+            Bounds b = computeBounds();
+            int width = b.width(), height = b.height(), length = b.length();
+            SpongeSchematic schematic = new SpongeSchematic();
+            schematic.version = version;
+            schematic.width  = width;
+            schematic.height = height;
+            schematic.length = length;
+            // offset is world coordinate of local (0,0,0)
+            schematic.offset = SchematicBlockPos.from(new int[]{b.minX, b.minY, b.minZ});
+
+            // Build palette (SchematicBlock -> palette index). Keep insertion order so palette is stable.
+            LinkedHashMap<String, SchematicBlock> paletteByKey = new LinkedHashMap<>();
+            List<SchematicBlock> paletteList = new ArrayList<>();
+            // ensure air exists in palette as index 0
+            SchematicBlock air = new SchematicBlock("minecraft:air");
+            paletteByKey.put("minecraft:air", air);
+            paletteList.add(air);
+
+            int total = width * height * length;
+            int[] blockIndices = new int[total];
+            Arrays.fill(blockIndices, 0); // default to air (index 0)
+
+            for (BlockPlacement<T> p : placements) {
+                SchematicBlock sb = blockMapper.apply(p);
+                if (sb == null) sb = air;
+                String key = sb.name + sb.states.toString(); // unique-ish key (name+properties)
+                if (!paletteByKey.containsKey(key)) {
+                    paletteByKey.put(key, sb);
+                    paletteList.add(sb);
+                }
+                int paletteIndex = new ArrayList<>(paletteByKey.values()).indexOf(paletteByKey.get(key));
+                // compute local coords
+                int xi = p.getX() - b.minX;
+                int yi = p.getY() - b.minY;
+                int zi = p.getZ() - b.minZ;
+                int idx = linearIndex(xi, yi, zi, width, height, length);
+                blockIndices[idx] = paletteIndex;
+            }
+
+            // convert paletteList to SchematicBlock[]
+            SchematicBlock[] paletteArr = paletteList.toArray(new SchematicBlock[0]);
+            schematic.blockPalette = paletteArr;
+            schematic.blocks = blockIndices;
+            return schematic;
+        }
+
+        // ---------- Schematica (.schematic - alpha) ----------
+        /**
+         * Convert placements -> SchematicaSchematic.
+         * blockNameMapper: BlockPlacement<T> -> block name string (e.g. "minecraft:stone")
+         *
+         * The Schematica format uses a numeric palette; we produce:
+         *  - blockPalette[] : String[] mapping index -> block name
+         *  - blockIds[] : int[] of palette indices
+         *  - blockMetadata[] : zeros (no extra metadata)
+         */
+        public net.sandrohc.schematic4j.schematic.SchematicaSchematic toSchematicaSchematic(Function<BlockPlacement<T>, String> blockNameMapper) {
+            Bounds b = computeBounds();
+            int width = b.width(), height = b.height(), length = b.length();
+            net.sandrohc.schematic4j.schematic.SchematicaSchematic schematic = new net.sandrohc.schematic4j.schematic.SchematicaSchematic();
+            schematic.width = width;
+            schematic.height = height;
+            schematic.length = length;
+
+            // palette mapping: blockName -> index
+            LinkedHashMap<String, Integer> palette = new LinkedHashMap<>();
+            // ensure some default block exists (dirt) if empty
+            palette.put("minecraft:air", 0);
+
+            int total = width * height * length;
+            int[] blockIds = new int[total];
+            int[] blockMeta = new int[total];
+            Arrays.fill(blockIds, 0);
+            Arrays.fill(blockMeta, 0);
+
+            for (BlockPlacement<T> p : placements) {
+                String name = blockNameMapper.apply(p);
+                if (name == null) name = "minecraft:air";
+                Integer idx = palette.get(name);
+                if (idx == null) {
+                    idx = palette.size();
+                    palette.put(name, idx);
+                }
+                int xi = p.getX() - b.minX;
+                int yi = p.getY() - b.minY;
+                int zi = p.getZ() - b.minZ;
+                int index = linearIndex(xi, yi, zi, width, height, length);
+                blockIds[index] = idx;
+                // keep metadata 0 by default; if you have metadata, set blockMeta[index] accordingly
+            }
+
+            // build palette array
+            String[] paletteArr = new String[palette.size()];
+            for (Map.Entry<String, Integer> e : palette.entrySet()) {
+                paletteArr[e.getValue()] = e.getKey();
+            }
+            schematic.blockPalette = paletteArr;
+            schematic.blockIds = blockIds;
+            schematic.blockMetadata = blockMeta;
+            // schematica material type hint (optional)
+            schematic.materials = "Alpha";
+            return schematic;
+        }
+
+        // ---------- Litematica (.litematic) ----------
+        /**
+         * Convert placements -> LitematicaSchematic (single Region).
+         * blockMapper maps BlockPlacement<T> -> SchematicBlock (name + properties map).
+         */
+        public net.sandrohc.schematic4j.schematic.LitematicaSchematic toLitematicaSchematic(Function<BlockPlacement<T>, SchematicBlock> blockMapper) {
+            Bounds b = computeBounds();
+            int width = b.width(), height = b.height(), length = b.length();
+            net.sandrohc.schematic4j.schematic.LitematicaSchematic schematic = new net.sandrohc.schematic4j.schematic.LitematicaSchematic();
+
+            // Make a single Region
+            net.sandrohc.schematic4j.schematic.LitematicaSchematic.Region region = new net.sandrohc.schematic4j.schematic.LitematicaSchematic.Region();
+            region.name = "region0";
+            region.position = SchematicBlockPos.from(new int[]{b.minX, b.minY, b.minZ});
+            region.size = SchematicBlockPos.from(new int[]{width, height, length});
+
+            // Build palette (SchematicBlock -> index)
+            LinkedHashMap<String, SchematicBlock> paletteByKey = new LinkedHashMap<>();
+            SchematicBlock air = new SchematicBlock("minecraft:air");
+            paletteByKey.put("minecraft:air{}", air);
+
+            int total = width * height * length;
+            int[] blockStates = new int[total];
+            Arrays.fill(blockStates, 0);
+
+            for (BlockPlacement<T> p : placements) {
+                SchematicBlock sb = blockMapper.apply(p);
+                if (sb == null) sb = air;
+                String key = sb.name + sb.states.toString();
+                if (!paletteByKey.containsKey(key)) {
+                    paletteByKey.put(key, sb);
+                }
+                // find index (we will create an array from the map)
+                // (we'll assign indices after we collected all palette entries)
+            }
+
+            // create palette list and map to indices
+            List<SchematicBlock> paletteList = new ArrayList<>(paletteByKey.values());
+            Map<String, Integer> keyToIndex = new HashMap<>();
+            int idxCounter = 0;
+            for (String k : paletteByKey.keySet()) {
+                keyToIndex.put(k, idxCounter++);
+            }
+
+            // now fill blockStates by iterating placements again
+            for (BlockPlacement<T> p : placements) {
+                SchematicBlock sb = blockMapper.apply(p);
+                if (sb == null) sb = air;
+                String key = sb.name + sb.states.toString();
+                int paletteIndex = keyToIndex.get(key);
+                int xi = p.getX() - b.minX;
+                int yi = p.getY() - b.minY;
+                int zi = p.getZ() - b.minZ;
+                int index = linearIndex(xi, yi, zi, width, height, length);
+                blockStates[index] = paletteIndex;
+            }
+
+            region.blockStatePalette = paletteList.toArray(new SchematicBlock[0]);
+            region.blockStates = blockStates;
+            // no blockEntities/entities/pending ticks set here (empty defaults)
+            schematic.regions = new net.sandrohc.schematic4j.schematic.LitematicaSchematic.Region[]{ region };
+            return schematic;
+        }
     }
 
     /**
@@ -502,11 +719,14 @@ public abstract class ProceduralStructureGenerator<T> {
         if (flush != null) flush.run();
 
         waitAndMergeSubtasks(placements, actionMap);
-        drainAndSubmitFinalJobs();
-        waitAndMergeFinalSubtasks(placements, actionMap);
+        do {
+            drainAndSubmitFinalJobs();
+            waitAndMergeFinalSubtasks(placements, actionMap);
+        } while (!pendingFinalJobs.isEmpty());
 
         // reset to default flush which won't write to world (safe)
         prepareFlush();
+        if (isProduction) { this.isProduction = true; } // Reset the production state
 
         return new GenerationResult<>(placements, actionMap);
     }

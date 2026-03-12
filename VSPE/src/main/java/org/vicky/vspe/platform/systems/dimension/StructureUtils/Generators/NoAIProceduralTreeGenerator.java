@@ -162,7 +162,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
                 if (p.branchType != BranchingType.NO_BRANCHES)
                     submitSubtask(sub -> generateBranches(sub, rnd.fork(rnd.nextLong()), points, finalTrunkHeight, radiusFunction, thicknessFunction, 1));
-                yield SpiralUtil.generateVineWithSpiral(points, thicknessFunction, 7, 0.8f, radiusFunction, pitchFunction);
+                yield SpiralUtil.generateVineWithSpiral(points, 7, 0.8f, radiusFunction, pitchFunction);
             }
             case CONIFEROUS -> {
                 Function<Double, Double> radiusFunction =
@@ -194,7 +194,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
                 if (p.branchType != BranchingType.NO_BRANCHES)
                     submitSubtask(sub -> generateBranches(sub, rnd.fork(rnd.nextLong()), points, finalTrunkHeight, radiusFunction, thicknessFunction, 1));
-                yield SpiralUtil.generateVineWithSpiral(points, thicknessFunction, 7, 0.8f, radiusFunction, pitchFunction);
+                yield SpiralUtil.generateVineWithSpiral(points, 7, 0.8f, radiusFunction, pitchFunction);
             }
             case MULTI_TRUNKED -> {
                 Set<Vec3> Unloaded = new HashSet<>();
@@ -229,7 +229,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                         if (point.y > stompStop.y) stompStop = point;
                     }
 
-                    Unloaded.addAll(SpiralUtil.generateVineWithSpiral(points, thicknessFunction, 7, 0.8f, radiusFunction, pitchFunction));
+                    Unloaded.addAll(SpiralUtil.generateVineWithSpiral(points, 7, 0.8f, radiusFunction, pitchFunction));
                 }
 
                 for (int i = 0; i < p.multiTrunkNumber; i++) {
@@ -274,7 +274,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                         Function<Double, Double> finalThicknessFunction = thicknessFunction;
                         submitSubtask(sub -> generateBranches(sub, rnd.fork(rnd.nextLong()), points, finalTrunkHeight1, finalRadiusFunction, finalThicknessFunction, 1));
                     }
-                    Unloaded.addAll(SpiralUtil.generateVineWithSpiral(points2, thicknessFunction, 7, 0.8f, radiusFunction, pitchFunction));
+                    Unloaded.addAll(SpiralUtil.generateVineWithSpiral(points2, 7, 0.8f, radiusFunction, pitchFunction));
                 }
                 yield Unloaded;
             }
@@ -310,7 +310,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                 int finalTrunkHeight1 = trunkHeight;
                 if (p.branchType != BranchingType.NO_BRANCHES)
                     submitSubtask(sub -> generateBranches(sub, rnd.fork(rnd.nextLong()), points, finalTrunkHeight1, radiusFunction, thicknessFunction, 1));
-                yield SpiralUtil.generateVineWithSpiral(points, thicknessFunction, 7, 0.8f, radiusFunction, pitchFunction);
+                yield SpiralUtil.generateVineWithSpiral(points, 7, 0.8f, radiusFunction, pitchFunction);
             }
             case TAPERED_SPINDLE -> {
                 Function<Double, Double> radiusFunction =
@@ -442,7 +442,7 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                 if (p.branchType != BranchingType.NO_BRANCHES)
                     submitSubtask(sub -> generateBranches(sub, rnd.fork(rnd.nextLong()), points, finalTrunkHeight, radiusFunction, thicknessFunction, 1));
 
-                yield SpiralUtil.generateVineWithSpiral(points, thicknessFunction, 5, 0.8f, radiusFunction, pitchFunction);
+                yield SpiralUtil.generateVineWithSpiral(points, 5, 0.8f, radiusFunction, pitchFunction);
             }
             case WILLOW -> {
                 var result = generateMultiRootSpiralTrunk(
@@ -590,14 +590,14 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
 
                 if (p.leafType == LeafPopulationType.HANGING_FUZZY) {
                     leafingPoints.put(SpiralUtil.generateVineWithSpiral(branch,
-                            startThickness, 7, 0.8f, startRadius,
+                            7, 0.8f, startRadius,
                             CurveFunctions.pitch(0.01, 0.05, 0.2, 1.0, TimeCurve.INVERTED_QUADRATIC)).stream().toList(), curr + 1);
                 } else {
                     leafingPoints.put(branch, curr + 1);
                 }
 
                 for (var pos : SpiralUtil.generateVineWithSpiral(branch,
-                        startThickness, 7, 0.8f, startRadius,
+                        7, 0.8f, startRadius,
                         CurveFunctions.pitch(0.01, 0.05, 0.2, 1.0, TimeCurve.INVERTED_QUADRATIC))
                 ) {
                     subGenerator.guardAndStore(pos, p.woodMaterial, false);
@@ -1215,37 +1215,6 @@ public class NoAIProceduralTreeGenerator<T> extends ProceduralStructureGenerator
                         }
                     }
                 } // end each cap center
-            }
-            case REALISTIC -> {
-                for (var entry : leafingPoints.entrySet()) {
-                    var branch = entry.getKey();
-                    if (branch == null || branch.isEmpty()) continue;
-
-                    Vec3 tip = branch.getLast();
-                    double realism = p.realism;
-                    double decay = 0.7;
-                    int depth = entry.getValue();
-                    int width = (int) Math.round((trunkWidth * 2) * Math.pow(decay, depth - 1));
-                    double density = 0.4 + realism * 0.5;           // 0.4 → 0.9
-                    int refinement = 2 + (int) Math.round(realism * 3);  // 2 → 5
-                    double hollow = 0.4 - realism * 0.3;            // 0.4 → 0.1
-                    double fluff = 0.8 - realism * 0.6;             // 0.8 → 0.2
-                    double leafScale = 1.4 - realism * 0.7;
-
-                    var points = generateLeafBlob(
-                            tip,
-                            (width * 1.2 * leafScale) / 2,
-                            (width * 0.7 * leafScale) / 2,
-                            (width * leafScale) / 2,
-                            density,
-                            refinement,
-                            hollow,
-                            fluff
-                    );
-                    for (var point : points) {
-                        subGenerator.guardAndStore(point, p.leafMaterial, false);
-                    }
-                }
             }
 
             default -> {

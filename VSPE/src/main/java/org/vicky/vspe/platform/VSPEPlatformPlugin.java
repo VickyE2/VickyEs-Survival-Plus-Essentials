@@ -5,6 +5,7 @@ import org.vicky.platform.PlatformLogger;
 import org.vicky.platform.PlatformScheduler;
 import org.vicky.vspe.platform.features.CharmsAndTrinkets.PlatformTrinketManager;
 import org.vicky.vspe.platform.features.advancement.PlatformAdvancementManager;
+import org.vicky.vspe.platform.systems.dimension.CoreDimensionRegistry;
 import org.vicky.vspe.platform.systems.dimension.PlatformDimensionManager;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.PlatformBiome;
 import org.vicky.vspe.platform.systems.platformquestingintegration.QuestProductionFactory;
@@ -23,6 +24,7 @@ public interface VSPEPlatformPlugin {
     static void set(VSPEPlatformPlugin instance) {
         if (VSPEPlatformPlugin.Holder.INSTANCE == null) {
             VSPEPlatformPlugin.Holder.INSTANCE = instance;
+            CoreDimensionRegistry.installInto(instance);
         } else {
             throw new IllegalStateException("Cannot set VSPEPlatformPlugin after its already been set.");
         }

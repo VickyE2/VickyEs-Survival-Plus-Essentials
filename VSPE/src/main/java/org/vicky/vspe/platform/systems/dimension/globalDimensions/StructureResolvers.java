@@ -9,6 +9,7 @@ import org.vicky.vspe.platform.NativeTypeMapper;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.NoAIProceduralTreeGenerator;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.ThesisTreeStructureGenerator;
 import org.vicky.vspe.platform.systems.dimension.StructureUtils.Generators.thesis.ThesisBasedTreeGenerator;
+import org.vicky.vspe.platform.systems.dimension.TimeCurve;
 import org.vicky.vspe.platform.systems.dimension.terrasupporteddimensions.Generator.utils.Rarity;
 import org.vicky.vspe.platform.systems.dimension.vspeChunkGenerator.*;
 
@@ -25,29 +26,31 @@ public class StructureResolvers<T> {
     public final List<Pair<PlatformStructure<T>, StructureRule>> structures = List.of(
             new Pair<>(
                     new ProceduralStructure<>(
-                            new NoAIProceduralTreeGenerator.NoAIPTGBuilder<T>()
-                                    .trunkWidth(10, 15)
+                            new ThesisTreeStructureGenerator.Builder<T>()
+                                    .trunkRadius(2, 4)
                                     .trunkHeight(70, 120)
-                                    .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
-                                    .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
-                                    .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.REALISTIC)
-                                    .realismLevel(0.7)
-                                    .randomness(0.7)
-                                    .spacing(2)
-                                    .branchingPointRange(0.45, 1.0)
-                                    .branchMaxDevianceAngle(7)
-                                    .branchDepth(2)
-                                    .leafPropagationChance(0.67)
-                                    .branchPropagationChance(1.92)
-                                    .branchSizeDecay(0.64)
-                                    .maxBranchAmount(7)
-                                    .tipDecoration(realisticRoseTipMulti(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
-                                            2
-                                    ))
-                                    .woodMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log")))
+                                    .treeAge(120)
+                                    .placeLeaves(true)
+                                    .growthData(new ThesisBasedTreeGenerator.GrowthData.Builder(2.1f)
+                                            .maxDepth(2)
+                                            .maxKids(-1)
+                                            .spread(1.1f)
+                                            .influenceRadius(-1)
+                                            .killRadius(30)
+                                            .attractorClumping(1.0)
+                                            .distanceBetweenChildren(10)
+                                            .build())
+                                    .leafDetails(ThesisTreeStructureGenerator.LeafDetails.newBuilder()
+                                            .useRealisticType(true)
+                                            .realismPow(0.54)
+                                            .startIndex(0)
+                                            .leafBreath(4.5f)
+                                            .leafLength(0.7f)
+                                            .leafSpawningPoint(0.3f)
+                                            .leafSpawningPointEnd(1.0f)
+                                            .leafThickness(0.08f)
+                                            .build())
+                                    .trunkMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log")))
                                     .leafMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")))
                     ),
                     new StructureRule(
@@ -64,29 +67,49 @@ public class StructureResolvers<T> {
             ),
             new Pair<>(
                     new ProceduralStructure<>(
-                            new NoAIProceduralTreeGenerator.NoAIPTGBuilder<T>()
-                                    .trunkWidth(10, 15)
+                            new ThesisTreeStructureGenerator.Builder<T>()
+                                    .trunkRadius(4, 6)
                                     .trunkHeight(70, 120)
-                                    .trunkType(NoAIProceduralTreeGenerator.TrunkType.TAPERED_SPINDLE)
-                                    .branchType(NoAIProceduralTreeGenerator.BranchingType.TAPERED_SPINDLE)
-                                    .leafType(NoAIProceduralTreeGenerator.LeafPopulationType.REALISTIC)
-                                    .realismLevel(0.7)
-                                    .randomness(0.7)
-                                    .spacing(2)
-                                    .branchingPointRange(0.45, 1.0)
-                                    .branchMaxDevianceAngle(7)
-                                    .branchDepth(2)
-                                    .leafPropagationChance(0.67)
-                                    .branchPropagationChance(1.92)
-                                    .branchSizeDecay(0.64)
-                                    .maxBranchAmount(7)
-                                    .tipDecoration(realisticRoseTipMulti(
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
-                                            (PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")),
-                                            2
-                                    ))
-                                    .woodMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log")))
+                                    .treeAge(170)
+                                    .placeLeaves(true)
+                                    .growthData(new ThesisBasedTreeGenerator.GrowthData.Builder(2.1f)
+                                            .senescenceAffectsChildren(true)
+                                            .senescenceStartPercentage(0.68)
+                                            .senescenceBudPenalty(0.7)   // or 1.2–1.5 for very strong droop
+                                            .senescenceDecayRate(0.03)
+                                            .senescenceVigorPenalty(0.55)
+                                            .senescenceGravBias(1.8)
+                                            .maxDepth(1)
+                                            .maxKids(-1)
+                                            .spread(1.3f)
+                                            .influenceRadius(-1)
+                                            .killRadius(30)
+                                            .trunkGrowthMaxAge(80)
+                                            .attractorClumping(1.0)
+                                            .distanceBetweenChildren(10)
+                                            .pruningHeight(0.5f)
+                                            .addOverrides(ThesisBasedTreeGenerator.Overrides.BranchOverrides.MIRROR_BRANCHES)
+                                            .build())
+                                    .leafDetails(ThesisTreeStructureGenerator.LeafDetails.newBuilder()
+                                            .realismPow(0.54)
+                                            .startIndex(0)
+                                            .leafBreath(0.0f)
+                                            .leafLength(0.34f)
+                                            .leafSpawningPoint(0.2f)
+                                            .leafSpawningPointEnd(1.0f)
+                                            .leafThickness(0.0f)
+                                            .leafSpacing(0.005f)
+                                            .droopFactor(1.0f)
+                                            .droopStart(0.0f)
+                                            .droopMode(ThesisTreeStructureGenerator.LeafDroopMode.STRAIGHT_DOWN)
+                                            .layerCount(3)
+                                            .heightReduction(false)
+                                            .heightReductionCurve(TimeCurve.EXPONENTIAL_OUT)
+                                            .leafType(ThesisTreeStructureGenerator.NodeLeafingType.OPPOSITE)
+                                            .shrinkFactor(TimeCurve.LINEAR)
+                                            .leafDirection(t -> -10)
+                                            .build())
+                                    .trunkMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_log")))
                                     .leafMaterial((PlatformBlockState<T>) PlatformPlugin.stateFactory().getBlockState(NativeTypeMapper.getFor("vspe:magenta_frost_leaves")))
                     ),
                     new StructureRule(
@@ -108,13 +131,13 @@ public class StructureResolvers<T> {
                                     .trunkHeight(7, 8)
                                     .treeAge(50)
                                     .placeLeaves(true)
-                                    .growthData(new ThesisBasedTreeGenerator.GrowthData.Builder(4)
-                                            .senescenceAffectsChildren(true)
+                                    .growthData(new ThesisBasedTreeGenerator.GrowthData.Builder(2.1f)
                                             .distanceBetweenChildren(5)
                                             .maxDepth(2)
+                                            .spread(1.2f)
                                             .multiTrunkismMaxAmount(8)
                                             .multiTrunkismAge(15)
-                                            .apicalControl(0.9f)
+                                            .minSplittingAge(11)
                                             .addOverrides(
                                                     ThesisBasedTreeGenerator.Overrides.TrunkOverrides.MULTI_TRUNKISM
                                             )

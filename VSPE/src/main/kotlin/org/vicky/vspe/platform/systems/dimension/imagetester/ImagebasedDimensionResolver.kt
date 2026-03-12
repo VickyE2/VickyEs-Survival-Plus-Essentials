@@ -4,6 +4,8 @@ import de.articdive.jnoise.api.NoiseGenerator
 import de.articdive.jnoise.interpolation.Interpolation
 import de.pauleff.api.ICompoundTag
 import org.vicky.platform.PlatformPlayer
+import org.vicky.platform.entity.PlatformEntity
+import org.vicky.platform.entity.PlatformLivingEntity
 import org.vicky.platform.utils.ResourceLocation
 import org.vicky.platform.utils.Vec3
 import org.vicky.platform.world.*
@@ -54,9 +56,9 @@ object ImageBasedWorld : PlatformWorld<String, String> {
         return null
     }
 
-    override fun getAirBlockState(): PlatformBlockState<String?>? = SimpleBlockState.from<String>("test:air") { it }
+    override fun getAirBlockState(): PlatformBlockState<String> = SimpleBlockState.from<String>("test:air") { it }
 
-    override fun getWaterBlockState(): PlatformBlockState<String?>? = SimpleBlockState.from<String>("test:water") { it }
+    override fun getWaterBlockState(): PlatformBlockState<String> = SimpleBlockState.from<String>("test:water") { it }
 
     override fun setPlatformBlockState(position: Vec3?, state: PlatformBlockState<String?>?) {
         if (position == null || state == null) return
@@ -86,27 +88,40 @@ object ImageBasedWorld : PlatformWorld<String, String> {
 
     fun getBiome(x: Int, z: Int): Pair<Int, String>? = null
 
-    override fun getName(): String? {
+    override fun getName(): String {
         return "Image based Named"
     }
-    override fun getNative(): String? = "test:image_based"
+    override fun getNative(): String = "test:image_based"
 
     override fun getHighestBlockYAt(x: Double, z: Double): Int = 64
+    override fun getHighestBlockAt(x: Double, z: Double): PlatformBlock<String>? = null
+
     override fun getMaxWorldHeight(): Int = 64
-    override fun getPlayers(): List<PlatformPlayer?>? = listOf()
+    override fun getEntities(): MutableList<out PlatformEntity> = mutableListOf()
+
+    override fun getEntitiesWithin(x: Double, y: Double, z: Double, range: Float): MutableList<out PlatformEntity> =
+        mutableListOf()
+
+    override fun getLivingEntitiesWithin(
+        x: Double,
+        y: Double,
+        z: Double,
+        range: Float
+    ): MutableList<out PlatformLivingEntity> = mutableListOf()
+
+    override fun getPlayers(): List<PlatformPlayer?> = listOf()
 
     override fun createPlatformBlockState(
         id: String?,
         properties: String?
-    ): PlatformBlockState<String?>? = SimpleBlockState.from(id, properties, { it })
+    ): PlatformBlockState<String?> = SimpleBlockState.from(id, properties, { it })
 
     override fun loadChunkIfNeeded(i: Int, i1: Int) {
-        TODO("Not yet implemented")
     }
 
-    override fun isChunkLoaded(i: Int, i1: Int): Boolean {
-        TODO("Not yet implemented")
-    }
+    override fun isChunkLoaded(i: Int, i1: Int): Boolean = true
+
+    override fun raycastBlock(eyeLocation: Vec3?, lookDirection: Vec3?, range: Float?): PlatformBlock<String>? = null
 }
 
 object BlockCache {
@@ -136,10 +151,10 @@ open class ImagePlatformBlock(
     val properties: String = ""
 ) : PlatformBlock<String?> {
     override fun isSolid(): Boolean = !isWater
-    override fun getMaterial(): PlatformMaterial? = BlockCache.material(name)
-    override fun getLocation(): PlatformLocation? = null // location is not stored in shared blocks
-    override fun getBlockState(): PlatformBlockState<String?>? = BlockCache.state(name, properties)
-    override fun setBlockState(platformBlockState: PlatformBlockState<String?>?) {}
+    override fun getMaterial(): PlatformMaterial = BlockCache.material(name)
+    override fun getLocation(): PlatformLocation = PlatformLocation(ImageBasedWorld, pos.x, pos.y, pos.z)
+    override fun getBlockState(): PlatformBlockState<String?> = BlockCache.state(name, properties)
+    override fun setBlockState(state: PlatformBlockState<String?>) {}
 }
 
 object ImageBasedChunkGenerator : PlatformChunkGenerator<String, SimpleConstructorBasedBiome> {
@@ -1175,9 +1190,7 @@ fun sampleMountainHeight(
 
 val baseNoise = NoiseSamplerFactory.create(
     NoiseSamplerFactory.Type.OPEN_SIMPLEX,
-    { it ->
-        it
-    },
+    { it },
     seed = seedBase,
     frequency = 0.0005,  // big features (ok)
     octaves = 2,

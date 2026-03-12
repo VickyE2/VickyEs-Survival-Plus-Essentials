@@ -1,7 +1,7 @@
 package org.vicky.vspe.platform.features.advancement;
 
 import net.kyori.adventure.text.Component;
-import org.vicky.platform.PlatformItem;
+import org.vicky.platform.PlatformItemStack;
 import org.vicky.platform.PlatformPlayer;
 import org.vicky.utilities.Identifiable;
 
@@ -12,7 +12,7 @@ public interface PlatformAdvancement extends Identifiable {
     String getTitle();
     Component getDescription(); // Abstract text component
 
-    PlatformItem getIcon();       // Abstracted from Bukkit ItemStack
+    PlatformItemStack getIcon();       // Abstracted from Bukkit ItemStack
     boolean isEligible(PlatformPlayer player);
     void grant(PlatformPlayer player);
 

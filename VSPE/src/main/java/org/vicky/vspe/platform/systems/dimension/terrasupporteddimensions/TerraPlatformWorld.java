@@ -6,6 +6,8 @@ import com.dfsek.terra.api.world.chunk.generation.ProtoChunk;
 import de.pauleff.api.ICompoundTag;
 import org.jetbrains.annotations.NotNull;
 import org.vicky.platform.PlatformPlayer;
+import org.vicky.platform.entity.PlatformEntity;
+import org.vicky.platform.entity.PlatformLivingEntity;
 import org.vicky.platform.utils.ResourceLocation;
 import org.vicky.platform.utils.Vec3;
 import org.vicky.platform.world.*;
@@ -39,8 +41,54 @@ public class TerraPlatformWorld implements PlatformWorld<String, WritableWorld> 
     }
 
     @Override
+    public PlatformBlock<String> getHighestBlockAt(double x, double z) {
+        int xi = (int) Math.floor(x);
+        int yi = world.getMaxHeight();
+        int zi = (int) Math.floor(z);
+
+        // 1) If we have a placed value in our local cache, return that
+        long key = key(xi, yi, zi);
+        PlatformBlockState<String> cached = placed.get(key);
+        if (cached != null) {
+            return new TerraBlock((TerraBlockState) cached, new PlatformLocation(this, x, world.getMaxHeight(), z));
+        }
+
+        // 2) Otherwise try to query Terra world block state (if API available)
+        try {
+            // Many Terra WritableWorld implementations have something like getBlockState(int,int,int)
+            BlockState terraState = world.getBlockState(xi, yi, zi);
+
+            if (terraState != null) {
+                TerraBlockState tbs = new TerraBlockState(terraState);
+                return new TerraBlock(tbs, new PlatformLocation(this, x, world.getMaxHeight(), z));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // 3) fallback: return a default "air" block state
+        PlatformBlockState<String> air = createPlatformBlockState("minecraft:air", "");
+        return new TerraBlock(new TerraBlockState(air), new PlatformLocation(this, x, world.getMaxHeight(), z));
+    }
+
+    @Override
     public int getMaxWorldHeight() {
         return world.getMaxHeight();
+    }
+
+    @Override
+    public @NotNull List<? extends @NotNull PlatformEntity> getEntities() {
+        return List.of();
+    }
+
+    @Override
+    public @NotNull List<? extends @NotNull PlatformEntity> getEntitiesWithin(double x, double y, double z, float range) {
+        return List.of();
+    }
+
+    @Override
+    public @NotNull List<? extends @NotNull PlatformLivingEntity> getLivingEntitiesWithin(double x, double y, double z, float range) {
+        return List.of();
     }
 
     @Override
@@ -180,6 +228,11 @@ public class TerraPlatformWorld implements PlatformWorld<String, WritableWorld> 
     @Override
     public boolean isChunkLoaded(int i, int i1) {
         return true;
+    }
+
+    @Override
+    public PlatformBlock<String> raycastBlock(Vec3 eyeLocation, Vec3 lookDirection, Float range) {
+        return null;
     }
 
     @Override

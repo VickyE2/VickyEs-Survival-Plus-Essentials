@@ -75,15 +75,15 @@ public final class BiomeResolvers<B extends PlatformBiome> {
                         new NoiseLayer(
                                 new TerrainSamplerBuilder(544965145)
                                         .setUseRidgedMountains(true)
-                                        .setMountaininess(0.025)
-                                        .setMountainFrequency(0.0005)
-                                        .setMountainRarity(0.12)
+                                        .setMountaininess(0.075)
+                                        .setMountainFrequency(0.05)
+                                        .setMountainRarity(0.45)
                                         .setHillFrequency(0.0004)
-                                        .setHilliness(0.037)
-                                        .setGentleWeight(0.7)
+                                        .setHilliness(0.17)
+                                        .setGentleWeight(0.4)
                                         .setGentleFrequency(0.0067)
                                         .setBaseHeight(64)
-                                        .setMaxHeight(80)
+                                        .setMaxHeight(160)
                                         .buildHeightMapper(true),
                                 1,
                                 NoiseLayer.Mode.HEIGHT

@@ -702,7 +702,7 @@ class SimpleBlockState<T> private constructor(
     private val blockData: T,
     private val id: String,
     private val properties: Map<String, String>
-) : PlatformBlockState<T?> {
+) : PlatformBlockState<T> {
 
     companion object {
         fun <T> from(blockData: String, transform: (String) -> T): SimpleBlockState<T> {
@@ -740,22 +740,23 @@ class SimpleBlockState<T> private constructor(
     }
 
     override fun getId(): String = id
-    override fun getMaterial(): PlatformMaterial? = SimpleMaterial(ResourceLocation.from(id.substringBefore(":"), id.substringAfter(":")))
+    override fun getMaterial(): PlatformMaterial = SimpleMaterial(ResourceLocation.from(id.substringBefore(":"), id.substringAfter(":")))
+    override fun getNative(): T & Any { TODO("Not yet implemented") }
+    override fun getProperties(): MutableMap<String, String> {
+        TODO("Not yet implemented")
+    }
 
-    override fun getNative(): T = blockData
-    override fun getProperties(): Map<String, String> = properties
+    override fun <P : Any?> getProperty(name: String?): P & Any {
+        TODO("Not yet implemented")
+    }
 
     override fun toString(): String = id
-
-    override fun <P : Any?> getProperty(name: String?): P? {
-        return name?.let { properties[it] as? P }
-    }
 }
 
 class SimpleMaterial(private val loc: ResourceLocation) : PlatformMaterial {
     override fun isSolid(): Boolean = true
     override fun isAir(): Boolean = loc.path == "air"
-    override fun getResourceLocation(): ResourceLocation? = loc
+    override fun getResourceLocation(): ResourceLocation = loc
 }
 
 enum class VerticalPlacement {
